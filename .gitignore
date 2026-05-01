@@ -1,0 +1,37 @@
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.env*.local
+frontend/.pnp
+frontend/.pnp.js
+
+# Backend (Python)
+backend/__pycache__/
+backend/venv/
+backend/env/
+backend/.env
+backend/*.db
+backend/*.sqlite3
+backend/*.log
+backend/uploads/
+backend/data/
+backend/chroma_db/
+backend/models/
+backend/.pytest_cache/
+
+# LLM Models (Large files)
+backend/llm_models/*.gguf
+
+# IDEs & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+build/
