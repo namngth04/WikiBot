@@ -2,52 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+@layer base {
+  body {
+    @apply text-slate-800 bg-slate-50 font-be-vietnam;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-be-vietnam font-bold tracking-tight;
+  }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
+@layer components {
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-glass;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 shadow-soft hover:shadow-soft-xl transition-all duration-300 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 active:scale-95;
+  }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .btn-secondary {
+    @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm transition-all duration-300 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 active:scale-95;
   }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
 }
 
 /* Chat message styles */
 .message-user {
-  @apply bg-blue-500 text-white rounded-lg rounded-tr-none px-4 py-2 ml-auto max-w-[80%];
+  @apply bg-primary-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 ml-auto max-w-[85%] shadow-soft font-be-vietnam font-medium;
 }
 
 .message-assistant {
-  @apply bg-gray-100 text-gray-800 rounded-lg rounded-tl-none px-4 py-2 mr-auto max-w-[80%];
+  @apply bg-white text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 mr-auto max-w-[85%] shadow-soft border border-slate-100 font-be-vietnam font-medium;
+}
+
+/* Skeleton Loading Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
 }

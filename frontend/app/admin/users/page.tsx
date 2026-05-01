@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import { usersAPI, rolesAPI } from '@/app/lib/api';
 import { User, Role } from '@/app/lib/types';
 import {
-  Plus, Trash2, Edit, X
+  Plus, Trash2, Edit2, X, Users, Search, Filter, Save, Mail, Building2, Phone, ShieldCheck
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
@@ -37,6 +40,8 @@ export default function UsersPage() {
       setUsers(usersRes.data);
     } catch (error) {
       console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,10 +103,25 @@ export default function UsersPage() {
     setShowUserModal(true);
   };
 
+  const filteredUsers = users.filter(u => 
+    u.username.toLowerCase().includes(search.toLowerCase()) ||
+    (u.full_name?.toLowerCase().includes(search.toLowerCase())) ||
+    (u.email?.toLowerCase().includes(search.toLowerCase()))
+  );
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Danh sách Nhân viên</h2>
+    <div className="space-y-8 pb-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-soft">
+        <div className="flex items-center gap-4">
+          <div className="bg-primary-50 p-3 rounded-2xl text-primary-600">
+            <Users size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Nhân viên hệ thống</h2>
+            <p className="text-xs text-slate-400 font-medium">Quản lý tài khoản và phân quyền truy cập</p>
+          </div>
+        </div>
         <button
           onClick={() => {
             setEditingUser(null);
@@ -111,161 +131,267 @@ export default function UsersPage() {
             });
             setShowUserModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="btn-primary"
         >
-          <Plus size={18} />
+          <Plus size={20} />
           Thêm Nhân viên
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="w-full min-w-[800px]">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Tên đăng nhập</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Họ tên</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Email</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Phòng ban</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Chức vụ</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm">{user.username}</td>
-                <td className="px-4 py-3 text-sm">{user.full_name || '-'}</td>
-                <td className="px-4 py-3 text-sm">{user.email || '-'}</td>
-                <td className="px-4 py-3 text-sm">{user.department || '-'}</td>
-                <td className="px-4 py-3 text-sm">{user.role?.name || 'Không có'}</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => openEditUser(user)}
-                    disabled={user.role?.level === 0}
-                    className={`p-1 rounded mr-2 ${
-                      user.role?.level === 0
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-blue-600 hover:bg-blue-50'
-                    }`}
-                    title={user.role?.level === 0 ? 'Không thể sửa tài khoản Admin' : 'Sửa'}
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteUser(user.id)}
-                    className="p-1 text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng nhân sự</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">{users.length}</h3>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phòng ban</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
+            {new Set(users.map(u => u.department).filter(Boolean)).size}
+          </h3>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Đang hoạt động</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600">{users.length}</h3>
+        </div>
       </div>
 
-      {showUserModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">
-                {editingUser ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
-              </h3>
-              <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên đăng nhập *</label>
-                <input
-                  type="text"
-                  value={userForm.username}
-                  onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+      {/* Table Section */}
+      <div className="bg-white rounded-[2rem] shadow-soft border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Tìm kiếm nhân viên..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+            />
+          </div>
+          <button className="btn-secondary py-3">
+            <Filter size={18} />
+            Lọc dữ liệu
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhân viên</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liên hệ</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phòng ban</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vai trò</th>
+                <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={5} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                  </tr>
+                ))
+              ) : filteredUsers.map((user) => (
+                <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center font-bold text-sm shadow-sm">
+                        {user.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">{user.full_name || user.username}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">@{user.username}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="space-y-1">
+                      <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                        <Mail size={12} className="text-slate-400" /> {user.email || '-'}
+                      </p>
+                      <p className="text-xs text-slate-600 flex items-center gap-1.5">
+                        <Phone size={12} className="text-slate-400" /> {user.phone || '-'}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2 text-slate-600 text-sm">
+                      <Building2 size={14} className="text-slate-400" />
+                      <span className="font-medium">{user.department || '-'}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-1.5 text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-[10px] font-bold inline-flex">
+                      <ShieldCheck size={12} />
+                      {user.role?.name || 'Thành viên'}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => openEditUser(user)}
+                        disabled={user.role?.level === 0}
+                        className={cn(
+                          "p-2 rounded-xl shadow-sm transition-all",
+                          user.role?.level === 0 ? "text-slate-300 bg-slate-50 cursor-not-allowed" : "text-slate-400 hover:text-primary-600 hover:bg-white"
+                        )}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Slide-over User Modal */}
+      <AnimatePresence>
+        {showUserModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUserModal(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
+                    {editingUser ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
+                  </h3>
+                  <p className="text-sm text-slate-400 font-medium">Thiết lập thông tin tài khoản nhân sự</p>
+                </div>
+                <button onClick={() => setShowUserModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Họ tên</label>
-                <input
-                  type="text"
-                  value={userForm.full_name}
-                  onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={userForm.email}
-                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
-                <input
-                  type="text"
-                  value={userForm.phone}
-                  onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
-                <input
-                  type="text"
-                  value={userForm.department}
-                  onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mật khẩu {editingUser && '(để trống nếu không đổi)'}
-                </label>
-                <input
-                  type="password"
-                  value={userForm.password}
-                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required={!editingUser}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Chức vụ</label>
-                <select
-                  value={userForm.role_id}
-                  onChange={(e) => setUserForm({ ...userForm, role_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Không có</option>
-                  {roles.filter(role => role.level !== 0).map((role) => (
-                    <option key={role.id} value={role.id}>{role.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-4">
+
+              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên đăng nhập *</label>
+                    <input
+                      type="text"
+                      required
+                      value={userForm.username}
+                      onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Họ tên</label>
+                    <input
+                      type="text"
+                      value={userForm.full_name}
+                      onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email</label>
+                  <input
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    placeholder="example@company.com"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Số điện thoại</label>
+                    <input
+                      type="text"
+                      value={userForm.phone}
+                      onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Phòng ban</label>
+                    <input
+                      type="text"
+                      value={userForm.department}
+                      onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
+                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    Mật khẩu {editingUser && '(để trống nếu không đổi)'}
+                  </label>
+                  <input
+                    type="password"
+                    required={!editingUser}
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chức vụ</label>
+                  <select
+                    value={userForm.role_id}
+                    onChange={(e) => setUserForm({ ...userForm, role_id: e.target.value })}
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">Không có</option>
+                    {roles.filter(role => role.level !== 0).map((role) => (
+                      <option key={role.id} value={role.id}>{role.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </form>
+
+              <div className="p-8 border-t border-slate-100 flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setShowUserModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="btn-secondary flex-1 justify-center py-4"
                 >
-                  Hủy
+                  Hủy bỏ
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  onClick={editingUser ? handleUpdateUser : handleCreateUser}
+                  className="btn-primary flex-1 justify-center py-4"
                 >
-                  {editingUser ? 'Cập nhật' : 'Tạo mới'}
+                  <Save size={20} />
+                  {editingUser ? 'Cập nhật' : 'Thêm Nhân viên'}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
