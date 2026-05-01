@@ -102,3 +102,21 @@ export const chatAPI = {
       show_sources: options?.showSources ?? true,
     }),
 };
+
+// Admin API
+export const adminAPI = {
+  getOverview: () => api.get('/admin/stats/overview'),
+  getUsage: (days: number = 7) => api.get(`/admin/stats/usage?days=${days}`),
+  
+  // FAQ Management
+  listFAQs: (search?: string, skip: number = 0, limit: number = 100) =>
+    api.get('/admin/faqs', { params: { search, skip, limit } }),
+  createFAQ: (data: any) => api.post('/admin/faqs', data),
+  updateFAQ: (id: number, data: any) => api.put(`/admin/faqs/${id}`, data),
+  deleteFAQ: (id: number) => api.delete(`/admin/faqs/${id}`),
+  
+  // Suggested FAQs
+  getSuggestedFAQs: () => api.get('/admin/faqs/suggested'),
+  refreshSuggestedFAQs: () => api.post('/admin/faqs/suggested/refresh'),
+  generateDraft: (question: string) => api.post(`/admin/faqs/generate-draft?question=${encodeURIComponent(question)}`),
+};

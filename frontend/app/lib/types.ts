@@ -72,3 +72,37 @@ export interface ChatResponse {
   user_message_id?: number;
   assistant_message_id?: number;
 }
+
+export interface DashboardStats {
+  total_users: number;
+  total_messages: number;
+  total_documents: number;
+  avg_rating: number;
+  feedback_ratio: {
+    like: number;
+    dislike: number;
+    none: number;
+  };
+}
+
+export interface UsageStats {
+  date: string;
+  count: number;
+}
+
+export interface FAQ {
+  id: number;
+  question: string;
+  answer: string;
+  category: string | null;
+  hits: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SuggestedFAQ {
+  question: string;
+  occurrence: number;
+  suggested_answer?: string;
+}

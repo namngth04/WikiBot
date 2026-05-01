@@ -198,6 +198,55 @@ class SuccessResponse(BaseModel):
     message: str
 
 
+# ============== FAQ Schemas ==============
+class FAQBase(BaseModel):
+    question: str = Field(..., min_length=1)
+    answer: str = Field(..., min_length=1)
+    category: Optional[str] = Field(None, max_length=100)
+    is_active: bool = True
+
+
+class FAQCreate(FAQBase):
+    pass
+
+
+class FAQUpdate(BaseModel):
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    category: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class FAQResponse(FAQBase):
+    id: int
+    hits: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============== Admin Dashboard Schemas ==============
+class DashboardStats(BaseModel):
+    total_users: int
+    total_messages: int
+    total_documents: int
+    avg_rating: float
+    feedback_ratio: dict
+
+
+class UsageStats(BaseModel):
+    date: str
+    count: int
+
+
+class SuggestedFAQ(BaseModel):
+    question: str
+    occurrence: int
+    suggested_answer: Optional[str] = None
+
+
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None

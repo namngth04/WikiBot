@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from llama_cpp import Llama
 
 from app.core.config import get_settings
-from app.models.models import Message
+from app.models.models import Message, FAQ
 from app.services.document_processor import DocumentProcessor
 
 
@@ -193,6 +193,44 @@ CÂU HỎI: {query}
         """Strip assistant self-intro prefixes like 'WikiBot:'."""
         return re.sub(r"^\s*(wikibot|trợ lý|assistant)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
 
+    def check_faqs(self, query: str, db: Session) -> Optional[FAQ]:
+        """Check if query matches active FAQ with lightweight keyword scoring."""
+        clean_query = query.strip()
+        if not clean_query:
+            return None
+
+        normalized_query = re.sub(r"\s+", " ", clean_query.lower()).strip()
+        query_tokens = {
+            token for token in re.findall(r"\w+", normalized_query) if len(token) > 2
+        }
+
+        candidates = db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
+        best_faq = None
+        best_score = 0.0
+
+        for faq in candidates:
+            faq_question = re.sub(r"\s+", " ", faq.question.lower()).strip()
+            faq_tokens = {token for token in re.findall(r"\w+", faq_question) if len(token) > 2}
+
+            contains_score = 1.0 if (
+                normalized_query in faq_question or faq_question in normalized_query
+            ) else 0.0
+
+            overlap_score = 0.0
+            if query_tokens and faq_tokens:
+                overlap_score = len(query_tokens & faq_tokens) / len(query_tokens | faq_tokens)
+
+            score = max(contains_score, overlap_score)
+            if score > best_score:
+                best_score = score
+                best_faq = faq
+
+        if best_faq and best_score >= 0.35:
+            best_faq.hits = (best_faq.hits or 0) + 1
+            db.commit()
+            return best_faq
+        return None
+
     def generate_response(
         self,
         query: str,
@@ -206,7 +244,17 @@ CÂU HỎI: {query}
         """Generate RAG-based response"""
         start_time = time.time()
         
-        # Search for relevant chunks
+        # 1. Check FAQs first
+        faq = self.check_faqs(query, db)
+        if faq:
+            return {
+                "response": f"{faq.answer}\n\n---\n*Câu trả lời từ FAQ chuẩn*",
+                "answer": faq.answer,
+                "sources": [{"source": "FAQ Hệ thống", "chunk_index": 0, "distance": 0.0}],
+                "citations": []
+            }
+
+        # 2. Search for relevant chunks
         try:
             chunks = self.document_processor.search_similar(
                 query=query,

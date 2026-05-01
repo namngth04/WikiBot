@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
 import {
-  Users, Shield, FileText, ArrowLeft, Settings
+  Users, Shield, FileText, ArrowLeft, Settings, LayoutDashboard, HelpCircle
 } from 'lucide-react';
 
 export default function AdminLayout({
@@ -32,9 +32,11 @@ export default function AdminLayout({
   }
 
   const tabs = [
+    { id: 'dashboard', name: 'Tổng quan', icon: LayoutDashboard, path: '/admin/dashboard' },
     { id: 'users', name: 'Quản lý Nhân viên', icon: Users, path: '/admin/users' },
     { id: 'roles', name: 'Quản lý Chức vụ', icon: Shield, path: '/admin/roles' },
     { id: 'documents', name: 'Quản lý Tài liệu', icon: FileText, path: '/admin/documents' },
+    { id: 'faqs', name: 'Quản lý FAQ', icon: HelpCircle, path: '/admin/faqs' },
     { id: 'profile', name: 'Thông tin cá nhân', icon: Settings, path: '/admin/profile' },
   ];
 
