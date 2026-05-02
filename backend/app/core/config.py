@@ -36,10 +36,12 @@ class Settings(BaseSettings):
     rag_log_level: str = "INFO"
     rag_log_file: str = "rag_debug.log"
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        protected_namespaces = ('settings_',)
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+        "protected_namespaces": ('settings_',)
+    }
 
 
 @lru_cache()

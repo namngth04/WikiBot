@@ -6,11 +6,14 @@ import { useAuth } from '@/app/context/auth-context';
 import { motion } from 'framer-motion';
 import { 
   User, Mail, Phone, Building2, Lock, Save, 
-  ShieldCheck, AlertCircle, Camera, CheckCircle2 
+  ShieldCheck, AlertCircle, Camera, CheckCircle2,
+  ArrowLeft, Settings
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export default function ProfilePage() {
+export default function SettingsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -97,9 +100,17 @@ export default function ProfilePage() {
     >
       {/* Header & Status Messages */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-be-vietnam font-bold text-slate-900">Hồ sơ cá nhân</h1>
-          <p className="text-slate-500 font-medium">Quản lý thông tin tài khoản và bảo mật</p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/chat')}
+            className="p-3 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl transition-all"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <div>
+            <h1 className="text-3xl font-be-vietnam font-bold text-slate-900">Cài đặt tài khoản</h1>
+            <p className="text-slate-500 font-medium">Quản lý thông tin cá nhân và bảo mật</p>
+          </div>
         </div>
         
         <div className="flex flex-col gap-2 min-w-[300px]">
@@ -143,7 +154,7 @@ export default function ProfilePage() {
               </div>
               
               <h2 className="text-2xl font-be-vietnam font-bold text-slate-900 mb-1">{user?.full_name || user?.username}</h2>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">{user?.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}</p>
+              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">Người dùng</p>
               
               <div className="flex flex-wrap justify-center gap-2">
                 <span className="px-3 py-1 bg-primary-50 text-primary-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-primary-100">

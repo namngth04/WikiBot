@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { documentsAPI, rolesAPI } from '@/app/lib/api';
 import { Document, Role } from '@/app/lib/types';
 import {
-  Trash2, Edit, Upload, X, Check, Search, RefreshCw
+  Trash2, Edit2, Upload, X, Check, Search, RefreshCw, FileText, Filter, Save, Globe, Shield
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadRoleId, setUploadRoleId] = useState<string>('');
@@ -31,6 +33,8 @@ export default function DocumentsPage() {
       setDocuments(docsRes.data);
     } catch (error) {
       console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -109,130 +113,240 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold">Danh sách Tài liệu</h2>
+    <div className="space-y-8 pb-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-soft">
         <div className="flex items-center gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="bg-primary-50 p-3 rounded-2xl text-primary-600">
+            <FileText size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Quản lý Tài liệu</h2>
+            <p className="text-xs text-slate-400 font-medium">Lưu trữ và phân quyền truy cập tri thức nội bộ</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowUploadModal(true)}
+          className="btn-primary"
+        >
+          <Upload size={20} />
+          Tải lên tài liệu
+        </button>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-[2rem] shadow-soft border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
               placeholder="Tìm kiếm tài liệu..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
               value={docSearchQuery}
               onChange={(e) => setDocSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Upload size={18} />
-            Upload Tài liệu
+          <button className="btn-secondary py-3">
+            <Filter size={18} />
+            Phân loại
           </button>
         </div>
-      </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <table className="w-full min-w-[800px]">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Tên file</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Loại</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Kích thước</th>
-              <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Chức vụ</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredDocuments.map((doc) => (
-              <tr key={doc.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-sm">
-                  {editingDocId === doc.id ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        className="px-2 py-1 border border-blue-500 rounded focus:ring-1 focus:ring-blue-500 text-sm w-full"
-                        value={editDocName}
-                        onChange={(e) => setEditDocName(e.target.value)}
-                        autoFocus
-                      />
-                      <button onClick={() => handleUpdateDocName(doc.id)} className="p-1 text-green-600 hover:bg-green-50 rounded">
-                        <Check size={16} />
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tài liệu</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Định dạng</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dung lượng</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quyền truy cập</th>
+                <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={5} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                  </tr>
+                ))
+              ) : filteredDocuments.map((doc) => (
+                <tr key={doc.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="px-8 py-5">
+                    {editingDocId === doc.id ? (
+                      <div className="flex items-center gap-2 max-w-xs">
+                        <input
+                          type="text"
+                          className="px-3 py-1.5 border border-primary-500 rounded-lg text-sm w-full outline-none"
+                          value={editDocName}
+                          onChange={(e) => setEditDocName(e.target.value)}
+                          autoFocus
+                        />
+                        <button onClick={() => handleUpdateDocName(doc.id)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                          <Check size={16} />
+                        </button>
+                        <button onClick={() => { setEditingDocId(null); setEditDocName(''); }} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm line-clamp-1">{doc.original_name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">ID: DOC-{doc.id}</p>
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                      {doc.file_type}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-sm font-be-vietnam font-medium text-slate-600">{formatFileSize(doc.file_size)}</span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="relative group/select inline-block">
+                      <select
+                        value={doc.role_id || ''}
+                        onChange={(e) => handleUpdateDocRole(doc.id, e.target.value)}
+                        className="appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-1.5 pr-8 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-primary-500/10 outline-none cursor-pointer"
+                      >
+                        <option value="">Công khai (Public)</option>
+                        {roles.filter(r => r.level !== 0).map((role) => (
+                          <option key={role.id} value={role.id}>{role.name}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        {doc.role_id ? <Shield size={12} /> : <Globe size={12} />}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => { setEditingDocId(doc.id); setEditDocName(doc.original_name); }}
+                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-white rounded-xl shadow-sm transition-all"
+                        title="Đổi tên"
+                      >
+                        <Edit2 size={16} />
                       </button>
-                      <button onClick={() => { setEditingDocId(null); setEditDocName(''); }} className="p-1 text-red-600 hover:bg-red-50 rounded">
-                        <X size={16} />
+                      <label 
+                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-white rounded-xl shadow-sm transition-all cursor-pointer"
+                        title="Cập nhật phiên bản mới"
+                      >
+                        <RefreshCw size={16} />
+                        <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={(e) => handleReupload(e, doc.id, doc.role_id)} />
+                      </label>
+                      <button 
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm transition-all"
+                        title="Xóa tài liệu"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
-                  ) : (
-                    <span>{doc.original_name}</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-sm uppercase">{doc.file_type}</td>
-                <td className="px-4 py-3 text-sm">{formatFileSize(doc.file_size)}</td>
-                <td className="px-4 py-3 text-sm">
-                  <select
-                    value={doc.role_id || ''}
-                    onChange={(e) => handleUpdateDocRole(doc.id, e.target.value)}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm"
-                  >
-                    <option value="">Public</option>
-                    {roles.filter(r => r.level !== 0).map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end items-center gap-2">
-                    <button onClick={() => { setEditingDocId(doc.id); setEditDocName(doc.original_name); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Đổi tên">
-                      <Edit size={16} />
-                    </button>
-                    <label className="p-1 text-amber-600 hover:bg-amber-50 rounded cursor-pointer" title="Reupload (Thay thế file)">
-                      <RefreshCw size={16} />
-                      <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={(e) => handleReupload(e, doc.id, doc.role_id)} />
-                    </label>
-                    <button onClick={() => handleDeleteDocument(doc.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Xóa">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Upload Tài liệu</h3>
-              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <form onSubmit={handleUpload} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">File (PDF, DOCX, TXT)</label>
-                <input type="file" accept=".pdf,.docx,.txt" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
+      {/* Slide-over Upload Modal */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUploadModal(false)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] flex flex-col"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">Tải lên tài liệu</h3>
+                  <p className="text-sm text-slate-400 font-medium">Bổ sung tri thức vào hệ thống RAG</p>
+                </div>
+                <button onClick={() => setShowUploadModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Chức vụ (để trống = Public)</label>
-                <select value={uploadRoleId} onChange={(e) => setUploadRoleId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                  <option value="">Public (tất cả có thể xem)</option>
-                  {roles.filter(r => r.level !== 0).map((role) => (
-                    <option key={role.id} value={role.id}>{role.name}</option>
-                  ))}
-                </select>
+
+              <form onSubmit={handleUpload} className="flex-1 p-8 space-y-8">
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chọn tệp tin</label>
+                  <div className="relative group">
+                    <input 
+                      type="file" 
+                      accept=".pdf,.docx,.txt" 
+                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      required 
+                    />
+                    <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 flex flex-col items-center justify-center gap-4 group-hover:border-primary-400 transition-all bg-slate-50/50">
+                      <div className="p-4 bg-white rounded-2xl shadow-sm text-primary-600">
+                        <Upload size={32} />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-slate-900">
+                          {uploadFile ? uploadFile.name : 'Nhấn để chọn hoặc kéo thả file'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, DOCX, TXT (Tối đa 20MB)</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quyền truy cập</label>
+                  <select 
+                    value={uploadRoleId} 
+                    onChange={(e) => setUploadRoleId(e.target.value)} 
+                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="">Mọi người (Public)</option>
+                    {roles.filter(r => r.level !== 0).map((role) => (
+                      <option key={role.id} value={role.id}>Chỉ dành cho {role.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </form>
+
+              <div className="p-8 border-t border-slate-100 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="btn-secondary flex-1 justify-center py-4"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={handleUpload}
+                  className="btn-primary flex-1 justify-center py-4 shadow-lg shadow-primary-200"
+                >
+                  <Save size={20} />
+                  Bắt đầu tải lên
+                </button>
               </div>
-              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setShowUploadModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Hủy</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Upload</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
