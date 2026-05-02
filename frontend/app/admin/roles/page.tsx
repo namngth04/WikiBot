@@ -4,16 +4,22 @@ import { useState, useEffect } from 'react';
 import { rolesAPI } from '@/app/lib/api';
 import { Role } from '@/app/lib/types';
 import {
-  Plus, Trash2, Edit2, X, Shield, Filter, Save, Info, Award
+  Plus, Trash2, Edit2, X, Shield, Filter, Save, Info, Award, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleForm, setRoleForm] = useState({ name: '', description: '', level: 2 });
+
+  const filteredRoles = roles.filter(role => 
+    role.name.toLowerCase().includes(search.toLowerCase()) ||
+    (role.description?.toLowerCase().includes(search.toLowerCase()))
+  );
 
   useEffect(() => {
     loadData();
@@ -74,7 +80,7 @@ export default function RolesPage() {
             <Shield size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Danh mục Chức vụ</h2>
+            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Quản lý Chức vụ</h2>
             <p className="text-xs text-slate-400 font-medium">Thiết lập cấp độ truy cập cho nhân sự</p>
           </div>
         </div>
@@ -91,56 +97,104 @@ export default function RolesPage() {
         </button>
       </div>
 
-      {/* Grid of Roles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          [1, 2, 3].map(i => (
-            <div key={i} className="h-48 bg-white rounded-[2rem] border border-slate-100 animate-pulse" />
-          ))
-        ) : roles.filter(role => role.level !== 0).map((role) => (
-          <motion.div
-            key={role.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-soft hover:shadow-soft-xl transition-all group"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center">
-                <Award size={24} />
-              </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => { 
-                    setEditingRole(role); 
-                    setRoleForm({ name: role.name, description: role.description || '', level: role.level }); 
-                    setShowRoleModal(true); 
-                  }}
-                  className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all"
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng chức vụ</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">{roles.length}</h3>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cấp độ cao nhất</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600">
+            {roles.length > 0 ? Math.max(...roles.map(r => r.level)) : 0}
+          </h3>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-[2rem] shadow-soft border border-slate-100 overflow-hidden">
+        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Tìm kiếm chức vụ..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+            />
+          </div>
+          <button className="btn-secondary py-3">
+            <Filter size={18} />
+            Lọc dữ liệu
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chức vụ</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mô tả</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cấp độ</th>
+                <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                [1, 2, 3].map(i => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={4} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                  </tr>
+                ))
+              ) : filteredRoles.filter(role => role.level !== 0).map((role) => (
+                <motion.tr 
+                  key={role.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="group hover:bg-slate-50/50 transition-colors"
                 >
-                  <Edit2 size={16} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteRole(role.id)}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-            
-            <h3 className="text-lg font-be-vietnam font-bold text-slate-900 mb-1">{role.name}</h3>
-            <p className="text-xs text-slate-400 font-medium mb-4 line-clamp-2 min-h-[32px]">
-              {role.description || 'Chưa có mô tả cho chức vụ này.'}
-            </p>
-            
-            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cấp độ truy cập</span>
-              <span className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
-                Level {role.level}
-              </span>
-            </div>
-          </motion.div>
-        ))}
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
+                        <Award size={20} />
+                      </div>
+                      <span className="font-bold text-slate-900">{role.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-sm text-slate-600 max-w-xs">
+                    <p className="truncate">{role.description || 'Chưa có mô tả'}</p>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                      Level {role.level}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => { 
+                          setEditingRole(role); 
+                          setRoleForm({ name: role.name, description: role.description || '', level: role.level }); 
+                          setShowRoleModal(true); 
+                        }}
+                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteRole(role.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Slide-over Role Modal */}

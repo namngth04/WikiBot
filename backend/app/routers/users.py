@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_password_hash
 from app.models.models import User, Role
 from app.schemas.schemas import UserCreate, UserUpdate, UserResponse, SuccessResponse
-from app.routers.auth import get_current_admin
+from app.routers.auth import get_current_admin, get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -98,9 +98,9 @@ def get_user(
 def update_me(
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
-    """Admin updates their own profile (cannot change role)"""
+    """User updates their own profile (cannot change role)"""
     
     # Check username uniqueness if changing
     if user_data.username and user_data.username != current_user.username:
@@ -112,7 +112,7 @@ def update_me(
             )
         current_user.username = user_data.username
     
-    # Update other fields (exclude role_id - admin cannot change their own role)
+    # Update other fields (exclude role_id - users cannot change their own role)
     if user_data.full_name is not None:
         current_user.full_name = user_data.full_name
     if user_data.email is not None:

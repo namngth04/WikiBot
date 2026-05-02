@@ -43,7 +43,7 @@ export default function AdminLayout({
   const tabs = [
     { id: 'dashboard', name: 'Tổng quan', icon: LayoutDashboard, path: '/admin/dashboard' },
     { id: 'users', name: 'Nhân viên', icon: Users, path: '/admin/users' },
-    { id: 'roles', name: 'Quyền hạn', icon: Shield, path: '/admin/roles' },
+    { id: 'roles', name: 'Chức vụ', icon: Shield, path: '/admin/roles' },
     { id: 'documents', name: 'Tài liệu', icon: FileText, path: '/admin/documents' },
     { id: 'faqs', name: 'Hệ thống FAQ', icon: HelpCircle, path: '/admin/faqs' },
     { id: 'profile', name: 'Cài đặt', icon: Settings, path: '/admin/profile' },
@@ -57,21 +57,27 @@ export default function AdminLayout({
         animate={{ width: sidebarOpen ? 280 : 80 }}
         className="bg-slate-900 text-slate-400 flex flex-col relative z-30 shadow-2xl"
       >
-        <div className="p-6 flex flex-col h-full overflow-hidden">
+        <div className="py-6 flex flex-col h-full overflow-hidden">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-10 px-2 overflow-hidden">
+          <div className={cn(
+            "flex items-center gap-3 mb-10 px-2 transition-all duration-300",
+            !sidebarOpen && "justify-center px-0"
+          )}>
             <div className="bg-primary-500 p-2 rounded-xl shadow-lg shadow-primary-500/20 shrink-0">
               <Sparkles className="text-white" size={20} />
             </div>
-            {sidebarOpen && (
-              <motion.h1 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-xl font-be-vietnam font-bold text-white tracking-tight whitespace-nowrap"
-              >
-                Admin Panel
-              </motion.h1>
-            )}
+            <AnimatePresence>
+              {sidebarOpen && (
+                <motion.h1 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  className="text-xl font-be-vietnam font-bold text-white tracking-tight whitespace-nowrap"
+                >
+                  Admin Panel
+                </motion.h1>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Navigation */}
@@ -84,33 +90,40 @@ export default function AdminLayout({
                   key={tab.id}
                   onClick={() => router.push(tab.path)}
                   className={cn(
-                    "w-full flex items-center gap-4 p-3 rounded-xl transition-all duration-300 group",
+                    "w-full flex items-center transition-all duration-300 group rounded-xl",
+                    sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0",
                     isActive 
                       ? "bg-primary-600 text-white shadow-lg shadow-primary-600/20" 
-                      : "hover:bg-white/5 hover:text-white"
+                      : "hover:bg-white/5 hover:text-white text-slate-400"
                   )}
                   title={!sidebarOpen ? tab.name : ""}
                 >
                   <Icon size={20} className={cn("shrink-0", isActive ? "" : "group-hover:scale-110 transition-transform")} />
-                  {sidebarOpen && (
-                    <motion.span 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-sm font-medium whitespace-nowrap"
-                    >
-                      {tab.name}
-                    </motion.span>
-                  )}
+                  <AnimatePresence>
+                    {sidebarOpen && (
+                      <motion.span 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        className="text-sm font-medium whitespace-nowrap"
+                      >
+                        {tab.name}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </button>
               );
             })}
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto pt-6 border-t border-white/10">
+          <div className="mt-auto pt-6 border-t border-white/10 space-y-2">
             <button
               onClick={() => router.push('/chat')}
-              className="w-full flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all group mb-2"
+              className={cn(
+                "w-full flex items-center text-slate-400 hover:text-white hover:bg-white/5 transition-all group rounded-xl",
+                sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0"
+              )}
               title={!sidebarOpen ? "Quay lại Chat" : ""}
             >
               <ArrowLeft size={20} className="shrink-0 group-hover:-translate-x-1 transition-transform" />
@@ -118,7 +131,10 @@ export default function AdminLayout({
             </button>
             <button
               onClick={() => logout()}
-              className="w-full flex items-center gap-4 p-3 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 transition-all group"
+              className={cn(
+                "w-full flex items-center text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 transition-all group rounded-xl",
+                sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0"
+              )}
               title={!sidebarOpen ? "Đăng xuất" : ""}
             >
               <LogOut size={20} className="shrink-0 group-hover:scale-110 transition-transform" />
@@ -129,8 +145,9 @@ export default function AdminLayout({
 
         {/* Toggle Sidebar */}
         <button
+          type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute -right-3 top-12 bg-white border border-slate-200 text-slate-500 p-1.5 rounded-full shadow-soft hover:text-primary-600 transition-all active:scale-90"
+          className="absolute -right-3 top-12 z-10 bg-white border border-slate-200 text-slate-500 p-1.5 rounded-full shadow-lg hover:shadow-xl hover:text-primary-600 hover:border-primary-300 transition-all active:scale-90 cursor-pointer"
         >
           {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
