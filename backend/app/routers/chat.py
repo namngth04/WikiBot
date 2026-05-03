@@ -12,6 +12,7 @@ from app.schemas.schemas import (
 from app.routers.auth import get_current_user
 from app.routers.documents import get_accessible_role_ids
 from app.services.rag_service import RAGService
+from app.models.models import UserAISettings, AISafetyConfig
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -231,17 +232,49 @@ def send_message(
         Message.conversation_id == conversation.id
     ).order_by(Message.created_at.asc()).all()
     
+    # Get user AI settings (or create default)
+    user_settings = db.query(UserAISettings).filter(
+        UserAISettings.user_id == current_user.id
+    ).first()
+    
+    if not user_settings:
+        # Create default settings
+        safety_config = db.query(AISafetyConfig).first()
+        user_settings = UserAISettings(
+            user_id=current_user.id,
+            temperature=safety_config.default_temperature if safety_config else 0.2,
+            response_style=safety_config.default_response_style if safety_config else "concise",
+            show_sources=True,
+            preferred_max_tokens=512
+        )
+        db.add(user_settings)
+        db.commit()
+    
+    # Get safety limits
+    safety_config = db.query(AISafetyConfig).first()
+    
+    # Merge settings: user_settings -> request_override -> safety_limits
+    final_response_style = request.response_style or user_settings.response_style
+    final_show_sources = request.show_sources if request.show_sources is not None else user_settings.show_sources
+    
+    # Apply safety limits to max_tokens
+    requested_max = request.max_tokens or user_settings.preferred_max_tokens
+    if safety_config:
+        final_max_tokens = min(requested_max, safety_config.max_tokens_limit)
+    else:
+        final_max_tokens = min(requested_max, 2048)
+    
     # Generate RAG response
     try:
-        rag_service = RAGService()
+        rag_service = RAGService(db=db)  # Pass db for provider config
         response_data = rag_service.generate_response(
             query=request.message,
             conversation_history=history,
             accessible_role_ids=accessible_role_ids,
             db=db,
-            response_style=request.response_style,
-            requested_max_tokens=request.max_tokens,
-            show_sources=request.show_sources
+            response_style=final_response_style,
+            requested_max_tokens=final_max_tokens,
+            show_sources=final_show_sources
         )
         
         # Save assistant message

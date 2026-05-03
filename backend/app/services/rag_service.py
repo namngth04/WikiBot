@@ -7,15 +7,15 @@ import re
 from datetime import datetime
 from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
-from llama_cpp import Llama
 
 from app.core.config import get_settings
-from app.models.models import Message, FAQ
+from app.models.models import Message, FAQ, AIProviderConfig, AISafetyConfig, UserAISettings
 from app.services.document_processor import DocumentProcessor
+from app.services.llm_providers import get_llm_provider, ProviderRegistry
 
 
 def setup_rag_logger():
-    """Setup RAG logger with console and file handlers"""
+    """Setup RAG logger with console handler only"""
     settings = get_settings()
     logger = logging.getLogger('RAG')
     
@@ -29,20 +29,13 @@ def setup_rag_logger():
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     
-    # File handler (DEBUG level - captures everything)
-    file_handler = logging.FileHandler(settings.rag_log_file, encoding='utf-8')
-    file_handler.setLevel(logging.DEBUG)
-    
     # Formatter
     formatter = logging.Formatter('[RAG] %(asctime)s | %(levelname)s | %(name)s | %(message)s')
     console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
     
     logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
     
     # Test logging
-    logger.debug("RAG Logger initialized - DEBUG level test")
     logger.info("RAG Logger initialized - INFO level test")
     
     return logger
@@ -59,41 +52,54 @@ def log_structured_data(logger, level, component, data):
 
 
 class RAGService:
-    def __init__(self):
+    def __init__(self, db: Session = None):
         settings = get_settings()
         self.settings = settings
         
-                
         try:
-            self.document_processor = DocumentProcessor()
+            self.document_processor = DocumentProcessor(db)
         except Exception as e:
             print(f"Error initializing DocumentProcessor: {e}")
             raise
         
-        # Load LLM
-        if not os.path.exists(settings.model_path):
-            error_msg = (
-                f"Model file not found: {settings.model_path}\n"
-                "Please download a GGUF model and update MODEL_PATH in .env file\n"
-                "Recommended: Qwen2.5-3B-Instruct-Q4_K_M.gguf or Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-            )
-            print(f"DEBUG RAG: {error_msg}")
-            raise FileNotFoundError(error_msg)
-        
+        # Load LLM from provider (DB config)
         try:
-            self.llm = Llama(
-                model_path=settings.model_path,
-                n_ctx=settings.model_context_length,
-                temperature=settings.model_temperature,
-                verbose=False
-            )
+            if db:
+                self.llm_provider = get_llm_provider("rag", db)
+                # Load FAQ provider config
+                from app.models.models import AIProviderConfig
+                faq_config = db.query(AIProviderConfig).filter(
+                    AIProviderConfig.ai_type == "faq"
+                ).first()
+                if faq_config and not faq_config.use_rag_provider:
+                    # Use separate provider for FAQ
+                    self.faq_provider = get_llm_provider("faq", db)
+                else:
+                    self.faq_provider = None  # Use RAG provider for FAQ
+            else:
+                # Fallback to env settings for backward compatibility
+                from app.services.llm_providers import LocalGGUFProvider
+                if not os.path.exists(settings.model_path):
+                    error_msg = (
+                        f"Model file not found: {settings.model_path}\n"
+                        "Please download a GGUF model and update MODEL_PATH in .env file\n"
+                        "Recommended: Qwen2.5-3B-Instruct-Q4_K_M.gguf or Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+                    )
+                    print(f"DEBUG RAG: {error_msg}")
+                    raise FileNotFoundError(error_msg)
+                
+                self.llm_provider = LocalGGUFProvider(
+                    model_path=settings.model_path,
+                    context_length=settings.model_context_length
+                )
+                self.faq_provider = None
         except Exception as e:
-            print(f"Error loading LLM: {e}")
+            print(f"Error loading LLM provider: {e}")
             traceback.print_exc()
             raise
         
-        # Default generation budget, can be overridden per request.
-        self.max_tokens = min(220, settings.model_max_tokens)
+        # Default generation budget
+        self.max_tokens = 512
     
     def build_system_prompt(self, response_style: str) -> str:
         """Build system prompt for the assistant"""
@@ -266,6 +272,11 @@ CÂU HỎI: {query}
             print(f"Error in search_similar: {e}")
             raise
         
+        # Determine which provider to use for generation
+        provider = self.faq_provider if self.faq_provider else self.llm_provider
+        print(f"[DEBUG RAG] Using provider: {type(provider).__name__ if provider else 'None'}")
+        print(f"[DEBUG RAG] faq_provider: {self.faq_provider is not None}, llm_provider: {self.llm_provider is not None}")
+        
         # Build prompts
         system_prompt = self.build_system_prompt(response_style)
         temperature, max_tokens = self._resolve_generation_profile(response_style, requested_max_tokens)
@@ -288,19 +299,22 @@ CÂU HỎI: {query}
         full_prompt += f"{context_prompt}\n\n"
         
                 
-        # Generate response with Llama
+        # Generate response with provider
         try:
             llm_start = time.time()
-            output = self.llm(
+            print(f"[DEBUG RAG] Calling provider.generate() with max_tokens={max_tokens}, temperature={temperature}")
+            print(f"[DEBUG RAG] Prompt length: {len(full_prompt)} chars")
+            response_text = provider.generate(
                 full_prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stop=["</s>", "Trả lời:", "Người dùng:", "Câu hỏi:"],
-                echo=False
+                system_prompt=None  # Already included in full_prompt
             )
+            print(f"[DEBUG RAG] Provider.generate() succeeded, response length: {len(response_text)} chars")
             llm_time = time.time() - llm_start
             
-            response_text = self._trim_redundant_sentences(output['choices'][0]['text'].strip())
+            response_text = self._trim_redundant_sentences(response_text)
             response_text = self._remove_assistant_prefix(response_text)
             
                         
@@ -326,7 +340,14 @@ CÂU HỎI: {query}
             }
             
         except Exception as e:
-            print(f"Error generating response: {e}")
+            import traceback
+            print(f"[ERROR RAG] Error generating response: {e}")
+            print(f"[ERROR RAG] Exception type: {type(e).__name__}")
+            print(f"[ERROR RAG] Exception args: {e.args}")
+            print(f"[ERROR RAG] Provider type: {type(provider).__name__ if provider else 'None'}")
+            print(f"[ERROR RAG] llm_provider type: {type(self.llm_provider).__name__ if self.llm_provider else 'None'}")
+            print(f"[ERROR RAG] faq_provider type: {type(self.faq_provider).__name__ if hasattr(self, 'faq_provider') and self.faq_provider else 'None'}")
+            print(f"[ERROR RAG] Traceback:\n{traceback.format_exc()}")
             return {
                 "response": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
                 "answer": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",

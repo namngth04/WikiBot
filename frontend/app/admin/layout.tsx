@@ -6,7 +6,7 @@ import { useAuth } from '@/app/context/auth-context';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Shield, FileText, ArrowLeft, Settings, LayoutDashboard, HelpCircle,
-  ChevronLeft, ChevronRight, LogOut, Sparkles, Bell
+  ChevronLeft, ChevronRight, LogOut, Sparkles, Bell, Brain
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -46,6 +46,7 @@ export default function AdminLayout({
     { id: 'roles', name: 'Chức vụ', icon: Shield, path: '/admin/roles' },
     { id: 'documents', name: 'Tài liệu', icon: FileText, path: '/admin/documents' },
     { id: 'faqs', name: 'Hệ thống FAQ', icon: HelpCircle, path: '/admin/faqs' },
+    { id: 'ai-config', name: 'Cấu hình AI', icon: Brain, path: '/admin/ai-config' },
     { id: 'profile', name: 'Cài đặt', icon: Settings, path: '/admin/profile' },
   ];
 
@@ -156,7 +157,7 @@ export default function AdminLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 z-20">
+        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 z-[90] relative shadow-sm">
           <div>
             <h2 className="text-sm text-slate-400 font-bold uppercase tracking-widest mb-0.5">WikiBot Management</h2>
             <h1 className="text-2xl font-be-vietnam font-bold text-slate-900">

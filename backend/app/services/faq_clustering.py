@@ -122,14 +122,14 @@ JSON format:
   ]
 }}"""
                 
-                response = rag_service.llm(
+                response_text = rag_service.llm_provider.generate(
                     prompt,
                     max_tokens=512,
-                    echo=False
+                    temperature=0.2
                 )
                 
                 # Parse AI response
-                ai_text = response['choices'][0]['text'].strip()
+                ai_text = response_text.strip()
                 if "clusters" in ai_text:
                     ai_result = json.loads(ai_text)
                     ai_clusters = ai_result.get("clusters", [])

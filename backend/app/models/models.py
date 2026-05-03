@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -98,3 +98,83 @@ class FAQ(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ============================================
+# AI Configuration Models (Multi-Provider Support)
+# ============================================
+
+class AISafetyConfig(Base):
+    """Global safety limits for all AI types (1 row)"""
+    __tablename__ = "ai_safety_config"
+    
+    id = Column(Integer, primary_key=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    
+    # Global limits for all AI types
+    max_temperature_limit = Column(Float, default=1.0)
+    max_context_length = Column(Integer, default=8192)
+    max_tokens_limit = Column(Integer, default=2048)
+    
+    # Default user settings
+    default_temperature = Column(Float, default=0.2)
+    default_response_style = Column(String(20), default="concise")
+    
+    # Relationship
+    updater = relationship("User")
+
+
+class AIProviderConfig(Base):
+    """Configuration for each AI type: rag, embedding, faq"""
+    __tablename__ = "ai_provider_config"
+    
+    id = Column(Integer, primary_key=True)
+    ai_type = Column(String(20), unique=True, nullable=False)  # 'rag', 'embedding', 'faq'
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    
+    # Provider type
+    provider = Column(String(20), default="local")  # local/openrouter/ollama/openai
+    
+    # Local GGUF settings
+    local_model_path = Column(String(500))
+    local_context_length = Column(Integer, default=4096)
+    
+    # API settings
+    api_base_url = Column(String(500))
+    api_key = Column(String(500))  # encrypted
+    api_model = Column(String(100))
+    use_custom_model = Column(Boolean, default=False)
+    custom_api_model = Column(String(100))
+    
+    # Type-specific settings
+    embedding_model_name = Column(String(100))  # only for embedding type
+    use_rag_provider = Column(Boolean, default=True)  # only for faq type
+    
+    # Default params for this type
+    default_temperature = Column(Float, default=0.2)
+    default_max_tokens = Column(Integer, default=512)
+    timeout = Column(Integer, default=30)  # Timeout in seconds for API providers
+    
+    # Relationship
+    updater = relationship("User")
+
+
+class UserAISettings(Base):
+    """User-specific AI preferences"""
+    __tablename__ = "user_ai_settings"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    
+    # User preferences (bounded by system limits)
+    temperature = Column(Float, default=0.2)
+    response_style = Column(String(20), default="concise")  # concise/normal/detailed
+    show_sources = Column(Boolean, default=True)
+    preferred_max_tokens = Column(Integer, default=512)
+    
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User")

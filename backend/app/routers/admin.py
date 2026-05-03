@@ -229,16 +229,13 @@ Tài liệu: {context}
 Câu hỏi: {question}
 Câu trả lời FAQ:"""
         
-        # We need a method in RAGService that just generates text without the full chat logic
-        # For now, we'll assume a simplified call to the LLM
-        response = rag_service.llm(
+        # Use provider to generate answer
+        answer = rag_service.llm_provider.generate(
             prompt,
             max_tokens=256,
             temperature=0.2,
-            stop=["\n\n", "Người dùng:", "Trợ lý:"],
-            echo=False
+            stop=["\n\n", "Người dùng:", "Trợ lý:"]
         )
-        answer = response['choices'][0]['text'].strip()
         
         return SuggestedFAQ(question=question, occurrence=1, suggested_answer=answer)
     except Exception as e:

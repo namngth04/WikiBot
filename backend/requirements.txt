@@ -11,8 +11,11 @@ pydantic-settings==2.1.0
 chromadb==0.6.0
 huggingface-hub==0.34.0
 sentence-transformers==3.0.1
-llama-cpp-python==0.2.38
+llama-cpp-python==0.2.90
 PyPDF2==3.0.1
 python-docx==1.1.0
 aiofiles==23.2.1
 python-dotenv==1.0.0
+openai==1.30.0
+httpx>=0.25.0,<0.28.0
+cryptography==42.0.5

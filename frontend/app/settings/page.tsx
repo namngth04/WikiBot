@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { 
   User, Mail, Phone, Building2, Lock, Save, 
   ShieldCheck, AlertCircle, Camera, CheckCircle2,
-  ArrowLeft, Settings
+  ArrowLeft, Settings, Brain, ChevronRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -192,6 +192,26 @@ export default function SettingsPage() {
               Hệ thống đã được bảo vệ
             </div>
           </div>
+
+          {/* AI Settings Link */}
+          <button
+            onClick={() => router.push('/settings/ai')}
+            className="w-full bg-gradient-to-r from-primary-600 to-violet-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden group hover:shadow-xl transition-all"
+          >
+            <Brain className="absolute -right-8 -bottom-8 w-48 h-48 text-white/10 group-hover:scale-110 transition-transform" />
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-lg font-be-vietnam font-bold mb-2 flex items-center gap-2">
+                  <Brain size={20} />
+                  Cài đặt AI
+                </h3>
+                <p className="text-white/70 text-sm">
+                  Tùy chỉnh temperature, phong cách trả lời
+                </p>
+              </div>
+              <ChevronRight className="group-hover:translate-x-2 transition-transform" />
+            </div>
+          </button>
         </motion.div>
 
         {/* Right Column: Forms */}

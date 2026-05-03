@@ -13,22 +13,37 @@ from app.models.models import Document
 # Singleton pattern for embedding model
 _embedding_model = None
 
-def get_embedding_model():
+def get_embedding_model(db_session=None):
+    """Get embedding model from DB config or fallback to settings"""
     global _embedding_model
     if _embedding_model is None:
-        settings = get_settings()
-        _embedding_model = SentenceTransformer(settings.embedding_model)
+        # Try to get from DB config first
+        embedding_model_name = None
+        if db_session:
+            from app.models.models import AIProviderConfig
+            config = db_session.query(AIProviderConfig).filter(
+                AIProviderConfig.ai_type == "embedding"
+            ).first()
+            if config and config.embedding_model_name:
+                embedding_model_name = config.embedding_model_name
+        
+        # Fallback to settings
+        if not embedding_model_name:
+            settings = get_settings()
+            embedding_model_name = settings.embedding_model
+        
+        _embedding_model = SentenceTransformer(embedding_model_name)
     return _embedding_model
 
 
 class DocumentProcessor:
-    def __init__(self):
+    def __init__(self, db_session=None):
         settings = get_settings()
         self.chunk_size = 250  # Reduced for more focused chunks
         self.chunk_overlap = 30  # Reduced overlap
         
-        # Use cached embedding model
-        self.embedding_model = get_embedding_model()
+        # Use cached embedding model (pass db_session for DB config lookup)
+        self.embedding_model = get_embedding_model(db_session)
         
         # Initialize ChromaDB
         os.makedirs(settings.chroma_db_path, exist_ok=True)

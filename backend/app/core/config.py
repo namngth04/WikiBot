@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./data/wikibot.db"
     
+    # Security
+    encryption_key: str = ""  # For API key encryption, generate with: Fernet.generate_key()
+    
     # ChromaDB
     chroma_db_path: str = "./chroma_db"
     
@@ -34,7 +37,6 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     rag_log_level: str = "INFO"
-    rag_log_file: str = "rag_debug.log"
     
     model_config = {
         "env_file": ".env",

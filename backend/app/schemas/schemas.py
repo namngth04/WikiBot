@@ -250,3 +250,105 @@ class SuggestedFAQ(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
+
+
+# ============================================
+# AI Configuration Schemas (Multi-Provider)
+# ============================================
+
+class AISafetyConfigSchema(BaseModel):
+    """Global safety limits schema"""
+    max_temperature_limit: float = Field(default=1.0, ge=0.1, le=2.0)
+    max_context_length: int = Field(default=8192, ge=1024, le=32768)
+    max_tokens_limit: int = Field(default=2048, ge=128, le=4096)
+    default_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    default_response_style: str = Field(default="concise")
+
+
+class AIProviderConfigSchema(BaseModel):
+    """Provider config for each AI type"""
+    ai_type: str = Field(..., pattern="^(rag|embedding|faq)$")
+    provider: str = Field(default="local", pattern="^(local|openrouter|ollama)$")
+    
+    # Local settings
+    local_model_path: Optional[str] = None
+    local_context_length: Optional[int] = Field(None, ge=1024, le=32768)
+    
+    # API settings
+    api_base_url: Optional[str] = None
+    api_key: Optional[str] = None  # plain text for input, will be encrypted
+    api_model: Optional[str] = None
+    use_custom_model: bool = False  # If true, use custom_api_model instead of api_model
+    custom_api_model: Optional[str] = None  # Custom model ID for flexibility
+    
+    # Type-specific
+    embedding_model_name: Optional[str] = None
+    use_rag_provider: bool = True
+    
+    # Defaults
+    default_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    default_max_tokens: int = Field(default=512, ge=64, le=2048)
+    timeout: int = Field(default=30, ge=5, le=300)  # Timeout in seconds
+
+
+class AIProviderConfigResponse(BaseModel):
+    """Response schema (api_key masked)"""
+    id: int
+    ai_type: str
+    provider: str
+    local_model_path: Optional[str] = None
+    local_context_length: Optional[int] = None
+    api_base_url: Optional[str] = None
+    api_model: Optional[str] = None
+    use_custom_model: bool = False
+    custom_api_model: Optional[str] = None
+    embedding_model_name: Optional[str] = None
+    use_rag_provider: bool = True
+    default_temperature: float = 0.2
+    default_max_tokens: int = 512
+    timeout: int = 30
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class UserAISettingsSchema(BaseModel):
+    """User AI preferences"""
+    temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    response_style: str = Field(default="concise", pattern="^(concise|normal|detailed)$")
+    show_sources: bool = True
+    preferred_max_tokens: int = Field(default=512, ge=64, le=2048)
+
+
+class UserAISettingsResponse(BaseModel):
+    """User settings response"""
+    id: int
+    user_id: int
+    temperature: float
+    response_style: str
+    show_sources: bool
+    preferred_max_tokens: int
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class TestConnectionRequest(BaseModel):
+    """Test connection request"""
+    provider: str = Field(..., pattern="^(local|openrouter|ollama)$")
+    api_base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    api_model: Optional[str] = None
+    local_model_path: Optional[str] = None
+    use_custom_model: bool = False
+    custom_api_model: Optional[str] = None
+    timeout: Optional[int] = Field(default=30, ge=5, le=300)  # Timeout in seconds for API providers
+
+
+class TestConnectionResponse(BaseModel):
+    """Test connection response"""
+    success: bool
+    message: str
+    latency_ms: Optional[float] = None

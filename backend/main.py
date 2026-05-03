@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.routers import auth, users, roles, documents, chat, admin
+from app.routers import auth, users, roles, documents, chat, admin, admin_ai, user_ai
 
 # Configure logging
 logging.basicConfig(
@@ -63,6 +63,8 @@ app.include_router(roles.router)
 app.include_router(documents.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
+app.include_router(admin_ai.router)  # AI Configuration (Admin)
+app.include_router(user_ai.router)   # AI Settings (User)
 
 
 @app.get("/")

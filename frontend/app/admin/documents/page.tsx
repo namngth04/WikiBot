@@ -127,7 +127,7 @@ export default function DocumentsPage() {
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="btn-primary"
+          className="btn-primary shadow-lg shadow-primary-200/50 hover:shadow-xl hover:shadow-primary-200/60 transform hover:scale-105 transition-all duration-200"
         >
           <Upload size={20} />
           Tải lên tài liệu
@@ -268,16 +268,16 @@ export default function DocumentsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowUploadModal(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+              className="modal-backdrop"
             />
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] flex flex-col"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="modal-content p-6 space-y-5"
             >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white rounded-t-3xl">
                 <div>
                   <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">Tải lên tài liệu</h3>
                   <p className="text-sm text-slate-400 font-medium">Bổ sung tri thức vào hệ thống RAG</p>
@@ -287,8 +287,8 @@ export default function DocumentsPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleUpload} className="flex-1 p-8 space-y-8">
-                <div className="space-y-4">
+              <form onSubmit={handleUpload} className="flex-1 p-6 space-y-5 overflow-y-auto custom-scrollbar">
+                <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chọn tệp tin</label>
                   <div className="relative group">
                     <input 
@@ -298,9 +298,9 @@ export default function DocumentsPage() {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       required 
                     />
-                    <div className="border-2 border-dashed border-slate-200 rounded-[2rem] p-10 flex flex-col items-center justify-center gap-4 group-hover:border-primary-400 transition-all bg-slate-50/50">
-                      <div className="p-4 bg-white rounded-2xl shadow-sm text-primary-600">
-                        <Upload size={32} />
+                    <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 group-hover:border-primary-400 transition-all bg-slate-50/50">
+                      <div className="p-3 bg-white rounded-xl shadow-sm text-primary-600">
+                        <Upload size={24} />
                       </div>
                       <div className="text-center">
                         <p className="text-sm font-bold text-slate-900">
@@ -312,12 +312,12 @@ export default function DocumentsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quyền truy cập</label>
                   <select 
                     value={uploadRoleId} 
                     onChange={(e) => setUploadRoleId(e.target.value)} 
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
                   >
                     <option value="">Mọi người (Public)</option>
                     {roles.filter(r => r.level !== 0).map((role) => (
@@ -327,20 +327,20 @@ export default function DocumentsPage() {
                 </div>
               </form>
 
-              <div className="p-8 border-t border-slate-100 flex items-center gap-3">
+              <div className="p-6 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="btn-secondary flex-1 justify-center py-4"
+                  className="btn-secondary flex-1 justify-center py-3"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   onClick={handleUpload}
-                  className="btn-primary flex-1 justify-center py-4 shadow-lg shadow-primary-200"
+                  className="btn-primary flex-1 justify-center py-3 shadow-lg shadow-primary-200"
                 >
-                  <Save size={20} />
-                  Bắt đầu tải lên
+                  <Save size={18} />
+                  Tải lên
                 </button>
               </div>
             </motion.div>

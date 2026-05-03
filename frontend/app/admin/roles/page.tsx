@@ -257,8 +257,8 @@ export default function RolesPage() {
                     min="1"
                     max="10"
                     required
-                    value={roleForm.level}
-                    onChange={(e) => setRoleForm({ ...roleForm, level: parseInt(e.target.value) })}
+                    value={roleForm.level || 1}
+                    onChange={(e) => setRoleForm({ ...roleForm, level: parseInt(e.target.value) || 1 })}
                     className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
                   <div className="flex items-start gap-2 p-4 bg-amber-50 rounded-2xl mt-2">
