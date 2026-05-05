@@ -134,8 +134,10 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
     return <div className="h-[250px] w-full flex items-center justify-center text-gray-400">Đang khởi tạo biểu đồ...</div>;
   }
 
-  // Lọc dữ liệu > 0
-  const filteredData = data.filter(item => item.value > 0);
+  // Lọc dữ liệu > 0 và đồng bộ màu sắc
+  const activeIndices = data.map((item, index) => item.value > 0 ? index : -1).filter(index => index !== -1);
+  const filteredData = activeIndices.map(index => data[index]);
+  const filteredColors = activeIndices.map(index => colors[index]);
 
   if (filteredData.length === 0) {
     return (
@@ -151,7 +153,7 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
     datasets: [
       {
         data: filteredData.map(item => item.value),
-        backgroundColor: colors,
+        backgroundColor: filteredColors,
         borderColor: '#fff',
         borderWidth: 2,
         hoverOffset: 10,
@@ -164,12 +166,7 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'bottom' as const,
-        labels: {
-          padding: 20,
-          usePointStyle: true,
-          font: { size: 12 },
-        },
+        display: false, // Ẩn legend mặc định vì đã có phần thống kê tùy chỉnh bên dưới
       },
       tooltip: {
         backgroundColor: '#fff',

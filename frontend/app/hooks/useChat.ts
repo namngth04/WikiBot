@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { chatAPI, ResponseStyle } from '@/app/lib/api';
-import { ChatResponse, Conversation, Message } from '@/app/lib/types';
+import { Conversation, Message } from '@/app/lib/types';
+import { ChatResponse } from '@/app/types/chat';
 import { ChatMessage } from '@/app/types/chat';
 
 // Utility function for generating unique temp IDs
@@ -27,6 +28,7 @@ export const useChat = (options: UseChatOptions = {}) => {
   const [responseStyle, setResponseStyle] = useState<ResponseStyle>('concise');
   const [showSources, setShowSources] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ratingMessageId, setRatingMessageId] = useState<number | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -45,7 +47,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       console.error('Failed to load conversations:', error);
       options.onError?.(error as Error);
     }
-  }, [options.onError]);
+  }, []);
 
   // Load messages for a conversation
   const loadMessages = useCallback(async (conversationId: number) => {
@@ -56,7 +58,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       console.error('Failed to load messages:', error);
       options.onError?.(error as Error);
     }
-  }, [options.onError]);
+  }, []);
 
   // Create new conversation
   const createNewConversation = useCallback(async () => {
@@ -73,7 +75,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       options.onError?.(error as Error);
       throw error;
     }
-  }, [options]);
+  }, []);
 
   // Select conversation
   const selectConversation = useCallback((conversation: Conversation) => {
@@ -95,7 +97,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       options.onError?.(error as Error);
       throw error;
     }
-  }, [currentConversation, options.onError]);
+  }, [currentConversation]);
 
   // Update conversation title
   const updateConversationTitle = useCallback(async (id: number, newTitle: string) => {
@@ -112,7 +114,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       options.onError?.(error as Error);
       throw error;
     }
-  }, [currentConversation, options.onError]);
+  }, [currentConversation]);
 
   // Send message
   const sendMessage = useCallback(async (messageText: string, conversationId?: number) => {
@@ -150,16 +152,16 @@ export const useChat = (options: UseChatOptions = {}) => {
         abortControllerRef.current.signal
       );
       
-      const { 
-        answer, 
-        response: assistantResponse, 
-        conversation_id: newConversationId, 
-        citations, 
+      const {
+        answer,
+        response: assistantResponse,
+        conversation_id: newConversationId,
+        citations,
         confidence,
-        queryProcessing,
-        retrievalStats,
-        user_message_id, 
-        assistant_message_id 
+        query_processing: queryProcessing,
+        retrieval_stats: retrievalStats,
+        user_message_id,
+        assistant_message_id
       } = response.data as ChatResponse;
 
       // Validate response data
@@ -254,18 +256,37 @@ export const useChat = (options: UseChatOptions = {}) => {
 
   // Rate message
   const rateMessage = useCallback(async (messageId: number, rating: number) => {
+    // Set loading state
+    setRatingMessageId(messageId);
+    
+    // Optimistic update - cập nhật UI ngay lập tức
+    const previousMessages = messages;
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId ? { ...msg, rating } : msg
+    ));
+
     try {
       const response = await chatAPI.rateMessage(messageId, rating);
       const updatedMessage = response.data;
-      setMessages(prev => prev.map(msg => 
-        msg.id === messageId ? { ...msg, rating: updatedMessage.rating } : msg
-      ));
+      
+      // Xác nhận với server data - force re-render với new array reference
+      setMessages(prev => {
+        const newMessages = prev.map(msg => 
+          msg.id === messageId ? { ...msg, rating: updatedMessage.rating } : msg
+        );
+        return [...newMessages]; // Force new reference
+      });
     } catch (error) {
+      // Rollback khi có lỗi
+      setMessages(previousMessages);
       console.error('Failed to rate message:', error);
       options.onError?.(error as Error);
       throw error;
+    } finally {
+      // Clear loading state
+      setRatingMessageId(null);
     }
-  }, [options.onError]);
+  }, [messages]);
 
   // Set feedback for message (local state)
   const setFeedback = useCallback((messageIndex: number, type: 'up' | 'down') => {
@@ -299,6 +320,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     searchQuery,
     filteredConversations,
     messagesEndRef,
+    ratingMessageId,
     
     // Actions
     loadConversations,

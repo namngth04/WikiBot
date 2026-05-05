@@ -39,6 +39,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     searchQuery,
     filteredConversations,
     messagesEndRef,
+    ratingMessageId,
     loadConversations,
     createNewConversation,
     selectConversation,
@@ -65,7 +66,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     if (user) {
       loadConversations();
     }
-  }, [user, loadConversations]);
+  }, [user]);
 
   useEffect(() => {
     // Handle suggested questions from MessageList
@@ -391,6 +392,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               onRateMessage={rateMessage}
               onSetFeedback={setFeedback}
               messagesEndRef={messagesEndRef}
+              ratingMessageId={ratingMessageId}
             />
 
             {/* Input */}

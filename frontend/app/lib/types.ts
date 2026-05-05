@@ -55,23 +55,6 @@ export interface Conversation {
   messages?: Message[];
 }
 
-export interface ChatResponse {
-  response: string;
-  answer: string;
-  conversation_id: number;
-  sources: Array<{
-    source: string;
-    chunk_index: number;
-    distance: number;
-  }>;
-  citations: Array<{
-    source: string;
-    chunk_index: number;
-    distance: number;
-  }>;
-  user_message_id?: number;
-  assistant_message_id?: number;
-}
 
 export interface DashboardStats {
   total_users: number;
@@ -83,6 +66,11 @@ export interface DashboardStats {
     dislike: number;
     none: number;
   };
+  // Trend fields (so với ngày hôm qua)
+  user_trend?: number | null;
+  message_trend?: number | null;
+  document_trend?: number | null;
+  rating_trend?: number | null;
 }
 
 export interface UsageStats {

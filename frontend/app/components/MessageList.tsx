@@ -14,6 +14,7 @@ interface MessageListProps {
   onRateMessage?: (messageId: number, rating: number) => void;
   onSetFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
   messagesEndRef?: React.RefObject<HTMLDivElement>;
+  ratingMessageId?: number | null;
 }
 
 export default function MessageList({
@@ -23,7 +24,8 @@ export default function MessageList({
   onRetryMessage,
   onRateMessage,
   onSetFeedback,
-  messagesEndRef
+  messagesEndRef,
+  ratingMessageId
 }: MessageListProps) {
   if (messages.length === 0 && !loading) {
     return (
@@ -72,6 +74,7 @@ export default function MessageList({
             onRetryMessage={onRetryMessage}
             onRateMessage={onRateMessage}
             onSetFeedback={onSetFeedback}
+            ratingMessageId={ratingMessageId}
           />
         ))}
       </AnimatePresence>

@@ -43,14 +43,6 @@ export interface ChatMessage {
   retryable?: boolean;
 }
 
-export interface Conversation {
-  id: number;
-  user_id: number;
-  title: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ChatResponse {
   success: boolean;
   response: string;

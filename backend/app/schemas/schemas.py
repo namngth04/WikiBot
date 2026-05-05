@@ -234,6 +234,11 @@ class DashboardStats(BaseModel):
     total_documents: int
     avg_rating: float
     feedback_ratio: dict
+    # Trend fields (so với ngày hôm qua)
+    user_trend: Optional[float] = None  # % tăng trưởng người dùng
+    message_trend: Optional[float] = None  # % tăng trưởng tin nhắn
+    document_trend: Optional[float] = None  # % tăng trưởng tài liệu
+    rating_trend: Optional[float] = None  # % thay đổi đánh giá TB
 
 
 class UsageStats(BaseModel):

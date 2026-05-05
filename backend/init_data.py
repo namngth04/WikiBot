@@ -6,6 +6,9 @@ Run this script after starting the backend for the first time
 import os
 import sys
 import shutil
+import subprocess
+import time
+from pathlib import Path
 
 # Add backend to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,14 +17,19 @@ from app.core.database import SessionLocal, engine
 from app.core.security import get_password_hash
 from app.models.models import Base, Role, User, AISafetyConfig, AIProviderConfig
 from sqlalchemy import inspect
-import subprocess
-import sys
-import shutil
+
+
+# Constants
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin123"
+DEFAULT_SLEEP_TIME = 0.5
+DEFAULT_TIMEOUT = 30
 
 
 def run_alembic_migration():
     """Run alembic database migration"""
     print("Running alembic migration...")
+    
     try:
         # Ensure data directory exists
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -33,19 +41,23 @@ def run_alembic_migration():
         engine.dispose()
         
         # Run alembic upgrade head
+        print("Executing: alembic upgrade head")
         result = subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "head"],
             cwd=os.path.dirname(os.path.abspath(__file__)),
             capture_output=True,
-            text=True
+            text=True,
+            timeout=DEFAULT_TIMEOUT
         )
+        
         if result.returncode == 0:
             print("✅ Alembic migration completed successfully")
+            if result.stdout:
+                print(f"Alembic output: {result.stdout}")
             
             # Verify that tables were created
             print("Verifying database tables...")
-            import time
-            time.sleep(0.5)  # Give database a moment to settle
+            time.sleep(DEFAULT_SLEEP_TIME)  # Give database a moment to settle
             
             inspector = inspect(engine)
             tables = inspector.get_table_names()
@@ -58,9 +70,17 @@ def run_alembic_migration():
             else:
                 print("✅ All required tables are present")
         else:
-            print(f"⚠️  Alembic migration warning: {result.stderr}")
+            print(f"⚠️  Alembic migration failed with return code: {result.returncode}")
+            if result.stderr:
+                print(f"Error output: {result.stderr}")
             print("Falling back to Base.metadata.create_all()")
             Base.metadata.create_all(bind=engine)
+            
+    except subprocess.TimeoutExpired:
+        print(f"⚠️  Alembic migration timed out after {DEFAULT_TIMEOUT} seconds")
+        print("Falling back to Base.metadata.create_all()")
+        Base.metadata.create_all(bind=engine)
+        
     except Exception as e:
         print(f"⚠️  Could not run alembic migration: {e}")
         print("Falling back to Base.metadata.create_all()")
@@ -75,13 +95,13 @@ def run_alembic_migration():
         except Exception as e2:
             print(f"⚠️  Error creating tables: {e2}")
             print("Please check database permissions and directory structure")
+            raise
 
 
-def clear_existing_data():
-    """Clear existing data for fresh initialization"""
-    print("Clearing existing data...")
+def clear_database_data():
+    """Clear all database data in correct order"""
+    print("Clearing database data...")
     
-    # Clear database data
     db = SessionLocal()
     try:
         # Check which tables exist
@@ -90,31 +110,34 @@ def clear_existing_data():
         print(f"Found tables: {existing_tables}")
         
         # Delete in correct order to avoid foreign key constraints
-        if "ai_provider_config" in existing_tables:
-            db.query(AIProviderConfig).delete()
-        if "ai_safety_config" in existing_tables:
-            db.query(AISafetyConfig).delete()
-        if "user_ai_settings" in existing_tables:
-            from app.models.models import UserAISettings
-            db.query(UserAISettings).delete()
-        if "messages" in existing_tables:
-            from app.models.models import Message
-            db.query(Message).delete()
-        if "conversations" in existing_tables:
-            from app.models.models import Conversation
-            db.query(Conversation).delete()
-        if "documents" in existing_tables:
-            from app.models.models import Document
-            db.query(Document).delete()
-        if "users" in existing_tables:
-            db.query(User).delete()
-        if "roles" in existing_tables:
-            db.query(Role).delete()
-        if "faqs" in existing_tables:
-            from app.models.models import FAQ
-            from app.models.models import FAQ as FaqModel
-            db.query(FaqModel).delete()
-            
+        table_order = [
+            ("ai_provider_config", AIProviderConfig),
+            ("ai_safety_config", AISafetyConfig),
+            ("user_ai_settings", "UserAISettings"),
+            ("messages", "Message"),
+            ("conversations", "Conversation"),
+            ("documents", "Document"),
+            ("users", User),
+            ("roles", Role),
+            ("faqs", "FAQ")
+        ]
+        
+        for table_name, model in table_order:
+            if table_name in existing_tables:
+                if isinstance(model, str):
+                    # Import model dynamically
+                    from app.models.models import UserAISettings, Message, Conversation, Document, FAQ
+                    model_map = {
+                        "UserAISettings": UserAISettings,
+                        "Message": Message,
+                        "Conversation": Conversation,
+                        "Document": Document,
+                        "FAQ": FAQ
+                    }
+                    model = model_map.get(model, FAQ)
+                
+                db.query(model).delete()
+        
         db.commit()
         print("✅ Cleared all database data")
     except Exception as e:
@@ -128,21 +151,28 @@ def clear_existing_data():
             print(f"⚠️  Error dropping tables: {e2}")
     finally:
         db.close()
+
+
+def clear_database_file():
+    """Remove old database file if exists"""
+    print("Clearing database file...")
     
-    # Close all database connections before file operations
-    engine.dispose()
-    
-    # Remove old database file if exists
     old_db_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
     try:
         if os.path.exists(old_db_file):
             print(f"Removing old database file: {old_db_file}")
             os.unlink(old_db_file)
             print("✅ Removed old database file")
+        else:
+            print("Database file does not exist, skipping")
     except Exception as e:
         print(f"⚠️  Could not remove old database file: {e}")
+
+
+def clear_chroma_db():
+    """Clear ChromaDB vector database"""
+    print("Clearing ChromaDB...")
     
-    # Clear ChromaDB
     chroma_db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
     try:
         if os.path.exists(chroma_db_path):
@@ -154,8 +184,12 @@ def clear_existing_data():
     except Exception as e:
         print(f"⚠️  Error removing ChromaDB directory: {e}")
         print("   You may need to manually remove the chroma_db directory")
+
+
+def clear_python_cache():
+    """Clear Python cache directories"""
+    print("Clearing Python cache...")
     
-    # Clear __pycache__ directories
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     try:
         for root, dirs, files in os.walk(backend_dir):
@@ -166,8 +200,12 @@ def clear_existing_data():
                 print("✅ Cleared Python cache directory")
     except Exception as e:
         print(f"⚠️  Error removing cache directories: {e}")
+
+
+def clear_data_directory():
+    """Clear data directory with uploaded files"""
+    print("Clearing data directory...")
     
-    # Clear data directory
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
     try:
         if os.path.exists(data_dir):
@@ -203,128 +241,172 @@ def clear_existing_data():
         print(f"⚠️  Error processing data directory: {e}")
 
 
+def clear_existing_data():
+    """Clear existing data for fresh initialization"""
+    print("Clearing existing data...")
+    
+    # Clear database data first
+    clear_database_data()
+    
+    # Close all database connections before file operations
+    engine.dispose()
+    
+    # Clear files and directories
+    clear_database_file()
+    clear_chroma_db()
+    clear_python_cache()
+    clear_data_directory()
+
+
 def init_default_data():
     """Create default roles, admin user and AI configs"""
     
+    print("Starting default data initialization...")
     db = SessionLocal()
     
     try:
         # Create default roles
         print("Creating default roles...")
         
-        # Check if roles already exist
-        existing_roles = db.query(Role).all()
-        if existing_roles:
-            print(f"Found {len(existing_roles)} existing roles. Skipping role creation.")
-        else:
-            roles = [
-                Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0),
-                Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1),
-                Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2),
-            ]
-            
-            for role in roles:
-                db.add(role)
-            
-            db.commit()
-            print("Created 3 default roles:")
-            print("  - Admin (level 0)")
-            print("  - Trưởng phòng (level 1)")
-            print("  - Nhân viên (level 2)")
+        try:
+            existing_roles = db.query(Role).all()
+            if existing_roles:
+                print(f"Found {len(existing_roles)} existing roles. Skipping role creation.")
+            else:
+                roles = [
+                    Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0),
+                    Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1),
+                    Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2),
+                ]
+                
+                for role in roles:
+                    db.add(role)
+                
+                db.commit()
+                print("Created 3 default roles:")
+                print("  - Admin (level 0)")
+                print("  - Trưởng phòng (level 1)")
+                print("  - Nhân viên (level 2)")
+        except Exception as e:
+            print(f"⚠️  Error creating roles: {e}")
+            db.rollback()
+            raise
         
         # Create default admin user
         print("\nCreating default admin user...")
         
-        admin_user = db.query(User).filter(User.username == "admin").first()
-        if admin_user:
-            print("Admin user already exists. Skipping creation.")
-        else:
-            admin = User(
-                username="admin",
-                full_name="Quản trị viên",
-                email="admin@wikibot.local",
-                phone=None,
-                department="IT",
-                hashed_password=get_password_hash("admin123"),
-                role_id=1,  # Admin role
-                is_active=True
-            )
-            
-            db.add(admin)
-            db.commit()
-            print("Created default admin user:")
-            print("  Username: admin")
-            print("  Password: admin123")
-            print("  Role: Admin")
+        try:
+            admin_user = db.query(User).filter(User.username == DEFAULT_ADMIN_USERNAME).first()
+            if admin_user:
+                print("Admin user already exists. Skipping creation.")
+            else:
+                admin = User(
+                    username=DEFAULT_ADMIN_USERNAME,
+                    full_name="Quản trị viên",
+                    email="admin@wikibot.local",
+                    phone=None,
+                    department="IT",
+                    hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
+                    role_id=1,  # Admin role
+                    is_active=True
+                )
+                
+                db.add(admin)
+                db.commit()
+                print("Created default admin user:")
+                print(f"  Username: {DEFAULT_ADMIN_USERNAME}")
+                print(f"  Password: {DEFAULT_ADMIN_PASSWORD}")
+                print("  Role: Admin")
+        except Exception as e:
+            print(f"⚠️  Error creating admin user: {e}")
+            db.rollback()
+            raise
         
         # Create default AI Safety Config
         print("\nCreating default AI Safety Config...")
         
-        safety_config = db.query(AISafetyConfig).first()
-        if safety_config:
-            print("AI Safety Config already exists. Skipping creation.")
-        else:
-            default_safety = AISafetyConfig(
-                max_temperature_limit=1.0,
-                max_context_length=8192,
-                max_tokens_limit=2048,
-                default_temperature=0.2,
-                default_response_style="concise",
-                updated_by=1  # Admin user
-            )
-            db.add(default_safety)
-            db.commit()
-            print("✅ Created default AI Safety Config")
+        try:
+            safety_config = db.query(AISafetyConfig).first()
+            if safety_config:
+                print("AI Safety Config already exists. Skipping creation.")
+            else:
+                default_safety = AISafetyConfig(
+                    max_temperature_limit=1.0,
+                    max_context_length=8192,
+                    max_tokens_limit=2048,
+                    default_temperature=0.2,
+                    default_response_style="concise",
+                    updated_by=1  # Admin user
+                )
+                db.add(default_safety)
+                db.commit()
+                print("✅ Created default AI Safety Config")
+        except Exception as e:
+            print(f"⚠️  Error creating AI Safety Config: {e}")
+            db.rollback()
+            raise
         
         # Create default AI Provider Configs
         print("\nCreating default AI Provider Configs...")
         
-        provider_configs = [
-            {
-                "ai_type": "rag",
-                "provider": "local",
-                "local_model_path": "./llm_models/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-                "local_context_length": 4096,
-                "default_temperature": 0.3,
-                "default_max_tokens": 512,
-                "updated_by": 1
-            },
-            {
-                "ai_type": "embedding",
-                "provider": "local",
-                "embedding_model_name": "paraphrase-multilingual-MiniLM-L12-v2",
-                "updated_by": 1
-            },
-            {
-                "ai_type": "faq",
-                "provider": "local",
-                "use_rag_provider": True,
-                "default_temperature": 0.2,
-                "default_max_tokens": 256,
-                "updated_by": 1
-            }
-        ]
-        
-        for config_data in provider_configs:
-            existing = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == config_data["ai_type"]).first()
-            if not existing:
-                config = AIProviderConfig(**config_data)
-                db.add(config)
-        
-        db.commit()
-        print("✅ Created default AI Provider Configs for RAG, Embedding, and FAQ")
+        try:
+            provider_configs = [
+                {
+                    "ai_type": "rag",
+                    "provider": "local",
+                    "local_model_path": "./llm_models/qwen2.5-3b-instruct-q4_k_m.gguf",
+                    "local_context_length": 4096,
+                    "default_temperature": 0.3,
+                    "default_max_tokens": 512,
+                    "updated_by": 1
+                },
+                {
+                    "ai_type": "embedding",
+                    "provider": "local",
+                    "embedding_model_name": "paraphrase-multilingual-MiniLM-L12-v2",
+                    "updated_by": 1
+                },
+                {
+                    "ai_type": "faq",
+                    "provider": "local",
+                    "use_rag_provider": True,
+                    "default_temperature": 0.2,
+                    "default_max_tokens": 256,
+                    "updated_by": 1
+                }
+            ]
+            
+            created_configs = 0
+            for config_data in provider_configs:
+                existing = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == config_data["ai_type"]).first()
+                if not existing:
+                    config = AIProviderConfig(**config_data)
+                    db.add(config)
+                    created_configs += 1
+            
+            db.commit()
+            print(f"✅ Created {created_configs} default AI Provider Configs")
+            
+        except Exception as e:
+            print(f"⚠️  Error creating AI Provider Configs: {e}")
+            db.rollback()
+            raise
         
         print("\n✅ Initialization complete!")
         print("\nYou can now start the backend and login with:")
-        print("  Username: admin")
-        print("  Password: admin123")
+        print(f"  Username: {DEFAULT_ADMIN_USERNAME}")
+        print(f"  Password: {DEFAULT_ADMIN_PASSWORD}")
         
     except Exception as e:
         db.rollback()
-        print(f"\n❌ Error during initialization: {e}")
+        print(f"\n❌ Critical error during initialization: {e}")
+        print("Please check the error message above and fix any issues before retrying.")
         raise
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception as e:
+            print(f"⚠️  Error closing database connection: {e}")
 
 
 if __name__ == "__main__":

@@ -74,6 +74,13 @@ export default function DashboardPage() {
 
   const hasFeedback = feedbackData.some(d => d.value > 0);
 
+  // Helper function để format trend
+  const formatTrend = (trend: number | null | undefined): string => {
+    if (trend === null || trend === undefined) return 'N/A';
+    const formatted = trend.toFixed(1);
+    return trend > 0 ? `+${formatted}%` : `${formatted}%`;
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -99,10 +106,10 @@ export default function DashboardPage() {
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Người dùng', value: stats?.total_users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', trend: '+12%' },
-          { label: 'Tổng tin nhắn', value: stats?.total_messages, icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50', trend: '+5.4%' },
-          { label: 'Tài liệu', value: stats?.total_documents, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: 'Ổn định' },
-          { label: 'Đánh giá TB', value: `${stats?.avg_rating}/1`, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', trend: '-2.1%' },
+          { label: 'Người dùng', value: stats?.total_users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', trend: formatTrend(stats?.user_trend) },
+          { label: 'Tổng tin nhắn', value: stats?.total_messages, icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50', trend: formatTrend(stats?.message_trend) },
+          { label: 'Tài liệu', value: stats?.total_documents, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: formatTrend(stats?.document_trend) },
+          { label: 'Đánh giá TB', value: `${stats?.avg_rating}/1`, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', trend: formatTrend(stats?.rating_trend) },
         ].map((item, idx) => (
           <motion.div 
             key={idx}
@@ -197,9 +204,11 @@ export default function DashboardPage() {
 
           <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-3 gap-2">
             {feedbackData.map((d, i) => (
-              <div key={i} className="text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">{d.name}</p>
-                <p className="text-sm font-be-vietnam font-bold text-slate-900">{d.value}</p>
+              <div key={i} className="text-center flex flex-col items-center">
+                <div className="h-8 flex items-start">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase leading-tight">{d.name}</p>
+                </div>
+                <p className="text-sm font-be-vietnam font-bold text-slate-900 mt-1">{d.value}</p>
               </div>
             ))}
           </div>

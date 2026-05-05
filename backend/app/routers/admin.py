@@ -45,6 +45,45 @@ def get_dashboard_stats(
     dislikes = db.query(Message).filter(Message.rating == -1).count()
     no_rating = db.query(Message).filter(Message.role == "assistant", Message.rating.is_(None)).count()
     
+    # Tính toán trend so với ngày hôm qua
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    
+    # User trend: số người dùng mới hôm nay so với hôm qua
+    users_today = db.query(User).filter(User.created_at >= yesterday).count()
+    users_yesterday = db.query(User).filter(
+        User.created_at >= yesterday - timedelta(days=1),
+        User.created_at < yesterday
+    ).count()
+    user_trend = round((users_today - users_yesterday) / users_yesterday * 100, 1) if users_yesterday > 0 else None
+    
+    # Message trend: số tin nhắn hôm nay so với hôm qua
+    messages_today = db.query(Message).filter(Message.created_at >= yesterday).count()
+    messages_yesterday = db.query(Message).filter(
+        Message.created_at >= yesterday - timedelta(days=1),
+        Message.created_at < yesterday
+    ).count()
+    message_trend = round((messages_today - messages_yesterday) / messages_yesterday * 100, 1) if messages_yesterday > 0 else None
+    
+    # Document trend: số tài liệu upload hôm nay so với hôm qua
+    documents_today = db.query(Document).filter(Document.uploaded_at >= yesterday).count()
+    documents_yesterday = db.query(Document).filter(
+        Document.uploaded_at >= yesterday - timedelta(days=1),
+        Document.uploaded_at < yesterday
+    ).count()
+    document_trend = round((documents_today - documents_yesterday) / documents_yesterday * 100, 1) if documents_yesterday > 0 else None
+    
+    # Rating trend: đánh giá TB hôm nay so với hôm qua
+    avg_rating_today = db.query(func.avg(Message.rating)).filter(
+        Message.rating.isnot(None),
+        Message.created_at >= yesterday
+    ).scalar()
+    avg_rating_yesterday = db.query(func.avg(Message.rating)).filter(
+        Message.rating.isnot(None),
+        Message.created_at >= yesterday - timedelta(days=1),
+        Message.created_at < yesterday
+    ).scalar()
+    rating_trend = round((float(avg_rating_today) - float(avg_rating_yesterday)) / float(avg_rating_yesterday) * 100, 1) if avg_rating_yesterday else None
+    
     return {
         "total_users": total_users,
         "total_messages": total_messages,
@@ -54,7 +93,11 @@ def get_dashboard_stats(
             "like": likes,
             "dislike": dislikes,
             "none": no_rating
-        }
+        },
+        "user_trend": user_trend,
+        "message_trend": message_trend,
+        "document_trend": document_trend,
+        "rating_trend": rating_trend
     }
 
 @router.get("/stats/usage", response_model=List[UsageStats])

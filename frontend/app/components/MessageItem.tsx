@@ -23,6 +23,7 @@ interface MessageItemProps {
   onRetryMessage?: (content: string) => void;
   onRateMessage?: (messageId: number, rating: number) => void;
   onSetFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
+  ratingMessageId?: number | null;
 }
 
 export default function MessageItem({
@@ -31,7 +32,8 @@ export default function MessageItem({
   showSources = true,
   onRetryMessage,
   onRateMessage,
-  onSetFeedback
+  onSetFeedback,
+  ratingMessageId
 }: MessageItemProps) {
   const getConfidenceColor = (level: string) => {
     switch (level) {
@@ -223,24 +225,28 @@ export default function MessageItem({
             </button>
           )}
           
-          {/* Feedback buttons */}
-          {onSetFeedback && (
+          {/* Rating buttons */}
+          {onRateMessage && (
             <>
               <button 
-                onClick={() => onSetFeedback(index, 'up')}
+                onClick={() => onRateMessage(Number(message.id), message.rating === 1 ? 0 : 1)}
+                disabled={ratingMessageId === Number(message.id)}
                 className={cn(
                   "p-1.5 rounded-lg transition-colors",
-                  message.feedback === 'up' ? "bg-primary-100 text-primary-600" : "text-slate-400 hover:text-primary-600 hover:bg-slate-100"
+                  message.rating === 1 ? "bg-primary-100 text-primary-600" : "text-slate-400 hover:text-primary-600 hover:bg-slate-100",
+                  ratingMessageId === Number(message.id) && "opacity-50 cursor-not-allowed animate-pulse"
                 )}
                 title="Hữu ích"
               >
                 <ThumbsUp size={14} />
               </button>
               <button 
-                onClick={() => onSetFeedback(index, 'down')}
+                onClick={() => onRateMessage(Number(message.id), message.rating === -1 ? 0 : -1)}
+                disabled={ratingMessageId === Number(message.id)}
                 className={cn(
                   "p-1.5 rounded-lg transition-colors",
-                  message.feedback === 'down' ? "bg-rose-100 text-rose-600" : "text-slate-400 hover:text-rose-600 hover:bg-slate-100"
+                  message.rating === -1 ? "bg-rose-100 text-rose-600" : "text-slate-400 hover:text-rose-600 hover:bg-slate-100",
+                  ratingMessageId === Number(message.id) && "opacity-50 cursor-not-allowed animate-pulse"
                 )}
                 title="Không hữu ích"
               >
