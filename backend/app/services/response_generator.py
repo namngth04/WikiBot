@@ -1,102 +1,48 @@
+"""
+Response Generator Module
+Refactored from rag_service.py to use modular architecture
+"""
+
 import os
-import traceback
-import logging
 import time
 import json
 import re
-from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.models import Message, FAQ, AIProviderConfig, AISafetyConfig, UserAISettings
 from app.services.document_processor import DocumentProcessor
-from app.services.llm_providers import get_llm_provider, ProviderRegistry
+from app.services.llm_providers import get_llm_provider
+from app.services.query_processor import QueryProcessor
+from app.services.retriever import HybridRetriever
+from app.services.confidence_scorer import ConfidenceScorer
 
 
-def setup_rag_logger():
-    """Setup RAG logger with console handler only"""
-    settings = get_settings()
-    logger = logging.getLogger('RAG')
+class ResponseGenerator:
+    """Main response generation orchestrator using modular components"""
     
-    # Ensure logger is set to lowest level to capture all logs
-    logger.setLevel(logging.DEBUG)
-    
-    # Clear existing handlers to avoid duplicates
-    logger.handlers.clear()
-    
-    # Console handler (INFO level)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    
-    # Formatter
-    formatter = logging.Formatter('[RAG] %(asctime)s | %(levelname)s | %(name)s | %(message)s')
-    console_handler.setFormatter(formatter)
-    
-    logger.addHandler(console_handler)
-    
-    # Test logging
-    logger.info("RAG Logger initialized - INFO level test")
-    
-    return logger
-
-
-def log_structured_data(logger, level, component, data):
-    """Log structured data for analysis"""
-    log_data = {
-        'timestamp': datetime.now().isoformat(),
-        'component': component,
-        'data': data
-    }
-    logger.log(level, json.dumps(log_data, ensure_ascii=False))
-
-
-class RAGService:
-    def __init__(self, db: Session = None):
-        settings = get_settings()
-        self.settings = settings
+    def __init__(self, db: Session):
+        self.db = db
+        self.settings = get_settings()
         
-        try:
-            self.document_processor = DocumentProcessor(db)
-        except Exception as e:
-            print(f"Error initializing DocumentProcessor: {e}")
-            raise
+        # Initialize components
+        self.document_processor = DocumentProcessor(db)
+        self.query_processor = QueryProcessor()
+        self.hybrid_retriever = HybridRetriever(self.document_processor)
+        self.confidence_scorer = ConfidenceScorer(self.document_processor.embedding_model)
         
-        # Load LLM from provider (DB config)
-        try:
-            if db:
-                self.llm_provider = get_llm_provider("rag", db)
-                # Load FAQ provider config
-                from app.models.models import AIProviderConfig
-                faq_config = db.query(AIProviderConfig).filter(
-                    AIProviderConfig.ai_type == "faq"
-                ).first()
-                if faq_config and not faq_config.use_rag_provider:
-                    # Use separate provider for FAQ
-                    self.faq_provider = get_llm_provider("faq", db)
-                else:
-                    self.faq_provider = None  # Use RAG provider for FAQ
-            else:
-                # Fallback to env settings for backward compatibility
-                from app.services.llm_providers import LocalGGUFProvider
-                if not os.path.exists(settings.model_path):
-                    error_msg = (
-                        f"Model file not found: {settings.model_path}\n"
-                        "Please download a GGUF model and update MODEL_PATH in .env file\n"
-                        "Recommended: Qwen2.5-3B-Instruct-Q4_K_M.gguf or Llama-3.2-3B-Instruct-Q4_K_M.gguf"
-                    )
-                    print(f"DEBUG RAG: {error_msg}")
-                    raise FileNotFoundError(error_msg)
-                
-                self.llm_provider = LocalGGUFProvider(
-                    model_path=settings.model_path,
-                    context_length=settings.model_context_length
-                )
-                self.faq_provider = None
-        except Exception as e:
-            print(f"Error loading LLM provider: {e}")
-            traceback.print_exc()
-            raise
+        # Load LLM provider
+        self.llm_provider = get_llm_provider("rag", db)
+        
+        # Load FAQ provider if configured
+        faq_config = db.query(AIProviderConfig).filter(
+            AIProviderConfig.ai_type == "faq"
+        ).first()
+        if faq_config and not faq_config.use_rag_provider:
+            self.faq_provider = get_llm_provider("faq", db)
+        else:
+            self.faq_provider = None
         
         # Default generation budget
         self.max_tokens = 512
@@ -158,7 +104,8 @@ CÂU HỎI: {query}
         
         return history
     
-    def _resolve_generation_profile(self, response_style: str, requested_max_tokens: Optional[int]) -> Tuple[float, int]:
+    def _resolve_generation_profile(self, response_style: str, requested_max_tokens: Optional[int]) -> tuple[float, int]:
+        """Resolve temperature and max_tokens based on style"""
         style_map = {
             "concise": {"temperature": 0.15, "max_tokens": 180},
             "normal": {"temperature": 0.2, "max_tokens": 260},
@@ -171,8 +118,9 @@ CÂU HỎI: {query}
             max_tokens = requested_max_tokens
         max_tokens = min(max_tokens, self.settings.model_max_tokens, 512)
         return profile["temperature"], max_tokens
-
+    
     def _dedup_and_truncate_chunks(self, chunks: List[dict], max_chars: int = 500) -> List[dict]:
+        """Deduplicate and truncate chunks"""
         deduped = []
         seen = set()
         for chunk in chunks:
@@ -184,8 +132,9 @@ CÂU HỎI: {query}
             chunk["content"] = chunk["content"][:max_chars].strip()
             deduped.append(chunk)
         return deduped
-
+    
     def _trim_redundant_sentences(self, text: str) -> str:
+        """Remove redundant sentences"""
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         compact = []
         seen = set()
@@ -196,101 +145,109 @@ CÂU HỎI: {query}
             seen.add(key)
             compact.append(line)
         return "\n".join(compact).strip()
-
+    
     def _remove_assistant_prefix(self, text: str) -> str:
-        """Strip assistant self-intro prefixes like 'WikiBot:'."""
+        """Strip assistant self-intro prefixes"""
         return re.sub(r"^\s*(wikibot|trợ lý|assistant)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
-
-    def check_faqs(self, query: str, db: Session) -> Optional[FAQ]:
-        """Check if query matches active FAQ with lightweight keyword scoring."""
-        clean_query = query.strip()
-        if not clean_query:
-            return None
-
-        normalized_query = re.sub(r"\s+", " ", clean_query.lower()).strip()
-        query_tokens = {
-            token for token in re.findall(r"\w+", normalized_query) if len(token) > 2
-        }
-
-        candidates = db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
+    
+    def check_faqs(self, query: str) -> Optional[FAQ]:
+        """Check if query matches active FAQ with improved matching"""
+        processed_query = self.query_processor.process_query(query)
+        
+        # Try original and expanded query
+        query_variations = [
+            processed_query['corrected'],
+            processed_query['expanded']
+        ]
+        
+        candidates = self.db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
         best_faq = None
         best_score = 0.0
-
+        
         for faq in candidates:
-            faq_question = re.sub(r"\s+", " ", faq.question.lower()).strip()
-            faq_tokens = {token for token in re.findall(r"\w+", faq_question) if len(token) > 2}
-
-            contains_score = 1.0 if (
-                normalized_query in faq_question or faq_question in normalized_query
-            ) else 0.0
-
-            overlap_score = 0.0
-            if query_tokens and faq_tokens:
-                overlap_score = len(query_tokens & faq_tokens) / len(query_tokens | faq_tokens)
-
-            score = max(contains_score, overlap_score)
-            if score > best_score:
-                best_score = score
-                best_faq = faq
-
+            for variation in query_variations:
+                # Simple keyword matching (keeping original logic for now)
+                normalized_variation = re.sub(r"\s+", " ", variation.lower()).strip()
+                normalized_faq = re.sub(r"\s+", " ", faq.question.lower()).strip()
+                
+                # Check for exact match or containment
+                if normalized_variation in normalized_faq or normalized_faq in normalized_variation:
+                    score = 1.0
+                else:
+                    # Token overlap
+                    var_tokens = set(re.findall(r"\w+", normalized_variation))
+                    faq_tokens = set(re.findall(r"\w+", normalized_faq))
+                    if var_tokens and faq_tokens:
+                        score = len(var_tokens & faq_tokens) / len(var_tokens | faq_tokens)
+                    else:
+                        score = 0.0
+                
+                if score > best_score:
+                    best_score = score
+                    best_faq = faq
+        
         if best_faq and best_score >= 0.35:
             best_faq.hits = (best_faq.hits or 0) + 1
-            db.commit()
+            self.db.commit()
             return best_faq
         return None
-
+    
     def generate_response(
         self,
         query: str,
         conversation_history: List[Message],
         accessible_role_ids: List[Optional[int]],
-        db: Session,
         response_style: str = "concise",
         requested_max_tokens: Optional[int] = None,
         show_sources: bool = True,
     ) -> dict:
-        """Generate RAG-based response"""
+        """Generate RAG-based response using new modular architecture"""
         start_time = time.time()
         
-        # 1. Check FAQs first
-        faq = self.check_faqs(query, db)
+        # 1. Process query
+        processed_query = self.query_processor.process_query(query)
+        query_to_use = processed_query['corrected']
+        
+        # 2. Check FAQs first
+        faq = self.check_faqs(query_to_use)
         if faq:
             return {
                 "response": f"{faq.answer}\n\n---\n*Câu trả lời từ FAQ chuẩn*",
                 "answer": faq.answer,
                 "sources": [{"source": "FAQ Hệ thống", "chunk_index": 0, "distance": 0.0}],
-                "citations": []
+                "citations": [],
+                "confidence": {"overall": 0.95, "source_coverage": 1.0, "level": "high"},
+                "query_processing": processed_query
             }
-
-        # 2. Search for relevant chunks
+        
+        # 3. Hybrid search
         try:
-            chunks = self.document_processor.search_similar(
-                query=query,
+            chunks = self.hybrid_retriever.search(
+                query=query_to_use,
                 accessible_role_ids=accessible_role_ids,
                 top_k=5,
                 max_distance=self.settings.rag_max_distance
             )
         except Exception as e:
-            print(f"Error in search_similar: {e}")
+            print(f"Error in hybrid search: {e}")
             raise
         
-        # Determine which provider to use for generation
+        # 4. Determine provider
         provider = self.faq_provider if self.faq_provider else self.llm_provider
-        print(f"[DEBUG RAG] Using provider: {type(provider).__name__ if provider else 'None'}")
-        print(f"[DEBUG RAG] faq_provider: {self.faq_provider is not None}, llm_provider: {self.llm_provider is not None}")
+        print(f"[DEBUG ResponseGenerator] Using provider: {type(provider).__name__}")
         
-        # Build prompts
+        # 5. Build prompts
         system_prompt = self.build_system_prompt(response_style)
         temperature, max_tokens = self._resolve_generation_profile(response_style, requested_max_tokens)
         
         if chunks:
-            # Rerank chunks based on keyword matching
-            chunks = self._rerank_chunks(query, chunks)
-            chunks = self._dedup_and_truncate_chunks(chunks)[:3]  # Keep only top 3 after cleanup
+            # Rerank and dedup chunks
+            chunks = self._rerank_chunks(query_to_use, chunks)
+            chunks = self._dedup_and_truncate_chunks(chunks)[:3]
             
-            context_prompt = self.build_context_prompt(query, chunks)
+            context_prompt = self.build_context_prompt(query_to_use, chunks)
         else:
-            context_prompt = f"Câu hỏi: {query}\n\nKhông tìm thấy tài liệu liên quan."
+            context_prompt = f"Câu hỏi: {query_to_use}\n\nKhông tìm thấy tài liệu liên quan."
         
         chat_history = self.format_chat_history(conversation_history)
         
@@ -300,47 +257,41 @@ CÂU HỎI: {query}
             full_prompt += f"{chat_history}\n\n"
         full_prompt += f"{context_prompt}\n\n"
         
-                
-        # Generate response with provider
+        # 6. Generate response
         try:
             llm_start = time.time()
-            print(f"[DEBUG RAG] Calling provider.generate() with max_tokens={max_tokens}, temperature={temperature}")
-            print(f"[DEBUG RAG] Prompt length: {len(full_prompt)} chars")
-            print(f"[DEBUG RAG] Provider type: {type(provider).__name__}")
             
-            # Timing cho client creation (for lazy loading providers)
-            client_start = time.time()
+            # Handle lazy loading providers
             if hasattr(provider, '_client') and provider._client is None:
-                print(f"[DEBUG RAG] Provider has no client, forcing lazy load...")
-                provider_client = provider.client  # Force lazy load
-                client_time = time.time() - client_start
-                print(f"[DEBUG RAG] Client creation time: {client_time:.3f}s")
-            else:
-                print(f"[DEBUG RAG] Provider client already loaded")
-                client_time = 0
+                provider_client = provider.client
+                client_time = time.time() - llm_start
+                print(f"[DEBUG ResponseGenerator] Client creation time: {client_time:.3f}s")
             
-            # Timing cho API call
-            api_start = time.time()
+            # Generate response
             response_text = provider.generate(
                 full_prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stop=["</s>", "Trả lời:", "Người dùng:", "Câu hỏi:"],
-                system_prompt=None  # Already included in full_prompt
+                system_prompt=None
             )
-            api_time = time.time() - api_start
-            print(f"[DEBUG RAG] API call time: {api_time:.3f}s")
             
-            total_llm_time = time.time() - llm_start
-            print(f"[DEBUG RAG] Total LLM time: {total_llm_time:.3f}s (client: {client_time:.3f}s, api: {api_time:.3f}s)")
-            print(f"[DEBUG RAG] Provider.generate() succeeded, response length: {len(response_text)} chars")
-            llm_time = total_llm_time
+            llm_time = time.time() - llm_start
+            print(f"[DEBUG ResponseGenerator] LLM generation time: {llm_time:.3f}s")
             
+            # Post-process response
             response_text = self._trim_redundant_sentences(response_text)
             response_text = self._remove_assistant_prefix(response_text)
             
-                        
-            # Prepare sources with citation format
+            # 7. Score confidence
+            confidence_scores = self.confidence_scorer.score_answer(
+                question=query,
+                answer=response_text,
+                sources=chunks,
+                query_terms=processed_query['key_terms']
+            )
+            
+            # 8. Prepare sources
             sources = []
             if chunks:
                 seen_sources = set()
@@ -354,48 +305,62 @@ CÂU HỎI: {query}
                             "distance": chunk['distance']
                         })
             
+            # 9. Format final response
+            final_response = response_text if not show_sources else self._attach_inline_sources(response_text, sources)
+            
+            total_time = time.time() - start_time
+            print(f"[DEBUG ResponseGenerator] Total generation time: {total_time:.3f}s")
+            
             return {
-                "response": response_text if not show_sources else self._attach_inline_sources(response_text, sources),
+                "response": final_response,
                 "answer": response_text,
                 "sources": sources,
-                "citations": sources
+                "citations": sources,
+                "confidence": confidence_scores,
+                "query_processing": processed_query,
+                "retrieval_stats": self.hybrid_retriever.get_search_stats(query_to_use, accessible_role_ids)
             }
             
         except Exception as e:
             import traceback
-            print(f"[ERROR RAG] Error generating response: {e}")
-            print(f"[ERROR RAG] Exception type: {type(e).__name__}")
-            print(f"[ERROR RAG] Exception args: {e.args}")
-            print(f"[ERROR RAG] Provider type: {type(provider).__name__ if provider else 'None'}")
-            print(f"[ERROR RAG] llm_provider type: {type(self.llm_provider).__name__ if self.llm_provider else 'None'}")
-            print(f"[ERROR RAG] faq_provider type: {type(self.faq_provider).__name__ if hasattr(self, 'faq_provider') and self.faq_provider else 'None'}")
-            print(f"[ERROR RAG] Traceback:\n{traceback.format_exc()}")
+            print(f"[ERROR ResponseGenerator] Error generating response: {e}")
+            print(f"[ERROR ResponseGenerator] Traceback:\n{traceback.format_exc()}")
             return {
                 "response": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
                 "answer": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
                 "sources": [],
-                "citations": []
+                "citations": [],
+                "confidence": {"overall": 0.0, "level": "very_low"},
+                "query_processing": processed_query,
+                "error": str(e)
             }
     
-        
     def _rerank_chunks(self, query: str, chunks: List[dict]) -> List[dict]:
-        """Rerank chunks based on keyword matching"""
+        """Rerank chunks based on keyword matching and other factors"""
         query_words = set(query.lower().split())
         
         for chunk in chunks:
             content_lower = chunk['content'].lower()
-            # Boost score if query words appear in chunk
+            
+            # Keyword matching boost
             word_matches = sum(1 for word in query_words if word in content_lower)
             chunk['rerank_score'] = chunk['distance'] - (word_matches * 0.05)
+            
+            # Boost chunks with structured content
+            if any(pattern in content_lower for pattern in [':', '-', '•', '1.', '2.', 'quy định', 'chính sách']):
+                chunk['rerank_score'] -= 0.1
+            
+            # Boost chunks with numbers/dates (often more specific)
+            if re.search(r'\d+', content_lower):
+                chunk['rerank_score'] -= 0.05
         
         return sorted(chunks, key=lambda x: x['rerank_score'])
-
+    
     def _attach_inline_sources(self, response_text: str, sources: List[dict]) -> str:
+        """Attach inline sources to response"""
         if not sources or not response_text:
             return response_text
         citation_text = "\n\n---\n**Nguồn:**"
         for i, source in enumerate(sources[:3], 1):
             citation_text += f"\n{i}. {source['source']} (Đoạn {source['chunk_index']})"
         return response_text + citation_text
-    
-    

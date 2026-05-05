@@ -74,7 +74,7 @@ export const documentsAPI = {
 };
 
 // Chat API
-export type ResponseStyle = 'concise' | 'normal' | 'detailed';
+export type ResponseStyle = 'concise' | 'normal' | 'detailed' | 'creative';
 
 export const chatAPI = {
   listConversations: () => api.get('/chat/conversations'),
@@ -92,7 +92,8 @@ export const chatAPI = {
       responseStyle?: ResponseStyle;
       maxTokens?: number;
       showSources?: boolean;
-    }
+    },
+    signal?: AbortSignal
   ) =>
     api.post('/chat/send', {
       message,
@@ -100,7 +101,7 @@ export const chatAPI = {
       response_style: options?.responseStyle ?? 'concise',
       max_tokens: options?.maxTokens,
       show_sources: options?.showSources ?? true,
-    }),
+    }, { signal }),
 };
 
 // Admin API

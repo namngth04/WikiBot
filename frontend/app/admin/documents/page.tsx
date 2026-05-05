@@ -7,6 +7,7 @@ import {
   Trash2, Edit2, Upload, X, Check, Search, RefreshCw, FileText, Filter, Save, Globe, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ModalPortal from '@/app/components/ui/ModalPortal';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -260,8 +261,9 @@ export default function DocumentsPage() {
       </div>
 
       {/* Slide-over Upload Modal */}
-      <AnimatePresence>
-        {showUploadModal && (
+      <ModalPortal>
+        <AnimatePresence>
+          {showUploadModal && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
@@ -287,7 +289,7 @@ export default function DocumentsPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleUpload} className="flex-1 p-6 space-y-5 overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleUpload} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
                 <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chọn tệp tin</label>
                   <div className="relative group">
@@ -327,7 +329,7 @@ export default function DocumentsPage() {
                 </div>
               </form>
 
-              <div className="p-6 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
+              <div className="p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
@@ -347,6 +349,7 @@ export default function DocumentsPage() {
           </>
         )}
       </AnimatePresence>
+      </ModalPortal>
     </div>
   );
 }

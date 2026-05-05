@@ -177,7 +177,7 @@ class TokenResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     conversation_id: Optional[int] = None
-    response_style: Literal["concise", "normal", "detailed"] = "concise"
+    response_style: Literal["concise", "normal", "detailed", "creative"] = "concise"
     max_tokens: Optional[int] = Field(None, ge=64, le=512)
     show_sources: bool = True
 
@@ -262,7 +262,7 @@ class AISafetyConfigSchema(BaseModel):
     max_context_length: int = Field(default=8192, ge=1024, le=32768)
     max_tokens_limit: int = Field(default=2048, ge=128, le=4096)
     default_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
-    default_response_style: str = Field(default="concise")
+    default_response_style: str = Field(default="concise", pattern="^(concise|normal|detailed|creative)$")
 
 
 class AIProviderConfigSchema(BaseModel):
@@ -316,7 +316,7 @@ class AIProviderConfigResponse(BaseModel):
 class UserAISettingsSchema(BaseModel):
     """User AI preferences"""
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
-    response_style: str = Field(default="concise", pattern="^(concise|normal|detailed)$")
+    response_style: str = Field(default="concise", pattern="^(concise|normal|detailed|creative)$")
     show_sources: bool = True
     preferred_max_tokens: int = Field(default=512, ge=64, le=2048)
 

@@ -11,7 +11,7 @@ from app.schemas.schemas import (
 )
 from app.routers.auth import get_current_user
 from app.routers.documents import get_accessible_role_ids
-from app.services.rag_service import RAGService
+from app.services.response_generator import ResponseGenerator
 from app.models.models import UserAISettings, AISafetyConfig
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -266,16 +266,19 @@ def send_message(
     
     # Generate RAG response
     try:
-        rag_service = RAGService(db=db)  # Pass db for provider config
-        response_data = rag_service.generate_response(
+        response_generator = ResponseGenerator(db=db)
+        response_data = response_generator.generate_response(
             query=request.message,
             conversation_history=history,
             accessible_role_ids=accessible_role_ids,
-            db=db,
             response_style=final_response_style,
             requested_max_tokens=final_max_tokens,
             show_sources=final_show_sources
         )
+        
+        # Validate response data
+        if not response_data or "response" not in response_data:
+            raise ValueError("Invalid response data from RAG service")
         
         # Save assistant message
         assistant_message = Message(
@@ -293,18 +296,39 @@ def send_message(
         ).first().created_at
         db.commit()
         
+        # Validate required IDs before returning
+        if not user_message_id or not assistant_message_id:
+            raise ValueError("Failed to generate message IDs")
+        
         return {
+            "success": True,
             "response": response_data["response"],
             "answer": response_data.get("answer", response_data["response"]),
             "conversation_id": conversation.id,
             "sources": response_data.get("sources", []),
             "citations": response_data.get("citations", response_data.get("sources", [])),
+            "confidence": response_data.get("confidence", {"overall": 0.5, "level": "medium"}),
+            "query_processing": response_data.get("query_processing", {}),
+            "retrieval_stats": response_data.get("retrieval_stats", {}),
             "user_message_id": user_message_id,
             "assistant_message_id": assistant_message_id
         }
         
     except Exception as e:
+        # Rollback any database changes
+        db.rollback()
+        
+        # Log the error for debugging
+        import logging
+        logging.error(f"Error in send_message: {str(e)}", exc_info=True)
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Lỗi khi tạo phản hồi: {str(e)}"
+            detail={
+                "success": False,
+                "error": f"Lỗi khi tạo phản hồi: {str(e)}",
+                "user_message_id": None,
+                "assistant_message_id": None,
+                "response": None
+            }
         )

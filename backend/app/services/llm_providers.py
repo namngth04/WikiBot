@@ -168,6 +168,9 @@ class OpenAICompatibleProvider(BaseLLMProvider):
     def client(self):
         """Lazy load OpenAI client"""
         if self._client is None:
+            print(f"[DEBUG OpenAICompatible] Creating new OpenAI client...")
+            client_start = time.time()
+            
             # For Ollama and other local providers, use empty string if api_key is None
             api_key = self.api_key or ""
             
@@ -175,6 +178,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # OpenAI client's default timeout is too short for local LLM inference
             import httpx
             timeout_value = self._kwargs.get('timeout', 30)
+            print(f"[DEBUG OpenAICompatible] Using timeout: {timeout_value}s")
+            
             # Use a single timeout value for all operations to ensure consistency
             httpx_timeout = httpx.Timeout(timeout_value, connect=timeout_value)
             http_client = httpx.Client(timeout=httpx_timeout)
@@ -182,21 +187,37 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # Filter out timeout from kwargs since we're passing it via http_client
             other_kwargs = {k: v for k, v in self._kwargs.items() if k != 'timeout'}
             
+            openai_start = time.time()
             self._client = OpenAI(
                 base_url=self.base_url,
                 api_key=api_key,
                 http_client=http_client,
                 **other_kwargs
             )
+            openai_time = time.time() - openai_start
+            total_time = time.time() - client_start
+            print(f"[DEBUG OpenAICompatible] OpenAI client created in {total_time:.3f}s (OpenAI init: {openai_time:.3f}s)")
+            print(f"[DEBUG OpenAICompatible] Base URL: {self.base_url}")
+            print(f"[DEBUG OpenAICompatible] Model: {self.model}")
+        else:
+            print(f"[DEBUG OpenAICompatible] Using existing OpenAI client")
+        
         return self._client
     
     def generate(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
                  system_prompt: Optional[str] = None, **kwargs) -> str:
         """Generate with OpenAI-compatible API"""
+        print(f"[DEBUG OpenAICompatible] generate() called with model: {self.model}")
+        print(f"[DEBUG OpenAICompatible] Temperature: {temperature}, Max tokens: {max_tokens}")
+        print(f"[DEBUG OpenAICompatible] Prompt length: {len(prompt)} chars")
+        
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
+        
+        print(f"[DEBUG OpenAICompatible] Making API call to {self.base_url}")
+        api_start = time.time()
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -204,7 +225,15 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             temperature=temperature,
             max_tokens=max_tokens
         )
-        return response.choices[0].message.content.strip()
+        
+        api_time = time.time() - api_start
+        response_text = response.choices[0].message.content.strip()
+        
+        print(f"[DEBUG OpenAICompatible] API call completed in {api_time:.3f}s")
+        print(f"[DEBUG OpenAICompatible] Response length: {len(response_text)} chars")
+        print(f"[DEBUG OpenAICompatible] Response model used: {response.model}")
+        
+        return response_text
     
     def test_connection(self) -> Dict[str, Any]:
         """Test API connection"""

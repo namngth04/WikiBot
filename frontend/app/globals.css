@@ -55,7 +55,7 @@
   transform: translate(-50%, -50%) !important;
   z-index: 1000 !important;
   max-width: 90vw !important;
-  max-height: 85vh !important;
+  max-height: 95vh !important;
   overflow: hidden !important;
   background: white !important;
   border-radius: 1rem !important;
@@ -64,6 +64,19 @@
   flex-direction: column !important;
   padding: 1.5rem !important;
   border: 1px solid rgb(229 231 235 / 0.1) !important;
+}
+
+/* Responsive modal sizes */
+@media (min-width: 768px) {
+  .modal-content {
+    max-width: 800px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .modal-content {
+    max-width: 900px !important;
+  }
 }
 
 /* Chat message styles */

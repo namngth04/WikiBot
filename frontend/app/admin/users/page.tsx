@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Edit2, X, Users, Search, Filter, Save, Mail, Building2, Phone, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ModalPortal from '@/app/components/ui/ModalPortal';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -256,24 +257,25 @@ export default function UsersPage() {
       </div>
 
       {/* Slide-over User Modal */}
-      <AnimatePresence>
-        {showUserModal && (
+      <ModalPortal>
+        <AnimatePresence>
+          {showUserModal && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowUserModal(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+              className="modal-backdrop"
             />
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-xl bg-white shadow-2xl z-[60] flex flex-col"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="modal-content"
             >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white rounded-t-3xl">
                 <div>
                   <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
                     {editingUser ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
@@ -285,7 +287,7 @@ export default function UsersPage() {
                 </button>
               </div>
 
-              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên đăng nhập *</label>
@@ -294,7 +296,7 @@ export default function UsersPage() {
                       required
                       value={userForm.username}
                       onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                   <div className="space-y-2">
@@ -303,7 +305,7 @@ export default function UsersPage() {
                       type="text"
                       value={userForm.full_name}
                       onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
-                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                 </div>
@@ -314,7 +316,7 @@ export default function UsersPage() {
                     type="email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     placeholder="example@company.com"
                   />
                 </div>
@@ -326,7 +328,7 @@ export default function UsersPage() {
                       type="text"
                       value={userForm.phone}
                       onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                   <div className="space-y-2">
@@ -335,7 +337,7 @@ export default function UsersPage() {
                       type="text"
                       value={userForm.department}
                       onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
-                      className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                 </div>
@@ -349,7 +351,7 @@ export default function UsersPage() {
                     required={!editingUser}
                     value={userForm.password}
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
                 </div>
 
@@ -368,7 +370,7 @@ export default function UsersPage() {
                 </div>
               </form>
 
-              <div className="p-8 border-t border-slate-100 flex items-center gap-3">
+              <div className="p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowUserModal(false)}
@@ -388,6 +390,7 @@ export default function UsersPage() {
           </>
         )}
       </AnimatePresence>
+      </ModalPortal>
     </div>
   );
 }

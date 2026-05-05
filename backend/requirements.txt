@@ -19,3 +19,4 @@ python-dotenv==1.0.0
 openai==1.30.0
 httpx>=0.25.0,<0.28.0
 cryptography==42.0.5
+scikit-learn==1.4.0

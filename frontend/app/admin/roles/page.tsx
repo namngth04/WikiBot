@@ -7,6 +7,7 @@ import {
   Plus, Trash2, Edit2, X, Shield, Filter, Save, Info, Award, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ModalPortal from '@/app/components/ui/ModalPortal';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -198,24 +199,25 @@ export default function RolesPage() {
       </div>
 
       {/* Slide-over Role Modal */}
-      <AnimatePresence>
-        {showRoleModal && (
+      <ModalPortal>
+        <AnimatePresence>
+          {showRoleModal && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowRoleModal(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50"
+              className="modal-backdrop"
             />
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[60] flex flex-col"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="modal-content"
             >
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white rounded-t-3xl">
                 <div>
                   <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
                     {editingRole ? 'Sửa Chức vụ' : 'Thêm Chức vụ'}
@@ -227,7 +229,7 @@ export default function RolesPage() {
                 </button>
               </div>
 
-              <form onSubmit={editingRole ? handleUpdateRole : handleCreateRole} className="flex-1 p-8 space-y-6">
+              <form onSubmit={editingRole ? handleUpdateRole : handleCreateRole} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên chức vụ *</label>
                   <input
@@ -235,7 +237,7 @@ export default function RolesPage() {
                     required
                     value={roleForm.name}
                     onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     placeholder="VD: Trưởng phòng"
                   />
                 </div>
@@ -259,7 +261,7 @@ export default function RolesPage() {
                     required
                     value={roleForm.level || 1}
                     onChange={(e) => setRoleForm({ ...roleForm, level: parseInt(e.target.value) || 1 })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
                   <div className="flex items-start gap-2 p-4 bg-amber-50 rounded-2xl mt-2">
                     <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
@@ -270,7 +272,7 @@ export default function RolesPage() {
                 </div>
               </form>
 
-              <div className="p-8 border-t border-slate-100 flex items-center gap-3">
+              <div className="p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowRoleModal(false)}
@@ -290,6 +292,7 @@ export default function RolesPage() {
           </>
         )}
       </AnimatePresence>
+      </ModalPortal>
     </div>
   );
 }
