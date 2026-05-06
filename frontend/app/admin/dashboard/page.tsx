@@ -109,7 +109,7 @@ export default function DashboardPage() {
           { label: 'Người dùng', value: stats?.total_users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', trend: formatTrend(stats?.user_trend) },
           { label: 'Tổng tin nhắn', value: stats?.total_messages, icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50', trend: formatTrend(stats?.message_trend) },
           { label: 'Tài liệu', value: stats?.total_documents, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: formatTrend(stats?.document_trend) },
-          { label: 'Đánh giá TB', value: `${stats?.avg_rating}/1`, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', trend: formatTrend(stats?.rating_trend) },
+          { label: 'Tỷ lệ hài lòng', value: `${stats?.satisfaction_rate}%`, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', trend: formatTrend(stats?.rating_trend) },
         ].map((item, idx) => (
           <motion.div 
             key={idx}

@@ -36,13 +36,13 @@ def get_dashboard_stats(
     total_messages = db.query(Message).count()
     total_documents = db.query(Document).count()
     
-    # Calculate avg rating
-    avg_rating_query = db.query(func.avg(Message.rating)).filter(Message.rating.isnot(None)).scalar()
-    avg_rating = float(avg_rating_query) if avg_rating_query else 0.0
-    
-    # Feedback ratio
+    # Calculate satisfaction rate
     likes = db.query(Message).filter(Message.rating == 1).count()
     dislikes = db.query(Message).filter(Message.rating == -1).count()
+    total_rated = likes + dislikes
+    satisfaction_rate = (likes / total_rated * 100) if total_rated > 0 else 0.0
+    
+    # Feedback ratio
     no_rating = db.query(Message).filter(Message.role == "assistant", Message.rating.is_(None)).count()
     
     # Tính toán trend so với ngày hôm qua
@@ -72,23 +72,37 @@ def get_dashboard_stats(
     ).count()
     document_trend = round((documents_today - documents_yesterday) / documents_yesterday * 100, 1) if documents_yesterday > 0 else None
     
-    # Rating trend: đánh giá TB hôm nay so với hôm qua
-    avg_rating_today = db.query(func.avg(Message.rating)).filter(
-        Message.rating.isnot(None),
-        Message.created_at >= yesterday
-    ).scalar()
-    avg_rating_yesterday = db.query(func.avg(Message.rating)).filter(
-        Message.rating.isnot(None),
+    # Rating trend: tỷ lệ hài lòng hôm nay so với hôm qua
+    likes_today = db.query(Message).filter(Message.rating == 1, Message.created_at >= yesterday).count()
+    dislikes_today = db.query(Message).filter(Message.rating == -1, Message.created_at >= yesterday).count()
+    total_rated_today = likes_today + dislikes_today
+    satisfaction_rate_today = (likes_today / total_rated_today * 100) if total_rated_today > 0 else 0.0
+    
+    likes_yesterday = db.query(Message).filter(
+        Message.rating == 1,
         Message.created_at >= yesterday - timedelta(days=1),
         Message.created_at < yesterday
-    ).scalar()
-    rating_trend = round((float(avg_rating_today) - float(avg_rating_yesterday)) / float(avg_rating_yesterday) * 100, 1) if avg_rating_yesterday else None
+    ).count()
+    dislikes_yesterday = db.query(Message).filter(
+        Message.rating == -1,
+        Message.created_at >= yesterday - timedelta(days=1),
+        Message.created_at < yesterday
+    ).count()
+    total_rated_yesterday = likes_yesterday + dislikes_yesterday
+    satisfaction_rate_yesterday = (likes_yesterday / total_rated_yesterday * 100) if total_rated_yesterday > 0 else 0.0
+    
+    rating_trend = round((satisfaction_rate_today - satisfaction_rate_yesterday) / satisfaction_rate_yesterday * 100, 1) if satisfaction_rate_yesterday > 0 else None
     
     return {
         "total_users": total_users,
         "total_messages": total_messages,
         "total_documents": total_documents,
-        "avg_rating": round(avg_rating, 2),
+        "satisfaction_rate": round(satisfaction_rate, 1),
+        "rating_details": {
+            "likes": likes,
+            "dislikes": dislikes,
+            "total_rated": total_rated
+        },
         "feedback_ratio": {
             "like": likes,
             "dislike": dislikes,

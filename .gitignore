@@ -56,3 +56,7 @@ wheels/
 .installed.cfg
 *.egg
 
+# Alembic (Database migrations)
+backend/alembic/versions/*.py
+!backend/alembic/versions/__init__.py
+backend/alembic/__pycache__/

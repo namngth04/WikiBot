@@ -241,6 +241,254 @@ def clear_data_directory():
         print(f"⚠️  Error processing data directory: {e}")
 
 
+def clear_alembic_versions():
+    """Xóa toàn bộ alembic version files để chuẩn bị tạo mới"""
+    print("Clearing Alembic version files...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    alembic_versions_path = os.path.join(backend_dir, "alembic", "versions")
+    
+    try:
+        if os.path.exists(alembic_versions_path):
+            removed_files = []
+            for file_name in os.listdir(alembic_versions_path):
+                if file_name.endswith(".py") and not file_name.startswith("__"):
+                    file_path = os.path.join(alembic_versions_path, file_name)
+                    try:
+                        os.remove(file_path)
+                        removed_files.append(file_name)
+                    except Exception as e:
+                        print(f"⚠️  Could not remove alembic file {file_path}: {e}")
+            
+            if removed_files:
+                print(f"✅ Removed {len(removed_files)} alembic version files:")
+                for file_name in removed_files:
+                    print(f"  - {file_name}")
+            else:
+                print("No alembic version files found to remove")
+        else:
+            print("Alembic versions directory does not exist, skipping")
+    except Exception as e:
+        print(f"⚠️  Error clearing alembic versions: {e}")
+
+
+def create_fresh_migration():
+    """Tạo alembic migration mới từ current database schema"""
+    print("Creating fresh alembic migration...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    try:
+        # Close all database connections before migration
+        engine.dispose()
+        
+        # Delete alembic_version table if exists
+        print("Removing alembic_version table...")
+        db = SessionLocal()
+        try:
+            from sqlalchemy import text
+            db.execute(text("DROP TABLE IF EXISTS alembic_version"))
+            db.commit()
+            print("✅ Removed alembic_version table")
+        except Exception as e:
+            print(f"⚠️  Could not remove alembic_version table: {e}")
+            db.rollback()
+        finally:
+            db.close()
+        
+        # Create new migration
+        print("Generating new migration...")
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "revision", "--autogenerate", "-m", "Initial migration"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=DEFAULT_TIMEOUT
+        )
+        
+        if result.returncode == 0:
+            print("✅ Successfully created new migration")
+            if result.stdout:
+                print(f"Migration output: {result.stdout}")
+            
+            # Verify migration file was created
+            alembic_versions_path = os.path.join(backend_dir, "alembic", "versions")
+            migration_files = [f for f in os.listdir(alembic_versions_path) 
+                             if f.endswith(".py") and not f.startswith("__")]
+            
+            if migration_files:
+                print(f"✅ Migration file created: {migration_files[0]}")
+                return True
+            else:
+                print("⚠️  Migration file not found after creation")
+                return False
+        else:
+            print(f"⚠️  Migration creation failed with return code: {result.returncode}")
+            if result.stderr:
+                print(f"Error output: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print(f"⚠️  Migration creation timed out after {DEFAULT_TIMEOUT} seconds")
+        return False
+    except Exception as e:
+        print(f"⚠️  Error creating fresh migration: {e}")
+        return False
+
+
+def apply_fresh_migration():
+    """Apply migration vừa tạo"""
+    print("Applying fresh migration...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    try:
+        # Close all database connections before migration
+        engine.dispose()
+        
+        # Apply migration
+        print("Running alembic upgrade head...")
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+            timeout=DEFAULT_TIMEOUT
+        )
+        
+        if result.returncode == 0:
+            print("✅ Successfully applied fresh migration")
+            if result.stdout:
+                print(f"Migration output: {result.stdout}")
+            
+            # Verify tables were created
+            print("Verifying database tables after migration...")
+            time.sleep(DEFAULT_SLEEP_TIME)
+            
+            inspector = inspect(engine)
+            tables = inspector.get_table_names()
+            print(f"Tables found after migration: {tables}")
+            
+            if tables and "roles" in tables:
+                print("✅ All required tables are present after migration")
+                return True
+            else:
+                print("⚠️  Some tables might be missing after migration")
+                return False
+        else:
+            print(f"⚠️  Migration application failed with return code: {result.returncode}")
+            if result.stderr:
+                print(f"Error output: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print(f"⚠️  Migration application timed out after {DEFAULT_TIMEOUT} seconds")
+        return False
+    except Exception as e:
+        print(f"⚠️  Error applying fresh migration: {e}")
+        return False
+
+
+def clear_application_logs():
+    """Clear application log files"""
+    print("Clearing application logs...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Common log file patterns
+    log_patterns = [
+        "*.log",
+        "*.log.*",
+        "app.log",
+        "error.log",
+        "debug.log"
+    ]
+    
+    cleared_files = []
+    for pattern in log_patterns:
+        for log_file in Path(backend_dir).glob(pattern):
+            try:
+                if log_file.is_file():
+                    log_file.unlink()
+                    cleared_files.append(str(log_file))
+                    print(f"  Removed log file: {log_file.name}")
+            except Exception as e:
+                print(f"  ⚠️  Could not remove log file {log_file}: {e}")
+    
+    if cleared_files:
+        print(f"✅ Cleared {len(cleared_files)} log files")
+    else:
+        print("No log files found to clear")
+
+
+def clear_temp_files():
+    """Clear temporary files and directories"""
+    print("Clearing temporary files...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Common temp directories and files
+    temp_patterns = [
+        "tmp",
+        "temp", 
+        "*.tmp",
+        "*.temp",
+        "*.swp",  # Vim swap files
+        "*.swo",  # Vim swap files
+        ".DS_Store",  # macOS
+        "Thumbs.db"  # Windows thumbs
+    ]
+    
+    cleared_items = []
+    for pattern in temp_patterns:
+        for temp_item in Path(backend_dir).glob(pattern):
+            try:
+                if temp_item.is_file():
+                    temp_item.unlink()
+                    cleared_items.append(f"file: {temp_item.name}")
+                elif temp_item.is_dir():
+                    shutil.rmtree(temp_item)
+                    cleared_items.append(f"dir: {temp_item.name}")
+                    print(f"  Removed temp directory: {temp_item.name}")
+            except Exception as e:
+                print(f"  ⚠️  Could not remove temp item {temp_item}: {e}")
+    
+    if cleared_items:
+        print(f"✅ Cleared {len(cleared_items)} temporary items")
+    else:
+        print("No temporary files found to clear")
+
+
+def clear_session_data():
+    """Clear session and cache data"""
+    print("Clearing session data...")
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Session/cache directories to clear
+    session_dirs = [
+        ".pytest_cache",
+        "__pycache__",
+        "*.egg-info"
+    ]
+    
+    cleared_dirs = []
+    for pattern in session_dirs:
+        for session_dir in Path(backend_dir).rglob(pattern):
+            if session_dir.is_dir() and "venv" not in str(session_dir):
+                try:
+                    shutil.rmtree(session_dir)
+                    cleared_dirs.append(str(session_dir))
+                    print(f"  Removed session directory: {session_dir.name}")
+                except Exception as e:
+                    print(f"  ⚠️  Could not remove session dir {session_dir}: {e}")
+    
+    if cleared_dirs:
+        print(f"✅ Cleared {len(cleared_dirs)} session directories")
+    else:
+        print("No session directories found to clear")
+
+
 def clear_existing_data():
     """Clear existing data for fresh initialization"""
     print("Clearing existing data...")
@@ -256,6 +504,12 @@ def clear_existing_data():
     clear_chroma_db()
     clear_python_cache()
     clear_data_directory()
+    clear_alembic_versions()
+    
+    # Additional comprehensive cleanup
+    clear_application_logs()
+    clear_temp_files()
+    clear_session_data()
 
 
 def init_default_data():
@@ -429,14 +683,39 @@ if __name__ == "__main__":
     
     # Clear data if requested
     if args.clear:
+        print("\n=== CLEAR MODE: Resetting everything ===")
         clear_existing_data()
-        # After clearing, run alembic to recreate tables
+        
+        # Create database tables first using alembic
+        print("\n=== STEP 1: Creating database schema ===")
         run_alembic_migration()
-        # Wait a moment for database to be ready
-        import time
-        time.sleep(1)
+        
+        # Create default data
+        print("\n=== STEP 2: Creating default data ===")
+        init_default_data()
+        
+        # Create fresh alembic migration from current schema
+        print("\n=== STEP 3: Creating fresh alembic migration ===")
+        migration_success = create_fresh_migration()
+        
+        if migration_success:
+            # Apply fresh migration
+            print("\n=== STEP 4: Applying fresh migration ===")
+            apply_success = apply_fresh_migration()
+            
+            if apply_success:
+                print("\n✅ SUCCESS: Database has been reset with fresh alembic migration!")
+                print("The alembic migration now matches the current database schema.")
+            else:
+                print("\n⚠️  WARNING: Migration application failed.")
+                print("Database schema was created but alembic migration may not be in sync.")
+        else:
+            print("\n⚠️  WARNING: Migration creation failed.")
+            print("Database schema was created but no alembic migration was generated.")
     else:
-        # Check if database is empty (no roles) - if so, run alembic
+        # Normal mode: check if database needs initialization
+        print("\n=== NORMAL MODE: Checking database state ===")
+        
         db = SessionLocal()
         try:
             # Check if any tables exist
@@ -464,5 +743,7 @@ if __name__ == "__main__":
                 db.close()
             except:
                 pass
-    
-    init_default_data()
+        
+        # Initialize default data
+        print("\n=== Initializing default data ===")
+        init_default_data()

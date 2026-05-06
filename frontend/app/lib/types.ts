@@ -60,7 +60,12 @@ export interface DashboardStats {
   total_users: number;
   total_messages: number;
   total_documents: number;
-  avg_rating: number;
+  satisfaction_rate: number;
+  rating_details: {
+    likes: number;
+    dislikes: number;
+    total_rated: number;
+  };
   feedback_ratio: {
     like: number;
     dislike: number;
