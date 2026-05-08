@@ -823,9 +823,9 @@ def initialize_default_config(ai_type: str, db_session=None):
             return config
         
         # Create default config based on AI type
-        if ai_type == "rag":
+        if ai_type == "chat":
             config = AIProviderConfig(
-                ai_type="rag",
+                ai_type="chat",
                 provider="local",
                 local_model_path=settings.model_path,
                 local_context_length=settings.model_context_length,

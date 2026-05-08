@@ -9,7 +9,7 @@ export interface AISafetyConfig {
 }
 
 export interface AIProviderConfig {
-  ai_type: 'rag' | 'embedding' | 'faq';
+  ai_type: 'chat' | 'embedding' | 'faq';
   provider: 'local' | 'openrouter' | 'ollama';
   local_model_path?: string;
   local_context_length?: number;
@@ -40,6 +40,8 @@ export const adminAIAPI = {
     api.put(`/admin/ai-config/${aiType}`, data),
   testConnection: (aiType: string, data: any) => 
     api.post(`/admin/ai-config/${aiType}/test`, data),
+  testConnectionAuto: (aiType: string) => 
+    api.get(`/admin/ai-config/${aiType}/test-connection`),
   getAvailableModels: (provider: string, modelType?: string) => 
     api.get(`/admin/ai-config/models/${provider}${modelType ? `?model_type=${modelType}` : ''}`),
 };

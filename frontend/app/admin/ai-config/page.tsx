@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Server, Key, Brain, Layers, Shield,
-  CheckCircle, AlertCircle, Save, TestTube
+  CheckCircle, AlertCircle, Save, TestTube, Eye, MessageCircle
 } from 'lucide-react';
 import { adminAIAPI } from '@/app/lib/ai-config-api';
 
 export default function AdminAIConfigPage() {
-  const [activeTab, setActiveTab] = useState<'safety' | 'rag' | 'embedding' | 'faq'>('safety');
+  const [activeTab, setActiveTab] = useState<'safety' | 'rag' | 'embedding' | 'overview'>('safety');
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -54,18 +54,6 @@ export default function AdminAIConfigPage() {
     timeout: 30
   });
 
-  const [faqConfig, setFaqConfig] = useState({
-    use_rag_provider: true,
-    provider: 'local',
-    api_base_url: '',
-    api_key: '',
-    api_model: '',
-    use_custom_model: false,
-    custom_api_model: '',
-    default_temperature: 0.2,
-    default_max_tokens: 256,
-    timeout: 30
-  });
 
   const [availableModels, setAvailableModels] = useState<any[]>([]);
 
@@ -82,7 +70,6 @@ export default function AdminAIConfigPage() {
       providers.data.forEach((p: any) => {
         if (p.ai_type === 'rag') setRagConfig(p);
         if (p.ai_type === 'embedding') setEmbeddingConfig(p);
-        if (p.ai_type === 'faq') setFaqConfig(p);
       });
     } catch (err) {
       console.error('Failed to load configs:', err);
@@ -160,22 +147,110 @@ export default function AdminAIConfigPage() {
     setAvailableModels(result.data.models || []);
   };
 
+  // Overview Tab Component
+  const OverviewTab = () => {
+    const getConfigDisplay = (config: any, aiType: string) => {
+      if (!config) return { status: 'Chưa cấu hình', provider: '-', model: '-' };
+      
+      let providerDisplay = config.provider;
+      let modelDisplay = '-';
+      
+      if (config.provider === 'local') {
+        modelDisplay = config.local_model_path?.split('/').pop() || '-';
+      } else {
+        modelDisplay = config.use_custom_model ? config.custom_api_model : config.api_model;
+      }
+      
+      return {
+        status: config.api_key || config.local_model_path ? 'Đã cấu hình' : 'Chưa cấu hình',
+        provider: providerDisplay,
+        model: modelDisplay
+      };
+    };
+    
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* RAG Config Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <Brain className="w-6 h-6 text-blue-500 mr-2" />
+            <h3 className="text-lg font-semibold">Chat AI</h3>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-gray-500">Provider:</span>
+              <p className="font-medium">{getConfigDisplay(ragConfig, 'rag').provider}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Model:</span>
+              <p className="font-medium">{getConfigDisplay(ragConfig, 'rag').model}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Trạng thái:</span>
+              <p className={`font-medium ${
+                getConfigDisplay(ragConfig, 'rag').status === 'Đã cấu hình' 
+                  ? 'text-green-600' 
+                  : 'text-orange-600'
+              }`}>
+                {getConfigDisplay(ragConfig, 'rag').status}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Embedding Config Card */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center mb-4">
+            <Layers className="w-6 h-6 text-green-500 mr-2" />
+            <h3 className="text-lg font-semibold">Embedding</h3>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-gray-500">Provider:</span>
+              <p className="font-medium">{getConfigDisplay(embeddingConfig, 'embedding').provider}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Model:</span>
+              <p className="font-medium">
+                {embeddingConfig.provider === 'local' 
+                  ? embeddingConfig.embedding_model_name || '-'
+                  : getConfigDisplay(embeddingConfig, 'embedding').model
+                }
+              </p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Trạng thái:</span>
+              <p className={`font-medium ${
+                getConfigDisplay(embeddingConfig, 'embedding').status === 'Đã cấu hình' 
+                  ? 'text-green-600' 
+                  : 'text-orange-600'
+              }`}>
+                {getConfigDisplay(embeddingConfig, 'embedding').status}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Cấu hình AI Hệ thống</h1>
-          <p className="text-slate-500">Quản lý model, provider và giới hạn cho RAG, Embedding, FAQ</p>
+          <p className="text-slate-500">Quản lý model, provider và giới hạn cho Chat, Embedding</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200">
         {[
+          { id: 'overview', label: 'Tổng quan', icon: Eye },
           { id: 'safety', label: 'Giới hạn an toàn', icon: Shield },
-          { id: 'rag', label: 'RAG/Chat AI', icon: Brain },
+          { id: 'rag', label: 'Chat AI', icon: Brain },
           { id: 'embedding', label: 'Embedding AI', icon: Layers },
-          { id: 'faq', label: 'FAQ AI', icon: Key },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -190,6 +265,17 @@ export default function AdminAIConfigPage() {
           </button>
         ))}
       </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <OverviewTab />
+        </motion.div>
+      )}
 
       {/* Safety Tab */}
       {activeTab === 'safety' && (
@@ -273,7 +359,7 @@ export default function AdminAIConfigPage() {
         >
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <Brain className="text-primary-600" />
-            Cấu hình RAG/Chat AI
+            Cấu hình Chat AI
           </h2>
 
           <div className="space-y-6">
@@ -540,148 +626,6 @@ export default function AdminAIConfigPage() {
         </motion.div>
       )}
 
-      {/* FAQ Tab */}
-      {activeTab === 'faq' && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200"
-        >
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Key className="text-primary-600" />
-            Cấu hình FAQ AI
-          </h2>
-
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
-              <input
-                type="checkbox"
-                id="useRagProvider"
-                checked={faqConfig.use_rag_provider}
-                onChange={(e) => setFaqConfig({ ...faqConfig, use_rag_provider: e.target.checked })}
-                className="w-5 h-5"
-              />
-              <label htmlFor="useRagProvider" className="font-medium text-slate-700">
-                Dùng chung provider với RAG/Chat AI
-              </label>
-              <span className="text-xs text-slate-400 ml-2">(Khuyến nghị)</span>
-            </div>
-
-            {!faqConfig.use_rag_provider && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Provider</label>
-                  <div className="flex gap-2">
-                    {['local', 'openrouter', 'ollama'].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => {
-                          // Auto-fill base URL when switching providers
-                          const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS];
-                          const shouldAutoFill = !faqConfig.api_base_url || 
-                            faqConfig.api_base_url === DEFAULT_BASE_URLS[faqConfig.provider as keyof typeof DEFAULT_BASE_URLS];
-                          
-                          setFaqConfig({ 
-                            ...faqConfig, 
-                            provider: p,
-                            ...(shouldAutoFill && newBaseUrl ? { api_base_url: newBaseUrl } : {})
-                          });
-                          if (p !== 'local') {
-                        loadModels(p);
-                      }
-                        }}
-                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${faqConfig.provider === p
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                      >
-                        {p === 'local' ? 'Local GGUF' : p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">API Key</label>
-                  <input
-                    type="password"
-                    value={faqConfig.api_key || ''}
-                    onChange={(e) => setFaqConfig({ ...faqConfig, api_key: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-600">Model Selection</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="faqModelType"
-                        checked={!faqConfig.use_custom_model}
-                        onChange={() => setFaqConfig({ ...faqConfig, use_custom_model: false })}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Chọn từ danh sách</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="faqModelType"
-                        checked={faqConfig.use_custom_model}
-                        onChange={() => setFaqConfig({ ...faqConfig, use_custom_model: true })}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Nhập model ID tùy chỉnh</span>
-                    </label>
-                  </div>
-
-                  {!faqConfig.use_custom_model ? (
-                    <select
-                      value={faqConfig.api_model || ''}
-                      onChange={(e) => setFaqConfig({ ...faqConfig, api_model: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="">Chọn model...</option>
-                      {availableModels.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name} - {m.description}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={faqConfig.custom_api_model || ''}
-                      onChange={(e) => setFaqConfig({ ...faqConfig, custom_api_model: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Nhập model ID (vd: openai/gpt-4o-mini, google/gemini-1.5-flash)"
-                    />
-                  )}
-                  <p className="text-xs text-slate-400">Nên dùng model nhẹ, nhanh cho phân loại FAQ</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-6 flex gap-3 justify-end">
-            <button
-              onClick={() => handleTestConnection('faq', faqConfig)}
-              disabled={testingConnection}
-              className="flex items-center gap-2 bg-slate-100 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-200 disabled:opacity-50"
-            >
-              <TestTube size={18} />
-              {testingConnection ? 'Testing...' : 'Test Connection'}
-            </button>
-            <button
-              onClick={() => handleSaveProvider('faq', faqConfig)}
-              disabled={loading}
-              className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
-            >
-              <Save size={18} />
-              {loading ? 'Đang lưu...' : 'Lưu cấu hình'}
-            </button>
-          </div>
-        </motion.div>
-      )}
 
       {/* Toast Message - Fixed at bottom, always visible */}
       {message && (

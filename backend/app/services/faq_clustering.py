@@ -4,7 +4,7 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
 from app.models.models import Message, FAQ
-from app.services.rag_service import RAGService
+from app.services.response_generator import ResponseGenerator
 
 
 def normalize_vietnamese_text(text: str) -> str:
@@ -100,7 +100,7 @@ def cluster_similar_questions_with_ai(db: Session, limit: int = 10) -> List[Dict
         # Nếu có nhiều câu hỏi, dùng AI để phân loại phức tạp hơn
         if len(question_groups) > 5:
             try:
-                rag_service = RAGService()
+                response_generator = ResponseGenerator(db=db)
                 questions_text = "\n".join([f"- {q}" for q in question_groups.keys()])
                 
                 prompt = f"""Phân tích các câu hỏi sau và nhóm những câu hỏi có cùng ý nghĩa:
@@ -122,7 +122,7 @@ JSON format:
   ]
 }}"""
                 
-                response_text = rag_service.llm_provider.generate(
+                response_text = response_generator.llm_provider.generate(
                     prompt,
                     max_tokens=512,
                     temperature=0.2

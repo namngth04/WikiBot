@@ -91,8 +91,8 @@ def get_provider_config(
     current_admin: User = Depends(get_current_admin)
 ):
     """Get specific AI provider configuration"""
-    if ai_type not in ["rag", "embedding", "faq"]:
-        raise HTTPException(status_code=400, detail="Invalid AI type. Must be: rag, embedding, faq")
+    if ai_type not in ["chat", "embedding", "faq"]:
+        raise HTTPException(status_code=400, detail="Invalid AI type. Must be: chat, embedding, faq")
     
     config = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
     if not config:
@@ -109,7 +109,7 @@ def update_provider_config(
     current_admin: User = Depends(get_current_admin)
 ):
     """Update AI provider configuration"""
-    if ai_type not in ["rag", "embedding", "faq"]:
+    if ai_type not in ["chat", "embedding", "faq"]:
         raise HTTPException(status_code=400, detail="Invalid AI type")
     
     # Validate config
@@ -171,34 +171,123 @@ def update_provider_config(
 # Test Connection
 # ============================================
 
-@router.post("/{ai_type}/test", response_model=TestConnectionResponse)
-def test_provider_connection(
+@router.get("/{ai_type}/test-connection", response_model=TestConnectionResponse)
+def test_connection_auto_load(
     ai_type: str,
-    test_config: TestConnectionRequest,
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-    """Test AI provider connection without saving"""
+    """Test AI provider connection using database config (no body needed)"""
     print(f"\n[DEBUG] ========== TEST CONNECTION START ==========")
     print(f"[DEBUG] AI Type: {ai_type}")
     print(f"[DEBUG] Current working directory: {os.getcwd()}")
     
-    if ai_type not in ["rag", "embedding", "faq"]:
+    if ai_type not in ["chat", "embedding", "faq"]:
         raise HTTPException(status_code=400, detail="Invalid AI type")
     
-    # Build config dict
+    # Load config from database (same as chat logic)
+    config_row = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
+    if not config_row:
+        return TestConnectionResponse(
+            success=False,
+            message=f"No configuration found for {ai_type}"
+        )
+    
+    # Build config dict (same as get_llm_provider in llm_providers.py)
     config = {
-        "provider": test_config.provider,
-        "local_model_path": test_config.local_model_path,
-        "api_base_url": test_config.api_base_url,
-        "api_key": test_config.api_key,
-        "api_model": test_config.api_model,
-        "timeout": test_config.timeout,  # Add timeout for API providers like Ollama
+        "provider": config_row.provider,
+        "local_model_path": config_row.local_model_path,
+        "local_context_length": config_row.local_context_length,
+        "api_base_url": config_row.api_base_url,
+        "api_key": config_row.api_key,  # Will be decrypted by ProviderFactory
+        "api_model": config_row.custom_api_model if config_row.use_custom_model else config_row.api_model,
+        "timeout": getattr(config_row, 'timeout', 30),
     }
     
-    print(f"[DEBUG] Config received: {config}")
-    print(f"[DEBUG] test_config.api_model: '{test_config.api_model}'")
-    print(f"[DEBUG] test_config.api_model type: {type(test_config.api_model)}")
+    print(f"[DEBUG] Config loaded from database: {config}")
+    print(f"[DEBUG] test_config.api_model: '{config.get('api_model')}'")
+    print(f"[DEBUG] test_config.api_model type: {type(config.get('api_model'))}")
+    
+    # Validation for API providers
+    if config["provider"] in ["openrouter", "ollama"] and not config.get("api_model"):
+        return TestConnectionResponse(
+            success=False,
+            message="Model name is required for API providers. Please specify a model (e.g., 'poolside/laguna-m.1:free')"
+        )
+    
+    # Check if local model path exists
+    if config.get("local_model_path"):
+        model_path = config["local_model_path"]
+        abs_path = os.path.abspath(model_path)
+        print(f"[DEBUG] Model path (relative): {model_path}")
+        print(f"[DEBUG] Model path (absolute): {abs_path}")
+        print(f"[DEBUG] File exists: {os.path.exists(model_path)}")
+        print(f"[DEBUG] File exists (abs): {os.path.exists(abs_path)}")
+    
+    # Test connection
+    try:
+        if ai_type == "embedding":
+            print(f"[DEBUG] Creating embedding provider...")
+            # For embedding AI type, use embedding provider
+            provider = ProviderFactory.create_embedding_provider(config)
+            print(f"[DEBUG] Embedding provider created: {type(provider).__name__}")
+            result = provider.test_connection()
+        else:
+            print(f"[DEBUG] Creating LLM provider...")
+            # For other AI types, use regular LLM provider
+            result = ProviderFactory.test_provider_config(config)
+        print(f"[DEBUG] Test result: {result}")
+    except Exception as e:
+        print(f"[DEBUG] Exception during test: {str(e)}")
+        print(f"[DEBUG] Exception type: {type(e)}")
+        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
+        result = {
+            "success": False,
+            "message": f"Exception: {str(e)}",
+            "latency_ms": 0
+        }
+    
+    print(f"[DEBUG] ========== TEST CONNECTION END ==========\n")
+    return TestConnectionResponse(**result)
+
+
+@router.post("/{ai_type}/test", response_model=TestConnectionResponse)
+def test_provider_connection(
+    ai_type: str,
+    test_config: TestConnectionRequest = None,  # Make optional - we'll load from database
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Test AI provider connection using database config (like chat)"""
+    print(f"\n[DEBUG] ========== TEST CONNECTION START ==========")
+    print(f"[DEBUG] AI Type: {ai_type}")
+    print(f"[DEBUG] Current working directory: {os.getcwd()}")
+    
+    if ai_type not in ["chat", "embedding", "faq"]:
+        raise HTTPException(status_code=400, detail="Invalid AI type")
+    
+    # Load config from database (same as chat logic)
+    config_row = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
+    if not config_row:
+        return TestConnectionResponse(
+            success=False,
+            message=f"No configuration found for {ai_type}"
+        )
+    
+    # Build config dict (same as get_llm_provider in llm_providers.py)
+    config = {
+        "provider": config_row.provider,
+        "local_model_path": config_row.local_model_path,
+        "local_context_length": config_row.local_context_length,
+        "api_base_url": config_row.api_base_url,
+        "api_key": config_row.api_key,  # Will be decrypted by ProviderFactory
+        "api_model": config_row.custom_api_model if config_row.use_custom_model else config_row.api_model,
+        "timeout": getattr(config_row, 'timeout', 30),
+    }
+    
+    print(f"[DEBUG] Config loaded from database: {config}")
+    print(f"[DEBUG] test_config.api_model: '{config.get('api_model')}'")
+    print(f"[DEBUG] test_config.api_model type: {type(config.get('api_model'))}")
     
     # Validation for API providers
     if config["provider"] in ["openrouter", "ollama"] and not config.get("api_model"):

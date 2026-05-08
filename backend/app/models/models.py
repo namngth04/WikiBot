@@ -126,11 +126,11 @@ class AISafetyConfig(Base):
 
 
 class AIProviderConfig(Base):
-    """Configuration for each AI type: rag, embedding, faq"""
+    """Configuration for each AI type: chat, embedding, faq"""
     __tablename__ = "ai_provider_config"
     
     id = Column(Integer, primary_key=True)
-    ai_type = Column(String(20), unique=True, nullable=False)  # 'rag', 'embedding', 'faq'
+    ai_type = Column(String(20), unique=True, nullable=False)  # 'chat', 'embedding', 'faq'
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"))
     

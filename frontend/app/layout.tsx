@@ -12,7 +12,7 @@ const beVietnamPro = Be_Vietnam_Pro({
 
 export const metadata: Metadata = {
   title: 'WikiBot - Chatbot Nội Bộ',
-  description: 'Hệ thống chatbot RAG với kiểm soát truy cập dựa trên vai trò',
+  description: 'Hệ thống chatbot AI với kiểm soát truy cập dựa trên vai trò',
 };
 
 export default function RootLayout({

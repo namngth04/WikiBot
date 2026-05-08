@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="WikiBot API",
-    description="RAG-based chatbot with Role-Based Access Control",
+    description="AI-based chatbot with Role-Based Access Control",
     version="1.0.0",
     lifespan=lifespan
 )

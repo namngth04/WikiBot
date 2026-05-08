@@ -606,7 +606,7 @@ def init_default_data():
         try:
             provider_configs = [
                 {
-                    "ai_type": "rag",
+                    "ai_type": "chat",
                     "provider": "local",
                     "local_model_path": "./llm_models/qwen2.5-3b-instruct-q4_k_m.gguf",
                     "local_context_length": 4096,

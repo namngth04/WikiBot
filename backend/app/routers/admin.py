@@ -12,7 +12,7 @@ from app.schemas.schemas import (
     SuggestedFAQ, SuccessResponse
 )
 from app.routers.auth import get_current_admin
-from app.services.rag_service import RAGService
+from app.services.response_generator import ResponseGenerator
 from app.services.faq_clustering import (
     cluster_similar_questions_with_ai,
     get_suggested_faqs_rule_based
@@ -271,12 +271,12 @@ def generate_faq_draft(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-    rag_service = RAGService()
+    response_generator = ResponseGenerator(db=db)
     # Use RAG to get context and generate a professional answer
     # This is a simplified version of the logic
     try:
         # Get context from documents
-        chunks = rag_service.document_processor.search_similar(question, accessible_role_ids=[0], top_k=3)
+        chunks = response_generator.hybrid_retriever.search(question, accessible_role_ids=[0], top_k=3)
         if not chunks:
             return SuggestedFAQ(question=question, occurrence=1, suggested_answer="Không tìm thấy tài liệu liên quan để soạn câu trả lời.")
         
@@ -287,7 +287,7 @@ Câu hỏi: {question}
 Câu trả lời FAQ:"""
         
         # Use provider to generate answer
-        answer = rag_service.llm_provider.generate(
+        answer = response_generator.llm_provider.generate(
             prompt,
             max_tokens=256,
             temperature=0.2,

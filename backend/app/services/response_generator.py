@@ -33,7 +33,7 @@ class ResponseGenerator:
         self.confidence_scorer = ConfidenceScorer(self.document_processor.embedding_model)
         
         # Load LLM provider
-        self.llm_provider = get_llm_provider("rag", db)
+        self.llm_provider = get_llm_provider("chat", db)
         
         # Load FAQ provider if configured
         faq_config = db.query(AIProviderConfig).filter(

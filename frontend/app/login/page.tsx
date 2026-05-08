@@ -3,7 +3,34 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
-import { Lock, User, AlertCircle } from 'lucide-react';
+import { Lock, User, AlertCircle, Bot } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.3,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: 'easeOut' as const },
+  },
+};
+
+const errorVariants = {
+  hidden: { opacity: 0, y: -10, scale: 0.95 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.3 } },
+  exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.2 } },
+};
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -29,68 +56,143 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">WikiBot</h1>
-          <p className="text-gray-600 mt-2">Hệ thống Chatbot Nội Bộ</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden">
+      {/* Floating background blobs */}
+      <motion.div
+        className="absolute -top-20 -left-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"
+        animate={{ x: [0, 40, 0], y: [0, 30, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute top-1/3 -right-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl"
+        animate={{ x: [0, -30, 0], y: [0, 50, 0] }}
+        transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
+      />
+      <motion.div
+        className="absolute -bottom-20 left-1/3 w-72 h-72 bg-cyan-500/15 rounded-full blur-3xl"
+        animate={{ x: [0, 20, 0], y: [0, -40, 0] }}
+        transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-            <AlertCircle size={18} />
-            <span className="text-sm">{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tên đăng nhập
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nhập tên đăng nhập"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mật khẩu
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nhập mật khẩu"
-                required
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      {/* Glassmorphism card */}
+      <motion.div
+        className="relative z-10 w-full max-w-md mx-4"
+        initial={{ opacity: 0, y: 40, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.7, ease: 'easeOut' }}
+      >
+        <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-8 rounded-3xl shadow-2xl">
+          {/* Header */}
+          <motion.div
+            className="text-center mb-8"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-          </button>
-        </form>
+            <motion.div
+              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg mb-4"
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Bot className="text-white" size={32} />
+            </motion.div>
+            <motion.h1
+              className="text-3xl font-bold text-white tracking-tight"
+              animate={{ textShadow: ['0 0 0px rgba(59,130,246,0)', '0 0 20px rgba(59,130,246,0.4)', '0 0 0px rgba(59,130,246,0)'] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              WikiBot
+            </motion.h1>
+            <p className="text-slate-300 mt-2 text-sm">Hệ thống Chatbot Nội Bộ</p>
+          </motion.div>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Mặc định: admin / admin123</p>
+          {/* Error message */}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                className="mb-5 p-3 bg-red-500/15 border border-red-400/30 rounded-xl flex items-center gap-2 text-red-300"
+                variants={errorVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <AlertCircle size={18} />
+                <span className="text-sm">{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Form */}
+          <motion.form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Tên đăng nhập
+              </label>
+              <motion.div
+                className="relative"
+                whileFocus={{ scale: 1.01 }}
+              >
+                <User className="absolute left-3 top-3 text-slate-400" size={20} />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
+                  placeholder="Nhập tên đăng nhập"
+                  required
+                />
+              </motion.div>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Mật khẩu
+              </label>
+              <motion.div className="relative">
+                <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
+                  placeholder="Nhập mật khẩu"
+                  required
+                />
+              </motion.div>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+              <motion.button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(59,130,246,0.35)' }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <motion.span
+                      className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                    />
+                    Đang đăng nhập...
+                  </span>
+                ) : (
+                  'Đăng nhập'
+                )}
+              </motion.button>
+            </motion.div>
+          </motion.form>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   ArrowUpRight, ArrowDownRight, Activity, Sparkles
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import ModelStatusCard from '@/components/admin/ModelStatusCard';
 
 // Import các component biểu đồ động để tránh lỗi SSR
 const UsageTrendChart = dynamic(() => import('@/components/admin/Charts').then(mod => mod.UsageTrendChart), { 
@@ -234,25 +235,7 @@ export default function DashboardPage() {
           <Sparkles className="absolute -right-8 -bottom-8 text-white/5 w-64 h-64 group-hover:text-primary-500/10 transition-colors duration-700" />
         </div>
         
-        <div className="bg-primary-600 rounded-[2rem] p-8 text-white">
-          <h3 className="text-xl font-be-vietnam font-bold mb-4">Trạng thái RAG</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-white/70">Vector DB</span>
-              <span className="font-bold">Hoạt động</span>
-            </div>
-            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-white w-[98%] shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-white/70">LLM Response Time</span>
-              <span className="font-bold">1.2s</span>
-            </div>
-            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-              <div className="h-full bg-white w-[85%] shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
-            </div>
-          </div>
-        </div>
+        <ModelStatusCard />
       </motion.div>
     </motion.div>
   );

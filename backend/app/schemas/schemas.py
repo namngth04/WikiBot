@@ -273,7 +273,7 @@ class AISafetyConfigSchema(BaseModel):
 
 class AIProviderConfigSchema(BaseModel):
     """Provider config for each AI type"""
-    ai_type: str = Field(..., pattern="^(rag|embedding|faq)$")
+    ai_type: str = Field(..., pattern="^(chat|embedding|faq)$")
     provider: str = Field(default="local", pattern="^(local|openrouter|ollama)$")
     
     # Local settings
