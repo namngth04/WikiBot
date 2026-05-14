@@ -34,7 +34,6 @@ class UserBase(BaseModel):
     full_name: Optional[str] = Field(None, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=50)
-    department: Optional[str] = Field(None, max_length=100)
 
 
 class UserCreate(UserBase):
@@ -47,7 +46,6 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=50)
-    department: Optional[str] = Field(None, max_length=100)
     role_id: Optional[int] = None
     password: Optional[str] = Field(None, min_length=6)
     is_active: Optional[bool] = None

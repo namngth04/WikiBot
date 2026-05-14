@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.models.models import Message, FAQ, AIProviderConfig, AISafetyConfig, UserAISettings
 from app.services.document_processor import DocumentProcessor
 from app.services.llm_providers import get_llm_provider
-from app.services.query_processor import QueryProcessor
+from app.services.query_enhancer import QueryEnhancer
 from app.services.retriever import HybridRetriever
 from app.services.confidence_scorer import ConfidenceScorer
 
@@ -28,12 +28,14 @@ class ResponseGenerator:
         
         # Initialize components
         self.document_processor = DocumentProcessor(db)
-        self.query_processor = QueryProcessor()
         self.hybrid_retriever = HybridRetriever(self.document_processor)
         self.confidence_scorer = ConfidenceScorer(self.document_processor.embedding_model)
         
         # Load LLM provider
         self.llm_provider = get_llm_provider("chat", db)
+        
+        # Initialize query enhancer (replaces QueryProcessor)
+        self.query_enhancer = QueryEnhancer(self.llm_provider)
         
         # Load FAQ provider if configured
         faq_config = db.query(AIProviderConfig).filter(
@@ -48,33 +50,35 @@ class ResponseGenerator:
         self.max_tokens = 512
     
     def build_system_prompt(self, response_style: str) -> str:
-        """Build system prompt for the assistant"""
+        """Build system prompt with enhanced reasoning capabilities"""
+        
         style_rules = {
-            "concise": "- Tối đa 3 gạch đầu dòng hoặc 3 câu ngắn.\n- Mỗi ý tối đa 1 câu.",
-            "normal": "- Tối đa 5 gạch đầu dòng hoặc 5 câu.\n- Mỗi ý tối đa 2 câu.",
-            "detailed": "- Tối đa 8 gạch đầu dòng hoặc 8 câu.\n- Mỗi ý tối đa 3 câu.",
-            "creative": "- Tối đa 10 gạch đầu dòng hoặc 10 câu.\n- Mỗi ý tối đa 4 câu.\n- Sử dụng ngôn ngữ sáng tạo, ví dụ, ẩn dụ.\n- Thêm góc nhìn độc đáo và ý tưởng mới."
+            "concise": "- Trả lời ngắn gọn, tập trung vào điểm chính.\n- Sử dụng cấu trúc rõ ràng: ý chính → chi tiết → kết luận.",
+            "normal": "- Trả lời đầy đủ, rõ ràng và dễ hiểu.\n- Giải thích khi cần thiết, cung cấp bối cảnh để người dùng hiểu.",
+            "detailed": "- Trả lời chi tiết, giải thích từng phần.\n- Cung cấp lý do, ví dụ, và phân tích sâu khi có thể.\n- Sử dụng cấu trúc: phân tích → giải thích → ví dụ → kết luận.",
+            "creative": "- Dùng ngôn ngữ linh hoạt, sáng tạo.\n- Cung cấp góc nhìn mới, so sánh, liên hệ thực tế.\n- Giữ nội dung chính xác theo tài liệu."
         }
-        return """Bạn là WikiBot - trợ lý AI chuyên gia về tài liệu nội bộ, bạn sẽ trả lời các câu hỏi dựa trên tài liệu được cung cấp.
+        
+        return """Bạn là WikiBot - trợ lý AI chuyên gia về tài liệu nội bộ.
 
-NGUYÊN TẮC TUYỆT ĐỐI:
-1. CHỈ DỮNG THÔNG TIN TỪ TÀI LIỆU: Không bao giờ thêm thông tin không có trong context
-2. TRẢ LỜI TRỰC TIẾP: Đi thẳng vào câu trả lời, không mở đầu, không kết thúc
-3. DỪNG NGAY KHI TRẢ LỜI XONG: Không thêm câu chúc, không giới thiệu bản thân
-4. KHÔNG SÁNG TẠO: Không suy diễn, không thêm chi tiết không có trong tài liệu
-5. NGẮN GỌN: Trả lời đủ để giải quyết câu hỏi, không dài dòng
+NGUYÊN TẮC CỐT LÕI:
+1. Chỉ sử dụng thông tin từ tài liệu được cung cấp
+2. Không thêm thông tin bên ngoài hoặc suy đoán không có trong tài liệu
+3. Nếu thông tin không đủ, hãy nói rõ phần nào thiếu
+4. Trả lời trung thực, không cố gắng trả lời khi không có dữ liệu
 
-CẤM TUYỆT ĐỐI:
-- Không nói "WikiBot sẽ tiếp tục hỗ trợ"
-- Không nói "Chúc bạn một ngày tốt lành"
-- Không lặp lại thông tin
-- Không xin lỗi khi không cần thiết
-- Không thêm câu kết thúc bất kỳ
-- Không giới thiệu bản thân sau khi trả lời
+CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
+- Phân tích câu hỏi thành các phần nhỏ
+- Xác định thông tin cần tìm trong tài liệu
+- Kết nối thông tin từ nhiều nguồn khác nhau
+- Suy luận logic dựa trên thông tin có sẵn
+- Tổng hợp và đưa ra kết luận rõ ràng
+
+ĐIỀU CHỈNH ĐỘ DÀI THEO MONG MUỐN:
 """ + f"\n\nQUY TẮC ĐỘ DÀI ({response_style.upper()}):\n{style_rules.get(response_style, style_rules['concise'])}"
     
     def build_context_prompt(self, query: str, chunks: List[dict]) -> str:
-        """Build prompt with context from retrieved chunks"""
+        """Build prompt with enhanced reasoning guidance"""
         context = "\n\n".join([
             f"[Tài liệu: {chunk['metadata']['source']}, Đoạn {chunk['metadata']['chunk_index']}]: {chunk['content']}"
             for chunk in chunks
@@ -85,6 +89,14 @@ CẤM TUYỆT ĐỐI:
 
 CÂU HỎI: {query}
 
+HƯỚNG DẪN TRẢ LỜI:
+1. Đọc kỹ tất cả tài liệu trên
+2. Xác định thông tin liên quan trực tiếp đến câu hỏi
+3. Kết nối thông tin từ nhiều đoạn tài liệu khác nhau
+4. Phân tích và suy luận dựa trên thông tin có sẵn
+5. Nếu câu hỏi có nhiều phần, hãy trả lời từng phần một cách rõ ràng
+6. Nếu thông tin không đủ, hãy nói rõ: "Theo tài liệu, không có thông tin về..."
+7. Không tự thêm thông tin không có trong tài liệu
 """
         
         return prompt
@@ -105,21 +117,21 @@ CÂU HỎI: {query}
         return history
     
     def _resolve_generation_profile(self, response_style: str, requested_max_tokens: Optional[int]) -> tuple[float, int]:
-        """Resolve temperature and max_tokens based on style"""
+        """Resolve temperature and max_tokens based on style with enhanced values"""
         style_map = {
-            "concise": {"temperature": 0.15, "max_tokens": 180},
-            "normal": {"temperature": 0.2, "max_tokens": 260},
-            "detailed": {"temperature": 0.3, "max_tokens": 360},
-            "creative": {"temperature": 0.4, "max_tokens": 450},
+            "concise": {"temperature": 0.2, "max_tokens": 300},
+            "normal": {"temperature": 0.3, "max_tokens": 600},
+            "detailed": {"temperature": 0.4, "max_tokens": 1000},
+            "creative": {"temperature": 0.5, "max_tokens": 1200},
         }
         profile = style_map.get(response_style, style_map[self.settings.rag_default_style])
         max_tokens = profile["max_tokens"]
         if requested_max_tokens is not None:
             max_tokens = requested_max_tokens
-        max_tokens = min(max_tokens, self.settings.model_max_tokens, 512)
+        max_tokens = min(max_tokens, self.settings.model_max_tokens, 2048)
         return profile["temperature"], max_tokens
     
-    def _dedup_and_truncate_chunks(self, chunks: List[dict], max_chars: int = 500) -> List[dict]:
+    def _dedup_and_truncate_chunks(self, chunks: List[dict], max_chars: int = 700) -> List[dict]:
         """Deduplicate and truncate chunks"""
         deduped = []
         seen = set()
@@ -132,6 +144,26 @@ CÂU HỎI: {query}
             chunk["content"] = chunk["content"][:max_chars].strip()
             deduped.append(chunk)
         return deduped
+    
+    def _dedup_and_rerank_chunks(self, chunks: List[dict], original_query: str) -> List[dict]:
+        """Deduplicate and rerank chunks based on relevance to original query"""
+        seen = set()
+        deduped = []
+        for chunk in chunks:
+            key = chunk['content'][:200]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(chunk)
+        
+        # Rerank based on original query
+        query_words = set(original_query.lower().split())
+        for chunk in deduped:
+            content_lower = chunk['content'].lower()
+            word_matches = sum(1 for word in query_words if word in content_lower)
+            chunk['rerank_score'] = chunk.get('distance', 1.0) - (word_matches * 0.03)
+        
+        sorted_chunks = sorted(deduped, key=lambda x: x['rerank_score'])
+        return sorted_chunks[:8]
     
     def _trim_redundant_sentences(self, text: str) -> str:
         """Remove redundant sentences"""
@@ -152,13 +184,8 @@ CÂU HỎI: {query}
     
     def check_faqs(self, query: str) -> Optional[FAQ]:
         """Check if query matches active FAQ with improved matching"""
-        processed_query = self.query_processor.process_query(query)
-        
-        # Try original and expanded query
-        query_variations = [
-            processed_query['corrected'],
-            processed_query['expanded']
-        ]
+        # Use query directly (QueryEnhancer will be called in generate_response)
+        query_variations = [query]
         
         candidates = self.db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
         best_faq = None
@@ -201,12 +228,12 @@ CÂU HỎI: {query}
         requested_max_tokens: Optional[int] = None,
         show_sources: bool = True,
     ) -> dict:
-        """Generate RAG-based response using new modular architecture"""
+        """Generate RAG-based response using enhanced query processing"""
         start_time = time.time()
         
-        # 1. Process query
-        processed_query = self.query_processor.process_query(query)
-        query_to_use = processed_query['corrected']
+        # 1. Enhance query với LLM (thay thế QueryProcessor)
+        enhanced = self.query_enhancer.enhance_query(query)
+        query_to_use = enhanced['rewritten']
         
         # 2. Check FAQs first
         faq = self.check_faqs(query_to_use)
@@ -217,17 +244,23 @@ CÂU HỎI: {query}
                 "sources": [{"source": "FAQ Hệ thống", "chunk_index": 0, "distance": 0.0}],
                 "citations": [],
                 "confidence": {"overall": 0.95, "source_coverage": 1.0, "level": "high"},
-                "query_processing": processed_query
+                "query_processing": enhanced
             }
         
-        # 3. Hybrid search
+        # 3. Hybrid search với multiple query variations
         try:
-            chunks = self.hybrid_retriever.search(
-                query=query_to_use,
-                accessible_role_ids=accessible_role_ids,
-                top_k=5,
-                max_distance=self.settings.rag_max_distance
-            )
+            all_chunks = []
+            for query_var in enhanced['all_queries']:
+                chunks = self.hybrid_retriever.search(
+                    query=query_var,
+                    accessible_role_ids=accessible_role_ids,
+                    top_k=3,  # Giảm vì có nhiều variations
+                    max_distance=self.settings.rag_max_distance
+                )
+                all_chunks.extend(chunks)
+            
+            # Dedup và rerank
+            chunks = self._dedup_and_rerank_chunks(all_chunks, query_to_use)
         except Exception as e:
             print(f"Error in hybrid search: {e}")
             raise
@@ -240,10 +273,16 @@ CÂU HỎI: {query}
         system_prompt = self.build_system_prompt(response_style)
         temperature, max_tokens = self._resolve_generation_profile(response_style, requested_max_tokens)
         
+        # Adjust parameters cho câu hỏi phức tạp
+        if enhanced['is_complex']:
+            temperature = min(temperature + 0.1, 0.7)
+            max_tokens = min(max_tokens * 1.5, 2048)
+        
         if chunks:
-            # Rerank and dedup chunks
-            chunks = self._rerank_chunks(query_to_use, chunks)
-            chunks = self._dedup_and_truncate_chunks(chunks)[:3]
+            # Truncate chunks
+            max_chars = 1000 if enhanced['is_complex'] else 700
+            max_chunk_count = 7 if enhanced['is_complex'] else 4
+            chunks = self._dedup_and_truncate_chunks(chunks, max_chars=max_chars)[:max_chunk_count]
             
             context_prompt = self.build_context_prompt(query_to_use, chunks)
         else:
@@ -288,7 +327,7 @@ CÂU HỎI: {query}
                 question=query,
                 answer=response_text,
                 sources=chunks,
-                query_terms=processed_query['key_terms']
+                query_terms=query_to_use.split()
             )
             
             # 8. Prepare sources
@@ -317,7 +356,7 @@ CÂU HỎI: {query}
                 "sources": sources,
                 "citations": sources,
                 "confidence": confidence_scores,
-                "query_processing": processed_query,
+                "query_processing": enhanced,
                 "retrieval_stats": self.hybrid_retriever.get_search_stats(query_to_use, accessible_role_ids)
             }
             
@@ -331,7 +370,7 @@ CÂU HỎI: {query}
                 "sources": [],
                 "citations": [],
                 "confidence": {"overall": 0.0, "level": "very_low"},
-                "query_processing": processed_query,
+                "query_processing": enhanced,
                 "error": str(e)
             }
     

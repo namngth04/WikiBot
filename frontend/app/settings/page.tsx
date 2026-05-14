@@ -5,7 +5,7 @@ import { usersAPI } from '@/app/lib/api';
 import { useAuth } from '@/app/context/auth-context';
 import { motion } from 'framer-motion';
 import { 
-  User, Mail, Phone, Building2, Lock, Save, 
+  User, Mail, Phone, Lock, Save, 
   ShieldCheck, AlertCircle, Camera, CheckCircle2,
   ArrowLeft, Settings, Brain, ChevronRight
 } from 'lucide-react';
@@ -23,7 +23,6 @@ export default function SettingsPage() {
     full_name: user?.full_name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    department: user?.department || '',
     new_password: '',
     confirm_password: '',
   });
@@ -39,7 +38,6 @@ export default function SettingsPage() {
         full_name: profileForm.full_name,
         email: profileForm.email,
         phone: profileForm.phone,
-        department: profileForm.department,
       });
       const updatedUser = response.data;
       localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -108,8 +106,8 @@ export default function SettingsPage() {
             <ArrowLeft size={24} />
           </button>
           <div>
-            <h1 className="text-3xl font-be-vietnam font-bold text-slate-900">Cài đặt tài khoản</h1>
-            <p className="text-slate-500 font-medium">Quản lý thông tin cá nhân và bảo mật</p>
+            <h1 className="text-xl font-be-vietnam font-bold text-slate-900">Cá nhân</h1>
+            <p className="text-sm text-slate-500">Quản lý thông tin cá nhân và bảo mật</p>
           </div>
         </div>
         
@@ -170,10 +168,6 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 text-slate-600">
                 <Mail size={16} className="text-slate-400" />
                 <span className="text-sm font-medium truncate">{user?.email || 'Chưa cập nhật'}</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-600">
-                <Building2 size={16} className="text-slate-400" />
-                <span className="text-sm font-medium">{user?.department || 'WikiBot Team'}</span>
               </div>
             </div>
           </div>
@@ -278,18 +272,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phòng ban</label>
-                  <div className="relative">
-                    <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={profileForm.department} 
-                      onChange={(e) => setProfileForm({ ...profileForm, department: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
-                    />
-                  </div>
-                </div>
               </div>
 
               <div className="flex justify-end pt-4">

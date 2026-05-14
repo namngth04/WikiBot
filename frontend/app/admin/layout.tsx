@@ -47,7 +47,6 @@ export default function AdminLayout({
     { id: 'documents', name: 'Tài liệu', icon: FileText, path: '/admin/documents' },
     { id: 'faqs', name: 'Hệ thống FAQ', icon: HelpCircle, path: '/admin/faqs' },
     { id: 'ai-config', name: 'Cấu hình AI', icon: Brain, path: '/admin/ai-config' },
-    { id: 'profile', name: 'Cài đặt', icon: Settings, path: '/admin/profile' },
   ];
 
   return (
@@ -99,7 +98,10 @@ export default function AdminLayout({
                   )}
                   title={!sidebarOpen ? tab.name : ""}
                 >
-                  <Icon size={20} className={cn("shrink-0", isActive ? "" : "group-hover:scale-110 transition-transform")} />
+                  <Icon size={20} className={cn(
+  "shrink-0 group-hover:scale-110 transition-transform",
+  isActive ? "text-white" : "text-slate-400"
+)} />
                   <AnimatePresence>
                     {sidebarOpen && (
                       <motion.span 

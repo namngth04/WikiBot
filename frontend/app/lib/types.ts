@@ -13,7 +13,6 @@ export interface User {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-  department: string | null;
   role_id: number | null;
   is_active: boolean;
   created_at: string;
@@ -98,4 +97,41 @@ export interface SuggestedFAQ {
   question: string;
   occurrence: number;
   suggested_answer?: string;
+}
+
+// Filter System Types
+export interface FilterState {
+  search: string;
+  selectedRoles: string[];
+  selectedStatus: string[];
+  selectedLevels: string[];
+  selectedAccess: string[];
+  selectedFormats: string[];
+  selectedSizes: string[];
+  dateRange: {
+    start: string | null;
+    end: string | null;
+  };
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
+export interface FilterOption {
+  value: string;
+  label: string;
+  count?: number;
+}
+
+export interface FilterSection {
+  title: string;
+  type: 'checkbox' | 'radio' | 'date' | 'select';
+  options: FilterOption[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  key: string;
+}
+
+export interface SortOption {
+  value: string;
+  label: string;
 }

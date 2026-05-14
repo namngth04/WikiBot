@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { documentsAPI, rolesAPI } from '@/app/lib/api';
-import { Document, Role } from '@/app/lib/types';
+import { Document, Role, FilterSection, SortOption } from '@/app/lib/types';
 import {
   Trash2, Edit2, Upload, X, Check, Search, RefreshCw, FileText, Filter, Save, Globe, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalPortal from '@/app/components/ui/ModalPortal';
+import FilterDropdown from '@/app/components/ui/FilterDropdown';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -19,6 +20,14 @@ export default function DocumentsPage() {
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [editingDocId, setEditingDocId] = useState<number | null>(null);
   const [editDocName, setEditDocName] = useState('');
+  
+  // Filter states
+  const [selectedAccess, setSelectedAccess] = useState<string[]>([]);
+  const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [dateRange, setDateRange] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
+  const [sortBy, setSortBy] = useState('uploaded_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadData();
@@ -101,9 +110,156 @@ export default function DocumentsPage() {
     }
   };
 
-  const filteredDocuments = documents.filter(doc =>
-    doc.original_name.toLowerCase().includes(docSearchQuery.toLowerCase())
-  );
+  const clearAllFilters = () => {
+    setSelectedAccess([]);
+    setSelectedFormats([]);
+    setSelectedSizes([]);
+    setDateRange({ start: null, end: null });
+    setSortBy('uploaded_at');
+    setSortOrder('desc');
+  };
+
+  // Get unique file types from documents
+  const uniqueFileTypes = useMemo(() => {
+    const types = [...new Set(documents.map(doc => doc.file_type).filter(Boolean))];
+    return types.map(type => type!.toLowerCase());
+  }, [documents]);
+
+  // Filter sections for FilterDropdown
+  const filterSections: FilterSection[] = [
+    {
+      title: 'Quyền truy cập',
+      type: 'checkbox',
+      key: 'access',
+      options: [
+        { value: 'public', label: 'Công khai', count: documents.filter(d => !d.role_id).length },
+        ...roles.filter(r => r.level !== 0).map(role => ({
+          value: `role_${role.id}`,
+          label: role.name,
+          count: documents.filter(d => d.role_id === role.id).length
+        }))
+      ].filter(option => option.count > 0),
+      selected: selectedAccess,
+      onChange: setSelectedAccess
+    },
+    {
+      title: 'Định dạng',
+      type: 'checkbox',
+      key: 'formats',
+      options: uniqueFileTypes.map(format => ({
+        value: format,
+        label: format.toUpperCase(),
+        count: documents.filter(d => d.file_type?.toLowerCase() === format).length
+      })).filter(option => option.count > 0),
+      selected: selectedFormats,
+      onChange: setSelectedFormats
+    },
+    {
+      title: 'Dung lượng',
+      type: 'checkbox',
+      key: 'sizes',
+      options: [
+        { value: '<1mb', label: '< 1MB', count: documents.filter(d => d.file_size < 1024 * 1024).length },
+        { value: '1-5mb', label: '1-5MB', count: documents.filter(d => d.file_size >= 1024 * 1024 && d.file_size <= 5 * 1024 * 1024).length },
+        { value: '>5mb', label: '> 5MB', count: documents.filter(d => d.file_size > 5 * 1024 * 1024).length }
+      ].filter(option => option.count > 0),
+      selected: selectedSizes,
+      onChange: setSelectedSizes
+    },
+    {
+      title: 'Ngày upload',
+      type: 'date',
+      key: 'dateRange',
+      options: [],
+      selected: [dateRange.start || '', dateRange.end || ''],
+      onChange: (values) => setDateRange({ start: values[0] || null, end: values[1] || null })
+    }
+  ];
+
+  const sortOptions: SortOption[] = [
+    { value: 'original_name', label: 'Tên tài liệu' },
+    { value: 'uploaded_at', label: 'Ngày upload' },
+    { value: 'file_size', label: 'Dung lượng' },
+    { value: 'file_type', label: 'Định dạng' }
+  ];
+
+  const filteredDocuments = useMemo(() => {
+    let filtered = documents.filter(doc =>
+      doc.original_name.toLowerCase().includes(docSearchQuery.toLowerCase())
+    );
+
+    // Filter by access
+    if (selectedAccess.length > 0) {
+      filtered = filtered.filter(doc => {
+        if (!doc.role_id) {
+          return selectedAccess.includes('public');
+        } else {
+          return selectedAccess.includes(`role_${doc.role_id}`);
+        }
+      });
+    }
+
+    // Filter by formats
+    if (selectedFormats.length > 0) {
+      filtered = filtered.filter(doc => 
+        doc.file_type && selectedFormats.includes(doc.file_type.toLowerCase())
+      );
+    }
+
+    // Filter by sizes
+    if (selectedSizes.length > 0) {
+      filtered = filtered.filter(doc => 
+        selectedSizes.some(size => {
+          if (size === '<1mb') return doc.file_size < 1024 * 1024;
+          if (size === '1-5mb') return doc.file_size >= 1024 * 1024 && doc.file_size <= 5 * 1024 * 1024;
+          if (size === '>5mb') return doc.file_size > 5 * 1024 * 1024;
+          return true;
+        })
+      );
+    }
+
+    // Filter by date range
+    if (dateRange.start || dateRange.end) {
+      filtered = filtered.filter(doc => {
+        const docDate = new Date(doc.uploaded_at);
+        if (dateRange.start && docDate < new Date(dateRange.start)) return false;
+        if (dateRange.end && docDate > new Date(dateRange.end + 'T23:59:59')) return false;
+        return true;
+      });
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'original_name':
+          aValue = a.original_name.toLowerCase();
+          bValue = b.original_name.toLowerCase();
+          break;
+        case 'uploaded_at':
+          aValue = new Date(a.uploaded_at);
+          bValue = new Date(b.uploaded_at);
+          break;
+        case 'file_size':
+          aValue = a.file_size;
+          bValue = b.file_size;
+          break;
+        case 'file_type':
+          aValue = a.file_type || '';
+          bValue = b.file_type || '';
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [documents, docSearchQuery, selectedAccess, selectedFormats, selectedSizes, dateRange, sortBy, sortOrder]);
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -148,10 +304,14 @@ export default function DocumentsPage() {
               className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
-          <button className="btn-secondary py-3">
-            <Filter size={18} />
-            Phân loại
-          </button>
+          <FilterDropdown
+            sections={filterSections}
+            sortOptions={sortOptions}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={setSortBy}
+            onClearAll={clearAllFilters}
+          />
         </div>
 
         <div className="overflow-x-auto">

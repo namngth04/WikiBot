@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { usersAPI, rolesAPI } from '@/app/lib/api';
-import { User, Role } from '@/app/lib/types';
+import { User, Role, FilterSection, SortOption } from '@/app/lib/types';
 import {
-  Plus, Trash2, Edit2, X, Users, Search, Filter, Save, Mail, Building2, Phone, ShieldCheck
+  Plus, Trash2, Edit2, X, Users, Search, Filter, Save, Mail, Phone, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalPortal from '@/app/components/ui/ModalPortal';
+import FilterDropdown from '@/app/components/ui/FilterDropdown';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -17,12 +18,16 @@ export default function UsersPage() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
+  // Filter states
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('username');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
   const [userForm, setUserForm] = useState({
     username: '',
     full_name: '',
     email: '',
     phone: '',
-    department: '',
     password: '',
     role_id: '',
   });
@@ -56,7 +61,7 @@ export default function UsersPage() {
       setShowUserModal(false);
       setUserForm({
         username: '', full_name: '', email: '', phone: '',
-        department: '', password: '', role_id: ''
+        password: '', role_id: ''
       });
       loadData();
     } catch (error: any) {
@@ -97,18 +102,88 @@ export default function UsersPage() {
       full_name: user.full_name || '',
       email: user.email || '',
       phone: user.phone || '',
-      department: user.department || '',
       password: '',
       role_id: user.role_id?.toString() || '',
     });
     setShowUserModal(true);
   };
 
-  const filteredUsers = users.filter(u => 
-    u.username.toLowerCase().includes(search.toLowerCase()) ||
-    (u.full_name?.toLowerCase().includes(search.toLowerCase())) ||
-    (u.email?.toLowerCase().includes(search.toLowerCase()))
-  );
+  const clearAllFilters = () => {
+    setSelectedRoles([]);
+    setSortBy('username');
+    setSortOrder('asc');
+  };
+
+  // Filter sections for FilterDropdown
+  const filterSections: FilterSection[] = [
+    {
+      title: 'Chức vụ',
+      type: 'checkbox',
+      key: 'roles',
+      options: roles.filter(r => r.level !== 0).map(role => ({
+        value: role.id.toString(),
+        label: role.name,
+        count: users.filter(u => u.role_id === role.id).length
+      })).filter(option => option.count > 0),
+      selected: selectedRoles,
+      onChange: setSelectedRoles
+    }
+  ];
+
+  const sortOptions: SortOption[] = [
+    { value: 'username', label: 'Tên đăng nhập' },
+    { value: 'full_name', label: 'Họ tên' },
+    { value: 'created_at', label: 'Ngày tạo' },
+    { value: 'level', label: 'Cấp độ' }
+  ];
+
+  const filteredUsers = useMemo(() => {
+    let filtered = users.filter(u => 
+      u.username.toLowerCase().includes(search.toLowerCase()) ||
+      (u.full_name?.toLowerCase().includes(search.toLowerCase())) ||
+      (u.email?.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    // Filter by roles
+    if (selectedRoles.length > 0) {
+      filtered = filtered.filter(user => 
+        user.role_id && selectedRoles.includes(user.role_id.toString())
+      );
+    }
+
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'username':
+          aValue = a.username.toLowerCase();
+          bValue = b.username.toLowerCase();
+          break;
+        case 'full_name':
+          aValue = (a.full_name || a.username).toLowerCase();
+          bValue = (b.full_name || b.username).toLowerCase();
+          break;
+        case 'created_at':
+          aValue = new Date(a.created_at);
+          bValue = new Date(b.created_at);
+          break;
+        case 'level':
+          aValue = a.role?.level || 999;
+          bValue = b.role?.level || 999;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [users, search, selectedRoles, sortBy, sortOrder]);
 
   return (
     <div className="space-y-8 pb-10">
@@ -128,7 +203,7 @@ export default function UsersPage() {
             setEditingUser(null);
             setUserForm({
               username: '', full_name: '', email: '', phone: '',
-              department: '', password: '', role_id: ''
+              password: '', role_id: ''
             });
             setShowUserModal(true);
           }}
@@ -140,16 +215,10 @@ export default function UsersPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng nhân sự</p>
           <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">{users.length}</h3>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Phòng ban</p>
-          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
-            {new Set(users.map(u => u.department).filter(Boolean)).size}
-          </h3>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Đang hoạt động</p>
@@ -170,10 +239,14 @@ export default function UsersPage() {
               className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
-          <button className="btn-secondary py-3">
-            <Filter size={18} />
-            Lọc dữ liệu
-          </button>
+          <FilterDropdown
+            sections={filterSections}
+            sortOptions={sortOptions}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={setSortBy}
+            onClearAll={clearAllFilters}
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -182,7 +255,6 @@ export default function UsersPage() {
               <tr className="bg-slate-50/50">
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhân viên</th>
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liên hệ</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phòng ban</th>
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vai trò</th>
                 <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
               </tr>
@@ -191,7 +263,7 @@ export default function UsersPage() {
               {loading ? (
                 [1, 2, 3].map(i => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={5} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                    <td colSpan={4} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
                   </tr>
                 ))
               ) : filteredUsers.map((user) => (
@@ -215,12 +287,6 @@ export default function UsersPage() {
                       <p className="text-xs text-slate-600 flex items-center gap-1.5">
                         <Phone size={12} className="text-slate-400" /> {user.phone || '-'}
                       </p>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-2 text-slate-600 text-sm">
-                      <Building2 size={14} className="text-slate-400" />
-                      <span className="font-medium">{user.department || '-'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-5">
@@ -321,25 +387,14 @@ export default function UsersPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Số điện thoại</label>
-                    <input
-                      type="text"
-                      value={userForm.phone}
-                      onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Phòng ban</label>
-                    <input
-                      type="text"
-                      value={userForm.department}
-                      onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={userForm.phone}
+                    onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                  />
                 </div>
 
                 <div className="space-y-2">

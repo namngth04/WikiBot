@@ -178,7 +178,7 @@ class HybridRetriever:
                     # Get document metadata from ChromaDB
                     doc_results = collection.get(
                         where={"chunk_index": doc_idx},
-                        include=["documents", "metadatas", "distances"],
+                        include=["documents", "metadatas"],
                         limit=1
                     )
                     

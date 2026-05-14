@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Send, Plus, Trash2, Settings, MessageSquare,
+  Send, Plus, Trash2, MessageSquare,
   ChevronLeft, ChevronRight, Shield, Edit, Check, X,
   ThumbsUp, ThumbsDown, Search, Sparkles,
   User, LogOut
@@ -285,9 +285,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                     ? "text-primary-600 bg-primary-50"
                     : "text-slate-600 hover:text-primary-600 hover:bg-primary-50"
                 )}
-                title={!sidebarOpen ? "Cài đặt" : ""}
+                title={!sidebarOpen ? "Cá nhân" : ""}
               >
-                <Settings size={18} className={cn("shrink-0 group-hover:scale-110 transition-transform")} />
+                <User size={18} className={cn("shrink-0 group-hover:scale-110 transition-transform")} />
                 <AnimatePresence>
                   {sidebarOpen && (
                     <motion.span 
@@ -296,7 +296,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                       exit={{ opacity: 0, x: -10 }}
                       className="text-sm font-medium whitespace-nowrap"
                     >
-                      Cài đặt
+                      Cá nhân
                     </motion.span>
                   )}
                 </AnimatePresence>

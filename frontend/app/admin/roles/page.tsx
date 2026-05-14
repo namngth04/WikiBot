@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { rolesAPI } from '@/app/lib/api';
-import { Role } from '@/app/lib/types';
+import { Role, FilterSection, SortOption } from '@/app/lib/types';
 import {
   Plus, Trash2, Edit2, X, Shield, Filter, Save, Info, Award, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalPortal from '@/app/components/ui/ModalPortal';
+import FilterDropdown from '@/app/components/ui/FilterDropdown';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -16,11 +17,53 @@ export default function RolesPage() {
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [roleForm, setRoleForm] = useState({ name: '', description: '', level: 2 });
+  
+  // Filter states
+  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const filteredRoles = roles.filter(role => 
-    role.name.toLowerCase().includes(search.toLowerCase()) ||
-    (role.description?.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredRoles = useMemo(() => {
+    let filtered = roles.filter(role => 
+      role.name.toLowerCase().includes(search.toLowerCase()) ||
+      (role.description?.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    // Filter by levels
+    if (selectedLevels.length > 0) {
+      filtered = filtered.filter(role => 
+        selectedLevels.includes(role.level.toString())
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'level':
+          aValue = a.level;
+          bValue = b.level;
+          break;
+        case 'created_at':
+          aValue = new Date(a.created_at);
+          bValue = new Date(b.created_at);
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  }, [roles, search, selectedLevels, sortBy, sortOrder]);
 
   useEffect(() => {
     loadData();
@@ -71,6 +114,34 @@ export default function RolesPage() {
       alert(error.response?.data?.detail || 'Xóa thất bại');
     }
   };
+
+  const clearAllFilters = () => {
+    setSelectedLevels([]);
+    setSortBy('name');
+    setSortOrder('asc');
+  };
+
+  // Filter sections for FilterDropdown
+  const filterSections: FilterSection[] = [
+    {
+      title: 'Chức vụ',
+      type: 'checkbox',
+      key: 'levels',
+      options: roles.filter(r => r.level !== 0).map(role => ({
+        value: role.level.toString(),
+        label: `${role.name} (Level ${role.level})`,
+        count: 1
+      })).filter(option => option.count > 0),
+      selected: selectedLevels,
+      onChange: setSelectedLevels
+    }
+  ];
+
+  const sortOptions: SortOption[] = [
+    { value: 'name', label: 'Tên chức vụ' },
+    { value: 'level', label: 'Cấp độ' },
+    { value: 'created_at', label: 'Ngày tạo' }
+  ];
 
   return (
     <div className="space-y-8 pb-10">
@@ -125,10 +196,14 @@ export default function RolesPage() {
               className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
-          <button className="btn-secondary py-3">
-            <Filter size={18} />
-            Lọc dữ liệu
-          </button>
+          <FilterDropdown
+            sections={filterSections}
+            sortOptions={sortOptions}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={setSortBy}
+            onClearAll={clearAllFilters}
+          />
         </div>
 
         <div className="overflow-x-auto">

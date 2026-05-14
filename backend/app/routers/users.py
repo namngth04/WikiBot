@@ -66,7 +66,6 @@ def create_user(
         full_name=user_data.full_name,
         email=user_data.email,
         phone=user_data.phone,
-        department=user_data.department,
         hashed_password=get_password_hash(user_data.password),
         role_id=user_data.role_id,
         is_active=True
@@ -119,8 +118,6 @@ def update_me(
         current_user.email = user_data.email
     if user_data.phone is not None:
         current_user.phone = user_data.phone
-    if user_data.department is not None:
-        current_user.department = user_data.department
     
     # Handle password separately - only update if provided
     if user_data.password:
@@ -189,8 +186,6 @@ def update_user(
         user.email = user_data.email
     if user_data.phone is not None:
         user.phone = user_data.phone
-    if user_data.department is not None:
-        user.department = user_data.department
     if user_data.is_active is not None:
         user.is_active = user_data.is_active
     if user_data.password:

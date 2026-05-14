@@ -559,7 +559,6 @@ def init_default_data():
                     full_name="Quản trị viên",
                     email="admin@wikibot.local",
                     phone=None,
-                    department="IT",
                     hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
                     role_id=1,  # Admin role
                     is_active=True
