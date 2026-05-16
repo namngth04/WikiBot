@@ -402,7 +402,7 @@ export default function DocumentsPage() {
                         title="Cập nhật phiên bản mới"
                       >
                         <RefreshCw size={16} />
-                        <input type="file" className="hidden" accept=".pdf,.docx,.txt" onChange={(e) => handleReupload(e, doc.id, doc.role_id)} />
+                        <input type="file" className="hidden" accept=".pdf,.docx,.txt,.pptx,.xlsx,.csv,.html,.md,.png,.jpg,.jpeg" onChange={(e) => handleReupload(e, doc.id, doc.role_id)} />
                       </label>
                       <button 
                         onClick={() => handleDeleteDocument(doc.id)}
@@ -455,7 +455,7 @@ export default function DocumentsPage() {
                   <div className="relative group">
                     <input 
                       type="file" 
-                      accept=".pdf,.docx,.txt" 
+                      accept=".pdf,.docx,.txt,.pptx,.xlsx,.csv,.html,.md,.png,.jpg,.jpeg" 
                       onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                       required 
@@ -468,7 +468,7 @@ export default function DocumentsPage() {
                         <p className="text-sm font-bold text-slate-900">
                           {uploadFile ? uploadFile.name : 'Nhấn để chọn hoặc kéo thả file'}
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, DOCX, TXT (Tối đa 20MB)</p>
+                        <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, DOCX, TXT, Excel, PPTX, MD, CSV, Ảnh (Tối đa 20MB)</p>
                       </div>
                     </div>
                   </div>

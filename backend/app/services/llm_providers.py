@@ -454,7 +454,7 @@ class LocalEmbeddingProvider(BaseEmbeddingProvider):
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
-    """OpenAI API embedding provider"""
+    """OpenAI API embedding provider with multimodal support"""
     
     def __init__(self, base_url: str, api_key: str, model: str = "text-embedding-3-small", **kwargs):
         self.base_url = base_url
@@ -463,6 +463,20 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         self._client = None
         # Filter kwargs to only valid OpenAI v1.x parameters
         self._kwargs = {k: v for k, v in kwargs.items() if k in OpenAICompatibleProvider.VALID_OPENAI_KEYS}
+        # Auto-detect multimodal capability
+        self.is_multimodal = self._detect_multimodal_model(model)
+    
+    def _detect_multimodal_model(self, model_name: str) -> bool:
+        """Detect if model supports multimodal input based on model name"""
+        multimodal_keywords = [
+            "nemotron-embed-vl",
+            "clip",
+            "vit",
+            "multimodal",
+            "vision-language",
+            "embed-vl"
+        ]
+        return any(keyword in model_name.lower() for keyword in multimodal_keywords)
     
     @property
     def client(self):
@@ -485,8 +499,25 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             )
         return self._client
     
-    def encode(self, texts: List[str]) -> List[List[float]]:
-        """Encode texts using OpenAI API"""
+    def encode(self, texts: List[str], images: Optional[List[str]] = None) -> List[List[float]]:
+        """Encode texts and/or images using OpenAI API
+        
+        Args:
+            texts: List of text strings
+            images: Optional list of image paths (for multimodal models)
+        
+        Returns:
+            List of embedding vectors
+        """
+        # If not multimodal or no images provided, use text-only encoding
+        if not self.is_multimodal or not images:
+            return self._encode_text_only(texts)
+        
+        # Use multimodal encoding
+        return self._encode_multimodal(texts, images)
+    
+    def _encode_text_only(self, texts: List[str]) -> List[List[float]]:
+        """Encode texts using OpenAI API (text-only)"""
         # For OpenRouter, we need to handle the raw response directly
         if "openrouter" in self.base_url.lower():
             return self._encode_openrouter(texts)
@@ -511,6 +542,8 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         import json
         
         print(f"[DEBUG] Using OpenRouter direct API call")
+        print(f"[DEBUG] API Key length: {len(self.api_key)}")
+        print(f"[DEBUG] API Key starts with: {self.api_key[:10]}...")
         
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -546,6 +579,70 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 return result["embeddings"]
             else:
                 raise ValueError(f"Unexpected OpenRouter response structure: {result}")
+    
+    def _encode_multimodal(self, texts: List[str], images: List[str]) -> List[List[float]]:
+        """Encode texts and images using multimodal embedding API"""
+        import base64
+        import httpx
+        
+        print(f"[DEBUG] Using multimodal encoding")
+        
+        # Convert images to base64
+        image_data_list = []
+        for img_path in images:
+            try:
+                with open(img_path, 'rb') as f:
+                    img_data = f.read()
+                img_base64 = base64.b64encode(img_data).decode('utf-8')
+                image_data_list.append(img_base64)
+            except Exception as e:
+                print(f"[DEBUG] Error converting image to base64: {e}")
+                # Fallback: use empty string for failed images
+                image_data_list.append("")
+        
+        # Build multimodal input payload
+        inputs = []
+        for text, img_data in zip(texts, image_data_list):
+            input_item = {
+                "type": "multimodal",
+                "text": text,
+                "image": img_data
+            }
+            inputs.append(input_item)
+        
+        # Call API
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": self.model,
+            "input": inputs
+        }
+        
+        with httpx.Client(timeout=60) as client:  # Longer timeout for images
+            response = client.post(
+                f"{self.base_url}/embeddings",
+                headers=headers,
+                json=data
+            )
+            
+            print(f"[DEBUG] Multimodal API response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                raise ValueError(f"Multimodal API error: {response.status_code} - {response.text}")
+            
+            result = response.json()
+            print(f"[DEBUG] Multimodal API parsed response: {result}")
+            
+            # Handle response structure
+            if "data" in result and result["data"] is not None:
+                return [item["embedding"] for item in result["data"]]
+            elif "embeddings" in result and result["embeddings"] is not None:
+                return result["embeddings"]
+            else:
+                raise ValueError(f"Unexpected multimodal API response structure: {result}")
     
     def test_connection(self) -> Dict[str, Any]:
         """Test API connection"""
@@ -673,6 +770,9 @@ class ProviderFactory:
                 except:
                     pass
             
+            print(f"[DEBUG ProviderFactory] API Key decryption result: {'Success' if api_key != config.get('api_key') else 'Failed/Bypassed'}")
+            print(f"[DEBUG ProviderFactory] Final API Key starts with: {api_key[:10]}...")
+            
             return OpenAIEmbeddingProvider(
                 base_url=config["api_base_url"],
                 api_key=api_key,
@@ -713,63 +813,72 @@ class ProviderFactory:
 # ============================================
 
 class ProviderRegistry:
-    """Registry to cache provider instances"""
+    """Registry to cache provider instances for both LLM and Embedding"""
     
-    _providers: Dict[str, BaseLLMProvider] = {}
+    _llm_providers: Dict[str, BaseLLMProvider] = {}
+    _embed_providers: Dict[str, BaseEmbeddingProvider] = {}
     _configs: Dict[str, Dict[str, Any]] = {}
     
     @classmethod
     def get_provider(cls, ai_type: str, config: Optional[Dict[str, Any]] = None) -> BaseLLMProvider:
-        """Get or create provider for AI type"""
-        print(f"[DEBUG ProviderRegistry] get_provider called for {ai_type}")
-        print(f"[DEBUG ProviderRegistry] Config provided: {config is not None}")
-        if config:
-            print(f"[DEBUG ProviderRegistry] Config provider: {config.get('provider')}")
-            if config.get('provider') == 'local':
-                print(f"[DEBUG ProviderRegistry] Local model path: {config.get('local_model_path')}")
-        
+        """Get or create LLM provider for AI type"""
         # Check if config changed
-        if config and cls._configs.get(ai_type) != config:
-            # Config changed, recreate provider
-            print(f"[DEBUG ProviderRegistry] Config changed, recreating provider")
-            cls._providers[ai_type] = ProviderFactory.create_provider(config)
-            cls._configs[ai_type] = config.copy()
+        if config and cls._configs.get(f"llm_{ai_type}") != config:
+            cls._llm_providers[ai_type] = ProviderFactory.create_provider(config)
+            cls._configs[f"llm_{ai_type}"] = config.copy()
         
         # Return cached or create new
-        if ai_type not in cls._providers:
+        if ai_type not in cls._llm_providers:
             if config:
-                print(f"[DEBUG ProviderRegistry] Creating new provider for {ai_type}")
-                cls._providers[ai_type] = ProviderFactory.create_provider(config)
-                cls._configs[ai_type] = config.copy()
+                cls._llm_providers[ai_type] = ProviderFactory.create_provider(config)
+                cls._configs[f"llm_{ai_type}"] = config.copy()
             else:
-                raise ValueError(f"No provider cached for {ai_type} and no config provided")
-        else:
-            print(f"[DEBUG ProviderRegistry] Using cached provider for {ai_type}")
+                raise ValueError(f"No LLM provider cached for {ai_type} and no config provided")
         
-        return cls._providers[ai_type]
+        return cls._llm_providers[ai_type]
+
+    @classmethod
+    def get_embedding_provider(cls, ai_type: str, config: Optional[Dict[str, Any]] = None) -> BaseEmbeddingProvider:
+        """Get or create embedding provider for AI type"""
+        # Check if config changed
+        if config and cls._configs.get(f"embed_{ai_type}") != config:
+            cls._embed_providers[ai_type] = ProviderFactory.create_embedding_provider(config)
+            cls._configs[f"embed_{ai_type}"] = config.copy()
+        
+        # Return cached or create new
+        if ai_type not in cls._embed_providers:
+            if config:
+                cls._embed_providers[ai_type] = ProviderFactory.create_embedding_provider(config)
+                cls._configs[f"embed_{ai_type}"] = config.copy()
+            else:
+                raise ValueError(f"No embedding provider cached for {ai_type} and no config provided")
+        
+        return cls._embed_providers[ai_type]
     
     @classmethod
     def clear_provider(cls, ai_type: str):
         """Clear cached provider"""
-        cls._providers.pop(ai_type, None)
-        cls._configs.pop(ai_type, None)
+        cls._llm_providers.pop(ai_type, None)
+        cls._embed_providers.pop(ai_type, None)
+        cls._configs.pop(f"llm_{ai_type}", None)
+        cls._configs.pop(f"embed_{ai_type}", None)
     
     @classmethod
     def clear_all(cls):
         """Clear all cached providers"""
-        cls._providers.clear()
+        cls._llm_providers.clear()
+        cls._embed_providers.clear()
         cls._configs.clear()
 
 
-# Convenience function
+# Convenience functions
 def get_llm_provider(ai_type: str, db_session=None) -> BaseLLMProvider:
     """Get LLM provider for AI type, loading config from DB if needed"""
     from sqlalchemy.orm import Session
     from app.models.models import AIProviderConfig
-    from app.core.config import get_settings
     
     # Try to get from registry first
-    if ai_type in ProviderRegistry._providers:
+    if ai_type in ProviderRegistry._llm_providers:
         return ProviderRegistry.get_provider(ai_type)
     
     # Load from database
@@ -795,10 +904,49 @@ def get_llm_provider(ai_type: str, db_session=None) -> BaseLLMProvider:
         "api_base_url": config_row.api_base_url,
         "api_key": config_row.api_key,
         "api_model": config_row.custom_api_model if config_row.use_custom_model else config_row.api_model,
-        "timeout": getattr(config_row, 'timeout', 30),  # Add timeout with default 30s
+        "timeout": getattr(config_row, 'timeout', 30),
     }
     
     return ProviderRegistry.get_provider(ai_type, config)
+
+
+def get_embedding_provider(db_session=None) -> BaseEmbeddingProvider:
+    """Get embedding provider, loading config from DB if needed"""
+    from sqlalchemy.orm import Session
+    from app.models.models import AIProviderConfig
+    
+    ai_type = "embedding"
+    
+    # Try to get from registry first
+    if ai_type in ProviderRegistry._embed_providers:
+        return ProviderRegistry.get_embedding_provider(ai_type)
+    
+    # Load from database
+    if db_session is None:
+        from app.core.database import SessionLocal
+        db = SessionLocal()
+        try:
+            config_row = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
+        finally:
+            db.close()
+    else:
+        config_row = db_session.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
+    
+    if not config_row:
+        # Initialize default config if not exists
+        config_row = initialize_default_config(ai_type, db_session)
+    
+    # Convert to dict
+    config = {
+        "provider": config_row.provider,
+        "api_base_url": config_row.api_base_url,
+        "api_key": config_row.api_key,
+        "api_model": config_row.custom_api_model if config_row.use_custom_model else config_row.api_model,
+        "embedding_model_name": config_row.embedding_model_name,
+        "timeout": getattr(config_row, 'timeout', 30),
+    }
+    
+    return ProviderRegistry.get_embedding_provider(ai_type, config)
 
 
 def initialize_default_config(ai_type: str, db_session=None):

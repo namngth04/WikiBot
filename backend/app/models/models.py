@@ -53,6 +53,13 @@ class Document(Base):
     chunk_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     
+    # Enhanced metadata for multimodal documents
+    has_images = Column(Boolean, default=False)
+    image_count = Column(Integer, default=0)
+    has_tables = Column(Boolean, default=False)
+    table_count = Column(Integer, default=0)
+    element_types = Column(Text, nullable=True)  # JSON string of element types
+    
     # Relationships
     role = relationship("Role", back_populates="documents")
     uploaded_by_user = relationship("User", back_populates="documents")

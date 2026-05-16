@@ -9,7 +9,7 @@ import {
 import { adminAIAPI } from '@/app/lib/ai-config-api';
 
 export default function AdminAIConfigPage() {
-  const [activeTab, setActiveTab] = useState<'safety' | 'rag' | 'embedding' | 'overview'>('safety');
+  const [activeTab, setActiveTab] = useState<'safety' | 'chat' | 'embedding' | 'overview'>('safety');
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -31,7 +31,7 @@ export default function AdminAIConfigPage() {
   });
 
   // Provider Configs
-  const [ragConfig, setRagConfig] = useState({
+  const [chatConfig, setChatConfig] = useState({
     provider: 'local',
     local_model_path: './llm_models/qwen2.5-3b-instruct-q4_k_m.gguf',
     local_context_length: 4096,
@@ -68,7 +68,7 @@ export default function AdminAIConfigPage() {
 
       const providers = await adminAIAPI.getAllProviderConfigs();
       providers.data.forEach((p: any) => {
-        if (p.ai_type === 'rag') setRagConfig(p);
+        if (p.ai_type === 'chat' || p.ai_type === 'rag') setChatConfig(p);
         if (p.ai_type === 'embedding') setEmbeddingConfig(p);
       });
     } catch (err) {
@@ -179,20 +179,20 @@ export default function AdminAIConfigPage() {
           <div className="space-y-3">
             <div>
               <span className="text-sm text-gray-500">Provider:</span>
-              <p className="font-medium">{getConfigDisplay(ragConfig, 'rag').provider}</p>
+              <p className="font-medium">{getConfigDisplay(chatConfig, 'chat').provider}</p>
             </div>
             <div>
               <span className="text-sm text-gray-500">Model:</span>
-              <p className="font-medium">{getConfigDisplay(ragConfig, 'rag').model}</p>
+              <p className="font-medium">{getConfigDisplay(chatConfig, 'chat').model}</p>
             </div>
             <div>
               <span className="text-sm text-gray-500">Trạng thái:</span>
               <p className={`font-medium ${
-                getConfigDisplay(ragConfig, 'rag').status === 'Đã cấu hình' 
+                getConfigDisplay(chatConfig, 'chat').status === 'Đã cấu hình' 
                   ? 'text-green-600' 
                   : 'text-orange-600'
               }`}>
-                {getConfigDisplay(ragConfig, 'rag').status}
+                {getConfigDisplay(chatConfig, 'chat').status}
               </p>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function AdminAIConfigPage() {
         {[
           { id: 'overview', label: 'Tổng quan', icon: Eye },
           { id: 'safety', label: 'Giới hạn an toàn', icon: Shield },
-          { id: 'rag', label: 'Chat AI', icon: Brain },
+          { id: 'chat', label: 'Chat AI', icon: Brain },
           { id: 'embedding', label: 'Embedding AI', icon: Layers },
         ].map((tab) => (
           <button
@@ -350,8 +350,8 @@ export default function AdminAIConfigPage() {
         </motion.div>
       )}
 
-      {/* RAG Tab */}
-      {activeTab === 'rag' && (
+      {/* Chat Tab */}
+      {activeTab === 'chat' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -372,11 +372,11 @@ export default function AdminAIConfigPage() {
                     onClick={() => {
                       // Auto-fill base URL when switching providers
                       const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS];
-                      const shouldAutoFill = !ragConfig.api_base_url || 
-                        ragConfig.api_base_url === DEFAULT_BASE_URLS[ragConfig.provider as keyof typeof DEFAULT_BASE_URLS];
+                      const shouldAutoFill = !chatConfig.api_base_url || 
+                        chatConfig.api_base_url === DEFAULT_BASE_URLS[chatConfig.provider as keyof typeof DEFAULT_BASE_URLS];
                       
-                      setRagConfig({ 
-                        ...ragConfig, 
+                      setChatConfig({ 
+                        ...chatConfig, 
                         provider: p,
                         ...(shouldAutoFill && newBaseUrl ? { api_base_url: newBaseUrl } : {})
                       });
@@ -384,7 +384,7 @@ export default function AdminAIConfigPage() {
                         loadModels(p);
                       }
                     }}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${ragConfig.provider === p
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${chatConfig.provider === p
                       ? 'bg-primary-600 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
@@ -395,14 +395,14 @@ export default function AdminAIConfigPage() {
               </div>
             </div>
 
-            {ragConfig.provider === 'local' ? (
+            {chatConfig.provider === 'local' ? (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-600">Model Path</label>
                   <input
                     type="text"
-                    value={ragConfig.local_model_path}
-                    onChange={(e) => setRagConfig({ ...ragConfig, local_model_path: e.target.value })}
+                    value={chatConfig.local_model_path}
+                    onChange={(e) => setChatConfig({ ...chatConfig, local_model_path: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="./llm_models/model.gguf"
                   />
@@ -410,8 +410,8 @@ export default function AdminAIConfigPage() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-600">Context Length</label>
                   <select
-                    value={ragConfig.local_context_length || 4096}
-                    onChange={(e) => setRagConfig({ ...ragConfig, local_context_length: parseInt(e.target.value) })}
+                    value={chatConfig.local_context_length || 4096}
+                    onChange={(e) => setChatConfig({ ...chatConfig, local_context_length: parseInt(e.target.value) })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value={2048}>2048</option>
@@ -427,8 +427,8 @@ export default function AdminAIConfigPage() {
                   <label className="text-sm font-medium text-slate-600">Base URL</label>
                   <input
                     type="text"
-                    value={ragConfig.api_base_url || ''}
-                    onChange={(e) => setRagConfig({ ...ragConfig, api_base_url: e.target.value })}
+                    value={chatConfig.api_base_url || ''}
+                    onChange={(e) => setChatConfig({ ...chatConfig, api_base_url: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="https://openrouter.ai/api/v1"
                   />
@@ -437,8 +437,8 @@ export default function AdminAIConfigPage() {
                   <label className="text-sm font-medium text-slate-600">API Key</label>
                   <input
                     type="password"
-                    value={ragConfig.api_key || ''}
-                    onChange={(e) => setRagConfig({ ...ragConfig, api_key: e.target.value })}
+                    value={chatConfig.api_key || ''}
+                    onChange={(e) => setChatConfig({ ...chatConfig, api_key: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="sk-..."
                   />
@@ -449,9 +449,9 @@ export default function AdminAIConfigPage() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
-                        name="ragModelType"
-                        checked={!ragConfig.use_custom_model}
-                        onChange={() => setRagConfig({ ...ragConfig, use_custom_model: false })}
+                        name="chatModelType"
+                        checked={!chatConfig.use_custom_model}
+                        onChange={() => setChatConfig({ ...chatConfig, use_custom_model: false })}
                         className="w-4 h-4"
                       />
                       <span className="text-sm">Chọn từ danh sách</span>
@@ -459,19 +459,19 @@ export default function AdminAIConfigPage() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
-                        name="ragModelType"
-                        checked={ragConfig.use_custom_model}
-                        onChange={() => setRagConfig({ ...ragConfig, use_custom_model: true })}
+                        name="chatModelType"
+                        checked={chatConfig.use_custom_model}
+                        onChange={() => setChatConfig({ ...chatConfig, use_custom_model: true })}
                         className="w-4 h-4"
                       />
                       <span className="text-sm">Nhập model ID tùy chỉnh</span>
                     </label>
                   </div>
 
-                  {!ragConfig.use_custom_model ? (
+                  {!chatConfig.use_custom_model ? (
                     <select
-                      value={ragConfig.api_model || ''}
-                      onChange={(e) => setRagConfig({ ...ragConfig, api_model: e.target.value })}
+                      value={chatConfig.api_model || ''}
+                      onChange={(e) => setChatConfig({ ...chatConfig, api_model: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
                       <option value="">Chọn model...</option>
@@ -482,8 +482,8 @@ export default function AdminAIConfigPage() {
                   ) : (
                     <input
                       type="text"
-                      value={ragConfig.custom_api_model || ''}
-                      onChange={(e) => setRagConfig({ ...ragConfig, custom_api_model: e.target.value })}
+                      value={chatConfig.custom_api_model || ''}
+                      onChange={(e) => setChatConfig({ ...chatConfig, custom_api_model: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg"
                       placeholder="Nhập model ID (vd: google/gemini-1.5-flash, anthropic/claude-3-haiku-20240307)"
                     />
@@ -495,7 +495,7 @@ export default function AdminAIConfigPage() {
 
           <div className="mt-6 flex gap-3 justify-end">
             <button
-              onClick={() => handleTestConnection('rag', ragConfig)}
+              onClick={() => handleTestConnection('chat', chatConfig)}
               disabled={testingConnection}
               className="flex items-center gap-2 bg-slate-100 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-200 disabled:opacity-50"
             >
@@ -503,7 +503,7 @@ export default function AdminAIConfigPage() {
               {testingConnection ? 'Testing...' : 'Test Connection'}
             </button>
             <button
-              onClick={() => handleSaveProvider('rag', ragConfig)}
+              onClick={() => handleSaveProvider('chat', chatConfig)}
               disabled={loading}
               className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
             >

@@ -254,82 +254,71 @@ def test_connection_auto_load(
 @router.post("/{ai_type}/test", response_model=TestConnectionResponse)
 def test_provider_connection(
     ai_type: str,
-    test_config: TestConnectionRequest = None,  # Make optional - we'll load from database
+    test_config: TestConnectionRequest,
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin)
 ):
-    """Test AI provider connection using database config (like chat)"""
-    print(f"\n[DEBUG] ========== TEST CONNECTION START ==========")
+    """Test AI provider connection using provided config (allows testing before saving)"""
+    print(f"\n[DEBUG] ========== TEST CONNECTION (POST) START ==========")
     print(f"[DEBUG] AI Type: {ai_type}")
-    print(f"[DEBUG] Current working directory: {os.getcwd()}")
     
     if ai_type not in ["chat", "embedding", "faq"]:
         raise HTTPException(status_code=400, detail="Invalid AI type")
     
-    # Load config from database (same as chat logic)
+    # Load existing config from database as fallback
     config_row = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == ai_type).first()
-    if not config_row:
-        return TestConnectionResponse(
-            success=False,
-            message=f"No configuration found for {ai_type}"
-        )
     
-    # Build config dict (same as get_llm_provider in llm_providers.py)
+    # Determine which values to use (priority: request body > database)
+    provider = test_config.provider
+    api_base_url = test_config.api_base_url
+    api_key = test_config.api_key
+    api_model = test_config.custom_api_model if test_config.use_custom_model else test_config.api_model
+    local_model_path = test_config.local_model_path
+    timeout = test_config.timeout or (config_row.timeout if config_row else 30)
+
+    # If api_key is missing in request, use the one from database (and decrypt it)
+    if not api_key and config_row and config_row.api_key:
+        api_key = config_row.api_key
+        # Note: ProviderFactory will handle decryption if it doesn't start with sk-
+    
+    # Build final config for factory
     config = {
-        "provider": config_row.provider,
-        "local_model_path": config_row.local_model_path,
-        "local_context_length": config_row.local_context_length,
-        "api_base_url": config_row.api_base_url,
-        "api_key": config_row.api_key,  # Will be decrypted by ProviderFactory
-        "api_model": config_row.custom_api_model if config_row.use_custom_model else config_row.api_model,
-        "timeout": getattr(config_row, 'timeout', 30),
+        "provider": provider,
+        "local_model_path": local_model_path or (config_row.local_model_path if config_row else None),
+        "local_context_length": config_row.local_context_length if config_row else 4096,
+        "api_base_url": api_base_url or (config_row.api_base_url if config_row else None),
+        "api_key": api_key,
+        "api_model": api_model or (config_row.api_model if config_row else None),
+        "timeout": timeout,
     }
     
-    print(f"[DEBUG] Config loaded from database: {config}")
-    print(f"[DEBUG] test_config.api_model: '{config.get('api_model')}'")
-    print(f"[DEBUG] test_config.api_model type: {type(config.get('api_model'))}")
+    print(f"[DEBUG] Test Config: provider={provider}, model={config['api_model']}, url={api_base_url}")
     
     # Validation for API providers
-    if config["provider"] in ["openrouter", "ollama"] and not config.get("api_model"):
+    if provider in ["openrouter", "ollama"] and not config.get("api_model"):
         return TestConnectionResponse(
             success=False,
-            message="Model name is required for API providers. Please specify a model (e.g., 'poolside/laguna-m.1:free')"
+            message="Model name is required for API providers."
         )
-    
-    # Check if local model path exists
-    if config.get("local_model_path"):
-        model_path = config["local_model_path"]
-        abs_path = os.path.abspath(model_path)
-        print(f"[DEBUG] Model path (relative): {model_path}")
-        print(f"[DEBUG] Model path (absolute): {abs_path}")
-        print(f"[DEBUG] File exists: {os.path.exists(model_path)}")
-        print(f"[DEBUG] File exists (abs): {os.path.exists(abs_path)}")
     
     # Test connection
     try:
         if ai_type == "embedding":
-            print(f"[DEBUG] Creating embedding provider...")
-            # For embedding AI type, use embedding provider
-            provider = ProviderFactory.create_embedding_provider(config)
-            print(f"[DEBUG] Embedding provider created: {type(provider).__name__}")
-            result = provider.test_connection()
+            provider_inst = ProviderFactory.create_embedding_provider(config)
+            result = provider_inst.test_connection()
         else:
-            print(f"[DEBUG] Creating LLM provider...")
-            # For other AI types, use regular LLM provider
             result = ProviderFactory.test_provider_config(config)
-        print(f"[DEBUG] Test result: {result}")
     except Exception as e:
         print(f"[DEBUG] Exception during test: {str(e)}")
-        print(f"[DEBUG] Exception type: {type(e)}")
-        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
         result = {
             "success": False,
             "message": f"Exception: {str(e)}",
             "latency_ms": 0
         }
     
-    print(f"[DEBUG] ========== TEST CONNECTION END ==========\n")
+    print(f"[DEBUG] ========== TEST CONNECTION (POST) END ==========\n")
     return TestConnectionResponse(**result)
+
 
 
 # ============================================

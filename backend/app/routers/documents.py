@@ -110,7 +110,7 @@ async def upload_document(
     settings = get_settings()
     
     # Validate file type
-    allowed_types = ['.pdf', '.docx', '.txt']
+    allowed_types = ['.pdf', '.docx', '.txt', '.pptx', '.xlsx', '.csv', '.html', '.htm', '.md', '.png', '.jpg', '.jpeg']
     file_ext = os.path.splitext(file.filename.lower())[1]
     if file_ext not in allowed_types:
         raise HTTPException(

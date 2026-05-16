@@ -5,12 +5,21 @@ Combines vector search (semantic) and keyword search (BM25) for better retrieval
 
 import math
 import re
+import logging
 from typing import List, Dict, Optional, Tuple
 from collections import Counter, defaultdict
-from sentence_transformers import SentenceTransformer
 import chromadb
 
 from app.services.document_processor import DocumentProcessor
+
+logger = logging.getLogger(__name__)
+
+_GLOBAL_BM25_SEARCHER = None
+
+def invalidate_bm25_cache():
+    """Invalidate global BM25 cache"""
+    global _GLOBAL_BM25_SEARCHER
+    _GLOBAL_BM25_SEARCHER = None
 
 
 class BM25Searcher:
@@ -25,14 +34,16 @@ class BM25Searcher:
         self.term_doc_freq = defaultdict(int)  # Number of docs containing each term
         self.doc_term_freqs = []  # Term frequencies for each document
         self.documents = []
+        self.doc_ids = []
     
-    def index_documents(self, documents: List[str], metadatas: List[Dict]):
+    def index_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
         """Index documents for BM25 search"""
         self.documents = documents
         self.doc_count = len(documents)
         self.doc_term_freqs = []
         self.doc_lengths = []
         self.term_doc_freq = defaultdict(int)
+        self.doc_ids = ids
         
         # Process each document
         for doc in documents:
@@ -119,6 +130,11 @@ class HybridRetriever:
     
     def _build_bm25_index(self):
         """Build BM25 index from ChromaDB documents"""
+        global _GLOBAL_BM25_SEARCHER
+        if _GLOBAL_BM25_SEARCHER is not None:
+            self.bm25_searcher = _GLOBAL_BM25_SEARCHER
+            return
+            
         try:
             # Get all documents from ChromaDB
             collection = self.document_processor.collection
@@ -127,14 +143,18 @@ class HybridRetriever:
             if results and results['documents']:
                 documents = results['documents']
                 metadatas = results['metadatas']
+                doc_ids = results.get('ids', [str(i) for i in range(len(documents))])
                 
                 # Build BM25 index
-                self.bm25_searcher.index_documents(documents, metadatas)
-                print(f"[DEBUG HybridRetriever] BM25 index built with {len(documents)} documents")
+                self.bm25_searcher.index_documents(documents, metadatas, doc_ids)
+                logger.info(f"BM25 index built with {len(documents)} documents")
+                
+                # Cache globally
+                _GLOBAL_BM25_SEARCHER = self.bm25_searcher
             else:
-                print("[DEBUG HybridRetriever] No documents found in ChromaDB")
+                logger.debug("No documents found in ChromaDB")
         except Exception as e:
-            print(f"[ERROR HybridRetriever] Failed to build BM25 index: {e}")
+            logger.error(f"Failed to build BM25 index: {e}")
     
     def search(self, query: str, accessible_role_ids: List[Optional[int]], 
                 top_k: int = 5, max_distance: float = 0.3) -> List[Dict]:
@@ -169,45 +189,56 @@ class HybridRetriever:
             # Get BM25 scores
             bm25_scores = self.bm25_searcher.search(query, top_k)
             
+            if not bm25_scores:
+                return []
+                
             # Convert to our format and filter by role
             results = []
             collection = self.document_processor.collection
             
+            # Get all real IDs for batching
+            real_ids = [self.bm25_searcher.doc_ids[doc_idx] for doc_idx, _ in bm25_scores]
+            
+            # Get all documents in one batch
+            batch_results = collection.get(
+                ids=real_ids,
+                include=["documents", "metadatas"]
+            )
+            
+            if not batch_results or not batch_results['ids']:
+                return []
+                
+            # Map batch results back to order of bm25_scores
+            id_to_data = {
+                id_: {'doc': doc, 'meta': meta} 
+                for id_, doc, meta in zip(batch_results['ids'], batch_results['documents'], batch_results['metadatas'])
+            }
+            
             for doc_idx, score in bm25_scores:
-                try:
-                    # Get document metadata from ChromaDB
-                    doc_results = collection.get(
-                        where={"chunk_index": doc_idx},
-                        include=["documents", "metadatas"],
-                        limit=1
-                    )
-                    
-                    if doc_results and doc_results['documents']:
-                        # Check role access
-                        metadata = doc_results['metadatas'][0]
-                        role_id = metadata.get('role_id', 0)
-                        
-                        # Convert None to 0 for comparison
-                        if role_id is None:
-                            role_id = 0
-                        
-                        # Check if user has access to this role
-                        if role_id in accessible_role_ids or 0 in accessible_role_ids:
-                            results.append({
-                                'content': doc_results['documents'][0],
-                                'metadata': metadata,
-                                'distance': 1.0 - score,  # Convert score to distance-like format
-                                'bm25_score': score,
-                                'vector_score': 0.0
-                            })
-                except Exception as e:
-                    print(f"[ERROR HybridRetriever] Error processing BM25 result {doc_idx}: {e}")
+                real_id = self.bm25_searcher.doc_ids[doc_idx]
+                if real_id not in id_to_data:
                     continue
+                    
+                data = id_to_data[real_id]
+                metadata = data['meta']
+                role_id = metadata.get('role_id', 0)
+                if role_id is None:
+                    role_id = 0
+                
+                # Check role access
+                if role_id in accessible_role_ids or 0 in accessible_role_ids:
+                    results.append({
+                        'content': data['doc'],
+                        'metadata': metadata,
+                        'distance': 1.0 - (score / 10.0),  # Simple normalization
+                        'bm25_score': score,
+                        'vector_score': 0.0
+                    })
             
             return results[:top_k]
             
         except Exception as e:
-            print(f"[ERROR HybridRetriever] BM25 search failed: {e}")
+            logger.error(f"BM25 search failed: {e}")
             return []
     
     def _combine_results(self, vector_results: List[Dict], keyword_results: List[Dict],

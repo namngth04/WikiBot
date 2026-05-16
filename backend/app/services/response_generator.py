@@ -7,7 +7,10 @@ import os
 import time
 import json
 import re
+import logging
 from typing import List, Optional, Dict, Any
+
+import numpy as np
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -18,6 +21,11 @@ from app.services.query_enhancer import QueryEnhancer
 from app.services.retriever import HybridRetriever
 from app.services.confidence_scorer import ConfidenceScorer
 
+
+logger = logging.getLogger(__name__)
+
+# Global cache for FAQ embeddings to avoid re-encoding
+_FAQ_EMBEDDING_CACHE = {}
 
 class ResponseGenerator:
     """Main response generation orchestrator using modular components"""
@@ -78,11 +86,37 @@ CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
 """ + f"\n\nQUY TẮC ĐỘ DÀI ({response_style.upper()}):\n{style_rules.get(response_style, style_rules['concise'])}"
     
     def build_context_prompt(self, query: str, chunks: List[dict]) -> str:
-        """Build prompt with enhanced reasoning guidance"""
-        context = "\n\n".join([
-            f"[Tài liệu: {chunk['metadata']['source']}, Đoạn {chunk['metadata']['chunk_index']}]: {chunk['content']}"
-            for chunk in chunks
-        ])
+        """Build prompt with metadata-driven formatting"""
+        context_parts = []
+        
+        for chunk in chunks:
+            metadata = chunk['metadata']
+            source = metadata['source']
+            chunk_idx = metadata['chunk_index']
+            content = chunk['content']
+            
+            # Build context line based on available metadata
+            context_line_parts = []
+            
+            # Add element type if available
+            if 'element_type' in metadata and metadata['element_type']:
+                context_line_parts.append(f"[{metadata['element_type'].upper()}]")
+            
+            # Add page number if available
+            if 'page_number' in metadata and metadata['page_number']:
+                context_line_parts.append(f"Trang {metadata['page_number']}")
+            
+            # Add source and chunk index
+            context_line_parts.append(f"{source}, Đoạn {chunk_idx}")
+            
+            # Join all metadata parts
+            context_header = " - ".join(context_line_parts)
+            
+            context_parts.append(
+                f"{context_header}:\n{content}"
+            )
+        
+        context = "\n\n".join(context_parts)
         
         prompt = f"""THÔNG TIN TỪ TÀI LIỆU NỘI BỘ:
 {context}
@@ -91,12 +125,9 @@ CÂU HỎI: {query}
 
 HƯỚNG DẪN TRẢ LỜI:
 1. Đọc kỹ tất cả tài liệu trên
-2. Xác định thông tin liên quan trực tiếp đến câu hỏi
-3. Kết nối thông tin từ nhiều đoạn tài liệu khác nhau
-4. Phân tích và suy luận dựa trên thông tin có sẵn
-5. Nếu câu hỏi có nhiều phần, hãy trả lời từng phần một cách rõ ràng
-6. Nếu thông tin không đủ, hãy nói rõ: "Theo tài liệu, không có thông tin về..."
-7. Không tự thêm thông tin không có trong tài liệu
+2. Chú ý metadata của từng đoạn (loại phần tử, trang số) để hiểu ngữ cảnh
+3. Kết nối thông tin từ nhiều đoạn khác nhau
+4. Nếu thông tin không đủ, hãy nói rõ: "Theo tài liệu, không có thông tin về..."
 """
         
         return prompt
@@ -183,40 +214,57 @@ HƯỚNG DẪN TRẢ LỜI:
         return re.sub(r"^\s*(wikibot|trợ lý|assistant)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
     
     def check_faqs(self, query: str) -> Optional[FAQ]:
-        """Check if query matches active FAQ with improved matching"""
-        # Use query directly (QueryEnhancer will be called in generate_response)
-        query_variations = [query]
-        
-        candidates = self.db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
-        best_faq = None
-        best_score = 0.0
-        
-        for faq in candidates:
-            for variation in query_variations:
-                # Simple keyword matching (keeping original logic for now)
-                normalized_variation = re.sub(r"\s+", " ", variation.lower()).strip()
+        """Check if query matches active FAQ using embedding similarity"""
+        try:
+            candidates = self.db.query(FAQ).filter(FAQ.is_active.is_(True)).all()
+            if not candidates:
+                return None
+
+            # 1. Thử so khớp chính xác/chứa từ trước (Fast track)
+            normalized_query = re.sub(r"\s+", " ", query.lower()).strip()
+            for faq in candidates:
                 normalized_faq = re.sub(r"\s+", " ", faq.question.lower()).strip()
+                if normalized_query == normalized_faq or (len(normalized_query) > 10 and normalized_query in normalized_faq):
+                    faq.hits = (faq.hits or 0) + 1
+                    self.db.commit()
+                    return faq
+
+            # 2. Embedding Similarity matching
+            query_embedding = self.document_processor.embedding_model.encode([query])[0]
+            
+            best_faq = None
+            best_score = 0.0
+            
+            global _FAQ_EMBEDDING_CACHE
+            
+            for faq in candidates:
+                # Get or create cached embedding for FAQ question
+                if faq.id not in _FAQ_EMBEDDING_CACHE:
+                    faq_emb = self.document_processor.embedding_model.encode([faq.question])[0]
+                    _FAQ_EMBEDDING_CACHE[faq.id] = faq_emb
                 
-                # Check for exact match or containment
-                if normalized_variation in normalized_faq or normalized_faq in normalized_variation:
-                    score = 1.0
-                else:
-                    # Token overlap
-                    var_tokens = set(re.findall(r"\w+", normalized_variation))
-                    faq_tokens = set(re.findall(r"\w+", normalized_faq))
-                    if var_tokens and faq_tokens:
-                        score = len(var_tokens & faq_tokens) / len(var_tokens | faq_tokens)
-                    else:
-                        score = 0.0
+                faq_embedding = _FAQ_EMBEDDING_CACHE[faq.id]
+                
+                # Calculate cosine similarity
+                score = np.dot(query_embedding, faq_embedding) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(faq_embedding)
+                )
                 
                 if score > best_score:
                     best_score = score
                     best_faq = faq
-        
-        if best_faq and best_score >= 0.35:
-            best_faq.hits = (best_faq.hits or 0) + 1
-            self.db.commit()
-            return best_faq
+            
+            logger.debug(f"FAQ Match: best_score={best_score:.4f} for '{best_faq.question if best_faq else 'None'}'")
+            
+            # Ngưỡng tin cậy cho embedding thường là 0.75 - 0.85
+            if best_faq and best_score >= 0.8:
+                best_faq.hits = (best_faq.hits or 0) + 1
+                self.db.commit()
+                return best_faq
+                
+        except Exception as e:
+            logger.error(f"Error in FAQ matching: {e}")
+            
         return None
     
     def generate_response(
@@ -262,12 +310,12 @@ HƯỚNG DẪN TRẢ LỜI:
             # Dedup và rerank
             chunks = self._dedup_and_rerank_chunks(all_chunks, query_to_use)
         except Exception as e:
-            print(f"Error in hybrid search: {e}")
+            logger.error(f"Error in hybrid search: {e}")
             raise
         
         # 4. Determine provider
         provider = self.faq_provider if self.faq_provider else self.llm_provider
-        print(f"[DEBUG ResponseGenerator] Using provider: {type(provider).__name__}")
+        logger.debug(f"Using provider: {type(provider).__name__}")
         
         # 5. Build prompts
         system_prompt = self.build_system_prompt(response_style)
@@ -304,7 +352,7 @@ HƯỚNG DẪN TRẢ LỜI:
             if hasattr(provider, '_client') and provider._client is None:
                 provider_client = provider.client
                 client_time = time.time() - llm_start
-                print(f"[DEBUG ResponseGenerator] Client creation time: {client_time:.3f}s")
+                logger.debug(f"Client creation time: {client_time:.3f}s")
             
             # Generate response
             response_text = provider.generate(
@@ -316,7 +364,7 @@ HƯỚNG DẪN TRẢ LỜI:
             )
             
             llm_time = time.time() - llm_start
-            print(f"[DEBUG ResponseGenerator] LLM generation time: {llm_time:.3f}s")
+            logger.debug(f"LLM generation time: {llm_time:.3f}s")
             
             # Post-process response
             response_text = self._trim_redundant_sentences(response_text)
@@ -348,7 +396,7 @@ HƯỚNG DẪN TRẢ LỜI:
             final_response = response_text if not show_sources else self._attach_inline_sources(response_text, sources)
             
             total_time = time.time() - start_time
-            print(f"[DEBUG ResponseGenerator] Total generation time: {total_time:.3f}s")
+            logger.info(f"Total response generation time: {total_time:.3f}s")
             
             return {
                 "response": final_response,
@@ -357,13 +405,17 @@ HƯỚNG DẪN TRẢ LỜI:
                 "citations": sources,
                 "confidence": confidence_scores,
                 "query_processing": enhanced,
-                "retrieval_stats": self.hybrid_retriever.get_search_stats(query_to_use, accessible_role_ids)
+                "retrieval_stats": {
+                    "vector_results": len(chunks),
+                    "keyword_results": len(chunks), # Approximation
+                    "total_unique": len(chunks)
+                }
             }
             
         except Exception as e:
             import traceback
-            print(f"[ERROR ResponseGenerator] Error generating response: {e}")
-            print(f"[ERROR ResponseGenerator] Traceback:\n{traceback.format_exc()}")
+            logger.error(f"Error generating response: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "response": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
                 "answer": "Xin lỗi, đã xảy ra lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại.",
@@ -374,26 +426,7 @@ HƯỚNG DẪN TRẢ LỜI:
                 "error": str(e)
             }
     
-    def _rerank_chunks(self, query: str, chunks: List[dict]) -> List[dict]:
-        """Rerank chunks based on keyword matching and other factors"""
-        query_words = set(query.lower().split())
-        
-        for chunk in chunks:
-            content_lower = chunk['content'].lower()
-            
-            # Keyword matching boost
-            word_matches = sum(1 for word in query_words if word in content_lower)
-            chunk['rerank_score'] = chunk['distance'] - (word_matches * 0.05)
-            
-            # Boost chunks with structured content
-            if any(pattern in content_lower for pattern in [':', '-', '•', '1.', '2.', 'quy định', 'chính sách']):
-                chunk['rerank_score'] -= 0.1
-            
-            # Boost chunks with numbers/dates (often more specific)
-            if re.search(r'\d+', content_lower):
-                chunk['rerank_score'] -= 0.05
-        
-        return sorted(chunks, key=lambda x: x['rerank_score'])
+
     
     def _attach_inline_sources(self, response_text: str, sources: List[dict]) -> str:
         """Attach inline sources to response"""
