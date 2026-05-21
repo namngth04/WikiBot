@@ -203,6 +203,11 @@ def send_message(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Không tìm thấy cuộc trò chuyện ID {request.conversation_id}"
             )
+        
+        # Tự động cập nhật tiêu đề nếu vẫn đang giữ tên mặc định
+        if conversation.title == "Cuộc trò chuyện mới":
+            conversation.title = request.message[:50] + "..." if len(request.message) > 50 else request.message
+            db.commit()
     else:
         # Create new conversation
         conversation = Conversation(

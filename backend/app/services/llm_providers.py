@@ -8,6 +8,7 @@ Supports: Local (SentenceTransformer), OpenAI API
 import os
 import time
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from cryptography.fernet import Fernet
@@ -15,6 +16,8 @@ from openai import OpenAI
 from llama_cpp import Llama
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # httpx is already imported via OpenAI client, we'll use it for OllamaNativeProvider
 # No additional imports needed
@@ -527,9 +530,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 model=self.model,
                 input=texts
             )
-            print(f"[DEBUG] Embedding response: {response}")
-            print(f"[DEBUG] Response data: {response.data}")
-            print(f"[DEBUG] Response data type: {type(response.data)}")
+            logger.debug(f"Embedding response success: model={self.model}, count={len(texts)}")
+            if response.data:
+                logger.debug(f"Generated {len(response.data)} embeddings. Dimension of first vector: {len(response.data[0].embedding) if response.data[0].embedding else 0}")
             
             if response.data is None:
                 raise ValueError("API returned None data")
@@ -541,9 +544,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         import httpx
         import json
         
-        print(f"[DEBUG] Using OpenRouter direct API call")
-        print(f"[DEBUG] API Key length: {len(self.api_key)}")
-        print(f"[DEBUG] API Key starts with: {self.api_key[:10]}...")
+        logger.debug(f"Using OpenRouter direct API call for model: {self.model}")
         
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -563,20 +564,26 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 json=data
             )
             
-            print(f"[DEBUG] OpenRouter raw response status: {response.status_code}")
-            print(f"[DEBUG] OpenRouter raw response: {response.text}")
+            logger.debug(f"OpenRouter raw response status: {response.status_code}")
             
             if response.status_code != 200:
                 raise ValueError(f"OpenRouter API error: {response.status_code} - {response.text}")
             
             result = response.json()
-            print(f"[DEBUG] OpenRouter parsed response: {result}")
             
             # Handle different response structures
             if "data" in result and result["data"] is not None:
-                return [item["embedding"] for item in result["data"]]
+                embeddings_data = result["data"]
+                logger.debug(f"OpenRouter response success: count={len(embeddings_data)}")
+                if len(embeddings_data) > 0 and "embedding" in embeddings_data[0]:
+                    logger.debug(f"Dimension of first vector: {len(embeddings_data[0]['embedding'])}")
+                return [item["embedding"] for item in embeddings_data]
             elif "embeddings" in result and result["embeddings"] is not None:
-                return result["embeddings"]
+                embeddings_data = result["embeddings"]
+                logger.debug(f"OpenRouter response success: count={len(embeddings_data)}")
+                if len(embeddings_data) > 0:
+                    logger.debug(f"Dimension of first vector: {len(embeddings_data[0])}")
+                return embeddings_data
             else:
                 raise ValueError(f"Unexpected OpenRouter response structure: {result}")
     
@@ -585,7 +592,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         import base64
         import httpx
         
-        print(f"[DEBUG] Using multimodal encoding")
+        logger.debug(f"Using multimodal encoding for model: {self.model}")
         
         # Convert images to base64
         image_data_list = []
@@ -596,7 +603,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 img_base64 = base64.b64encode(img_data).decode('utf-8')
                 image_data_list.append(img_base64)
             except Exception as e:
-                print(f"[DEBUG] Error converting image to base64: {e}")
+                logger.warning(f"Error converting image to base64: {e}")
                 # Fallback: use empty string for failed images
                 image_data_list.append("")
         
@@ -628,34 +635,37 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 json=data
             )
             
-            print(f"[DEBUG] Multimodal API response status: {response.status_code}")
+            logger.debug(f"Multimodal API response status: {response.status_code}")
             
             if response.status_code != 200:
                 raise ValueError(f"Multimodal API error: {response.status_code} - {response.text}")
             
             result = response.json()
-            print(f"[DEBUG] Multimodal API parsed response: {result}")
             
             # Handle response structure
             if "data" in result and result["data"] is not None:
-                return [item["embedding"] for item in result["data"]]
+                embeddings_data = result["data"]
+                logger.debug(f"Multimodal API response success: count={len(embeddings_data)}")
+                if len(embeddings_data) > 0 and "embedding" in embeddings_data[0]:
+                    logger.debug(f"Dimension of first vector: {len(embeddings_data[0]['embedding'])}")
+                return [item["embedding"] for item in embeddings_data]
             elif "embeddings" in result and result["embeddings"] is not None:
-                return result["embeddings"]
+                embeddings_data = result["embeddings"]
+                logger.debug(f"Multimodal API response success: count={len(embeddings_data)}")
+                if len(embeddings_data) > 0:
+                    logger.debug(f"Dimension of first vector: {len(embeddings_data[0])}")
+                return embeddings_data
             else:
                 raise ValueError(f"Unexpected multimodal API response structure: {result}")
     
     def test_connection(self) -> Dict[str, Any]:
         """Test API connection"""
-        print(f"[DEBUG OpenAIEmbeddingProvider] test_connection called")
-        print(f"[DEBUG OpenAIEmbeddingProvider] Model: {self.model}")
-        print(f"[DEBUG OpenAIEmbeddingProvider] Base URL: {self.base_url}")
+        logger.info(f"test_connection called for model: {self.model}")
         
         start = time.time()
         try:
-            print(f"[DEBUG OpenAIEmbeddingProvider] About to call encode()")
             # Test by actually encoding a test text
             embeddings = self.encode(["test"])
-            print(f"[DEBUG OpenAIEmbeddingProvider] encode() returned successfully")
             latency = (time.time() - start) * 1000
             return {
                 "success": True,
@@ -665,10 +675,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 "base_url": self.base_url
             }
         except Exception as e:
-            print(f"[DEBUG OpenAIEmbeddingProvider] Exception in test_connection: {str(e)}")
-            print(f"[DEBUG OpenAIEmbeddingProvider] Exception type: {type(e)}")
+            logger.error(f"API connection failed for model {self.model}: {str(e)}")
             import traceback
-            print(f"[DEBUG OpenAIEmbeddingProvider] Traceback: {traceback.format_exc()}")
+            logger.debug(f"Traceback:\n{traceback.format_exc()}")
             return {
                 "success": False,
                 "message": f"API connection failed: {str(e)}",

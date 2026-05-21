@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { UserSettings } from '@/app/components/UserSettings';
+import AppLogo from './AppLogo';
 
 interface ChatContainerProps {
   className?: string;
@@ -141,9 +142,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
             "flex items-center gap-3 mb-6 px-2 transition-all duration-300",
             !sidebarOpen && "justify-center px-0"
           )}>
-            <div className="bg-primary-600 p-2 rounded-xl shadow-primary-200 shadow-lg shrink-0">
-              <Sparkles className="text-white" size={20} />
-            </div>
+            <AppLogo size="md" />
             <AnimatePresence>
               {sidebarOpen && (
                 <motion.h1 

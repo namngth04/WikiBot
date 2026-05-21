@@ -60,3 +60,9 @@ wheels/
 backend/alembic/versions/*.py
 !backend/alembic/versions/__init__.py
 backend/alembic/__pycache__/
+
+# Temp (tạo ra trong quá trình test)
+temp/
+
+# Reports (tạo ra trong quá trình test)
+baocao/

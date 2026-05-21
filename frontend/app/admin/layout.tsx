@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import AppLogo from '@/app/components/AppLogo';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -63,9 +64,7 @@ export default function AdminLayout({
             "flex items-center gap-3 mb-10 px-2 transition-all duration-300",
             !sidebarOpen && "justify-center px-0"
           )}>
-            <div className="bg-primary-500 p-2 rounded-xl shadow-lg shadow-primary-500/20 shrink-0">
-              <Sparkles className="text-white" size={20} />
-            </div>
+            <AppLogo size="md" />
             <AnimatePresence>
               {sidebarOpen && (
                 <motion.h1 

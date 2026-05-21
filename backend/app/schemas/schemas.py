@@ -312,6 +312,7 @@ class AIProviderConfigResponse(BaseModel):
     default_max_tokens: int = 512
     timeout: int = 30
     updated_at: Optional[datetime] = None
+    has_api_key: bool = False
     
     class Config:
         from_attributes = True

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { ChatMessage } from '@/app/types/chat';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -113,8 +114,15 @@ export default function MessageItem({
         )}
         
         {/* Message content */}
-        <div className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-          {message.content}
+        <div className={cn(
+          "text-sm md:text-base leading-relaxed",
+          message.role === 'user' ? "whitespace-pre-wrap" : "text-slate-800"
+        )}>
+          {message.role === 'user' ? (
+            message.content
+          ) : (
+            <MarkdownRenderer content={message.content} />
+          )}
         </div>
         
         {/* Error message for failed messages */}

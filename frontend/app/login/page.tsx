@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
-import { Lock, User, AlertCircle, Bot } from 'lucide-react';
+import { Lock, User, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AppLogo from '@/app/components/AppLogo';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -89,13 +90,7 @@ export default function LoginPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <motion.div
-              className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg mb-4"
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Bot className="text-white" size={32} />
-            </motion.div>
+            <AppLogo size="lg" className="mb-4" />
             <motion.h1
               className="text-3xl font-bold text-white tracking-tight"
               animate={{ textShadow: ['0 0 0px rgba(59,130,246,0)', '0 0 20px rgba(59,130,246,0.4)', '0 0 0px rgba(59,130,246,0)'] }}

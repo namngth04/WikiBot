@@ -162,7 +162,7 @@ export default function AdminAIConfigPage() {
       }
       
       return {
-        status: config.api_key || config.local_model_path ? 'Đã cấu hình' : 'Chưa cấu hình',
+        status: config.api_key || config.has_api_key || config.local_model_path ? 'Đã cấu hình' : 'Chưa cấu hình',
         provider: providerDisplay,
         model: modelDisplay
       };

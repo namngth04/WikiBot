@@ -10,8 +10,11 @@ const config: Config = {
     extend: {
       fontFamily: {
         'be-vietnam': ['var(--font-be-vietnam)', 'sans-serif'],
+        'sans': ['Inter', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        'mono': ['Roboto Mono', 'JetBrains Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
       colors: {
+        // Màu gốc của WikiBot (giữ lại để đảm bảo tính kế thừa)
         primary: {
           50: '#f5f3ff',
           100: '#ede9fe',
@@ -36,6 +39,47 @@ const config: Config = {
           800: '#1e293b',
           900: '#0f172a',
         },
+        // Hệ màu Linear.app mới được tích hợp
+        canvas: '#010102',
+        surface: {
+          1: '#0f1011',
+          2: '#141516',
+          3: '#18191a',
+          4: '#191a1b',
+        },
+        hairline: {
+          DEFAULT: '#23252a',
+          strong: '#34343a',
+          tertiary: '#3e3e44',
+        },
+        ink: {
+          DEFAULT: '#f7f8f8',
+          muted: '#d0d6e0',
+          subtle: '#8a8f98',
+          tertiary: '#62666d',
+        },
+        brand: {
+          lavender: {
+            DEFAULT: '#5e6ad2',
+            hover: '#828fff',
+            focus: '#5e69d1',
+            active: '#4d58b3',
+          },
+          secure: '#7a7fad',
+        },
+        semantic: {
+          success: '#27a644',
+          warning: '#f59e0b',
+          overlay: '#000000',
+        }
+      },
+      borderRadius: {
+        'xs': '4px',
+        'sm': '6px',
+        'md': '8px',
+        'lg': '12px',
+        'xl': '16px',
+        'xxl': '24px',
       },
       boxShadow: {
         'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',

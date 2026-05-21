@@ -203,6 +203,12 @@ export const useChat = (options: UseChatOptions = {}) => {
         setCurrentConversation(newConv);
         setConversations(prev => [newConv, ...prev]);
         options.onNewConversation?.(newConv);
+      } else if (currentConversation && currentConversation.title === "Cuộc trò chuyện mới") {
+        const updatedTitle = messageText.slice(0, 50) + (messageText.length > 50 ? '...' : '');
+        setConversations(prev =>
+          prev.map(c => c.id === currentConversation.id ? { ...c, title: updatedTitle } : c)
+        );
+        setCurrentConversation(prev => prev ? { ...prev, title: updatedTitle } : null);
       }
 
       return response.data;
