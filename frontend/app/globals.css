@@ -4,31 +4,56 @@
 
 @layer base {
   body {
-    @apply text-slate-800 bg-slate-50 font-be-vietnam;
+    @apply text-ink bg-canvas font-sans antialiased;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-be-vietnam font-bold tracking-tight;
+    @apply font-sans font-semibold tracking-[-0.03em] text-ink;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-glass;
+    @apply bg-surface-1/70 backdrop-blur-md border border-hairline shadow-sm;
   }
   
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 shadow-soft hover:shadow-soft-xl transition-all duration-300 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 active:scale-95;
+    @apply bg-brand-lavender text-white hover:bg-brand-lavender-hover active:scale-95 duration-200 transition-all font-medium text-sm rounded-md px-4 py-2 flex items-center justify-center gap-2 select-none shadow-sm;
   }
 
   .btn-secondary {
-    @apply bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm transition-all duration-300 rounded-xl px-4 py-2 font-semibold flex items-center gap-2 active:scale-95;
+    @apply bg-surface-1 text-ink border border-hairline hover:bg-surface-2 active:scale-95 duration-200 transition-all font-medium text-sm rounded-md px-4 py-2 flex items-center justify-center gap-2 select-none;
+  }
+
+  .btn-linear-primary {
+    @apply bg-brand-lavender text-white hover:bg-brand-lavender-hover active:scale-95 duration-200 transition-all font-medium text-sm rounded-md px-4 py-2 flex items-center justify-center gap-2 select-none shadow-sm;
+  }
+
+  .btn-linear-secondary {
+    @apply bg-surface-1 text-ink border border-hairline hover:bg-surface-2 active:scale-95 duration-200 transition-all font-medium text-sm rounded-md px-4 py-2 flex items-center justify-center gap-2 select-none;
+  }
+
+  .btn-linear-tertiary {
+    @apply bg-transparent text-ink-muted hover:text-ink active:scale-95 duration-200 transition-all font-medium text-sm rounded-md px-4 py-2 flex items-center justify-center gap-2 select-none;
+  }
+
+  .linear-card {
+    @apply bg-surface-1 border border-hairline rounded-lg p-6 shadow-sm;
+  }
+
+  .linear-card-hover {
+    @apply bg-surface-1 border border-hairline hover:border-hairline-strong hover:bg-surface-2 rounded-lg p-6 transition-all duration-200 shadow-sm cursor-pointer;
+  }
+
+  .linear-input {
+    @apply bg-surface-2 border border-hairline rounded-md text-ink text-sm px-3 py-2 outline-none focus:border-hairline-strong focus:ring-1 focus:ring-brand-lavender/50 placeholder-ink-tertiary transition-all duration-200;
   }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -36,15 +61,15 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+  @apply bg-hairline rounded-full hover:bg-hairline-strong transition-colors;
 }
 
-/* Modal backdrop and modal content fixes */
+/* Modal backdrop and modal content fixes in Dark Mode */
 .modal-backdrop {
   position: fixed !important;
   inset: 0 !important;
   z-index: 999 !important;
-  background: rgba(15, 23, 42, 0.7) !important;
+  background: rgba(1, 1, 2, 0.8) !important;
   backdrop-filter: blur(8px) !important;
 }
 
@@ -57,13 +82,14 @@
   max-width: 90vw !important;
   max-height: 95vh !important;
   overflow: hidden !important;
-  background: white !important;
-  border-radius: 1rem !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2) !important;
+  background: #0f1011 !important; /* surface-1 */
+  border-radius: 12px !important; /* rounded-lg */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
   display: flex !important;
   flex-direction: column !important;
   padding: 1.5rem !important;
-  border: 1px solid rgb(229 231 235 / 0.1) !important;
+  border: 1px solid #23252a !important; /* hairline */
+  color: #f7f8f8 !important; /* ink */
 }
 
 /* Responsive modal sizes */
@@ -79,23 +105,23 @@
   }
 }
 
-/* Chat message styles */
+/* Chat message styles matching Linear.app Dark Mode */
 .message-user {
-  @apply bg-primary-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 ml-auto max-w-[85%] shadow-soft font-be-vietnam font-medium;
+  @apply bg-brand-lavender text-white rounded-xl rounded-tr-none px-4 py-2.5 ml-auto max-w-[80%] font-sans font-medium text-sm border border-brand-lavender/25 shadow-sm;
 }
 
 .message-assistant {
-  @apply bg-white text-slate-800 rounded-2xl rounded-tl-none px-4 py-2.5 mr-auto max-w-[85%] shadow-soft border border-slate-100 font-be-vietnam font-medium;
+  @apply bg-surface-1 text-ink rounded-xl rounded-tl-none px-4 py-2.5 mr-auto max-w-[80%] font-sans font-medium text-sm border border-hairline shadow-sm;
 }
 
-/* Skeleton Loading Animation */
+/* Skeleton Loading Animation for Dark Mode */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, #0f1011 25%, #141516 50%, #0f1011 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
 }

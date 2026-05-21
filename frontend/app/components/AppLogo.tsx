@@ -12,25 +12,25 @@ interface AppLogoProps {
 }
 
 export default function AppLogo({ size = 'md', className, animate = true }: AppLogoProps) {
-  // Định nghĩa kích thước hiển thị đồng bộ
+  // Định nghĩa kích thước hiển thị đồng bộ chuẩn Linear.app
   const sizes = {
     sm: {
-      container: 'w-8 h-8 rounded-lg p-1.5',
-      botIcon: 18,
-      sparkleIcon: 10,
-      sparkleContainer: '-top-0.5 -right-0.5 p-0.5 bg-indigo-500 rounded-full border border-white',
+      container: 'w-8 h-8 rounded-md p-1.5',
+      botIcon: 16,
+      sparkleIcon: 8,
+      sparkleContainer: '-top-0.5 -right-0.5 p-0.5 bg-brand-lavender rounded-full border border-canvas',
     },
     md: {
-      container: 'w-10 h-10 rounded-xl p-2.5',
-      botIcon: 20,
-      sparkleIcon: 12,
-      sparkleContainer: '-top-1 -right-1 p-0.5 bg-indigo-500 rounded-full border border-white',
+      container: 'w-10 h-10 rounded-md p-2.5',
+      botIcon: 18,
+      sparkleIcon: 10,
+      sparkleContainer: '-top-1 -right-1 p-0.5 bg-brand-lavender rounded-full border border-canvas',
     },
     lg: {
-      container: 'w-16 h-16 rounded-2xl p-4',
-      botIcon: 32,
-      sparkleIcon: 16,
-      sparkleContainer: '-top-1.5 -right-1.5 p-1 bg-indigo-500 rounded-full border-2 border-white',
+      container: 'w-16 h-16 rounded-lg p-4',
+      botIcon: 30,
+      sparkleIcon: 14,
+      sparkleContainer: '-top-1.5 -right-1.5 p-1 bg-brand-lavender rounded-full border-2 border-canvas',
     },
   };
 
@@ -38,16 +38,16 @@ export default function AppLogo({ size = 'md', className, animate = true }: AppL
 
   const logoContent = (
     <div className={cn(
-      "relative inline-flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg text-white shrink-0",
+      "relative inline-flex items-center justify-center bg-surface-2 border border-hairline-strong shadow-sm text-brand-lavender shrink-0",
       currentSize.container,
       className
     )}>
-      {/* Icon Robot thông minh */}
-      <Bot size={currentSize.botIcon} className="text-white" />
+      {/* Icon Robot thông minh màu oải hương */}
+      <Bot size={currentSize.botIcon} className="text-brand-lavender" />
       
-      {/* Badge Sparkles thu nhỏ nổi bật góc phải */}
+      {/* Badge Sparkles tím oải hương viền Canvas tối */}
       <div className={cn(
-        "absolute flex items-center justify-center shadow-md",
+        "absolute flex items-center justify-center shadow-sm",
         currentSize.sparkleContainer
       )}>
         <Sparkles size={currentSize.sparkleIcon} className="text-white fill-white" />
