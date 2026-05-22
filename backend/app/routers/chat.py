@@ -195,6 +195,24 @@ def send_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Quota Guard for Free Tier (Personal User)
+    if current_user.subscription_tier == "free" and current_user.tenant_id is None:
+        from datetime import datetime, time as datetime_time
+        today = datetime.utcnow().date()
+        start_of_today = datetime.combine(today, datetime_time.min)
+        
+        questions_used = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Message.role == "user",
+            Message.created_at >= start_of_today
+        ).count()
+        
+        if questions_used >= 10:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
+            )
+
     # Get or create conversation
     if request.conversation_id:
         conversation = db.query(Conversation).filter(

@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usersAPI } from '@/app/lib/api';
+import { userAIAPI } from '@/app/lib/ai-config-api';
 import {
   ArrowLeft, User, Mail, Phone, Lock, Save, 
-  ShieldCheck, AlertCircle, Camera, CheckCircle2
+  ShieldCheck, AlertCircle, Camera, CheckCircle2,
+  Sparkles, Settings, Eye
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -21,6 +23,30 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
     new_password: '',
     confirm_password: '',
   });
+
+  // AI Settings State
+  const [aiSettings, setAiSettings] = useState({
+    temperature: 0.2,
+    response_style: 'concise',
+    show_sources: true,
+    preferred_max_tokens: 512,
+    receive_community_knowledge: false,
+    ollama_endpoint: 'http://localhost:11434',
+  });
+
+  // Fetch user AI settings on mount
+  const fetchAISettings = async () => {
+    try {
+      const response = await userAIAPI.getSettings();
+      setAiSettings(response.data);
+    } catch (err) {
+      console.error('Error fetching AI settings:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAISettings();
+  }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +96,23 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
     }
   };
 
+  const handleUpdateAISettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess(null);
+    setError(null);
+    try {
+      const response = await userAIAPI.updateSettings(aiSettings as any);
+      setAiSettings(response.data);
+      setSuccess('Cập nhật cấu hình AI thành công!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Cập nhật cấu hình AI thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
       {/* Sticky Header */}
@@ -83,7 +126,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
           </button>
           <div>
             <h1 className="text-xl font-be-vietnam font-bold text-slate-900">Cá nhân</h1>
-            <p className="text-sm text-slate-500">Quản lý thông tin cá nhân</p>
+            <p className="text-sm text-slate-500">Quản lý thông tin và cấu hình trợ lý AI</p>
           </div>
         </div>
       </div>
@@ -133,7 +176,9 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                 </div>
                 
                 <h2 className="text-2xl font-be-vietnam font-bold text-slate-900 mb-1">{user?.full_name || user?.username}</h2>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">Người dùng</p>
+                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">
+                  {user?.subscription_tier === 'pro' ? '⚡ PRO ACCOUNT' : user?.subscription_tier === 'enterprise' ? '🛡️ ENTERPRISE' : 'GÓI FREE'}
+                </p>
                 
                 <div className="flex flex-wrap justify-center gap-2">
                   <span className="px-3 py-1 bg-primary-50 text-primary-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-primary-100">
@@ -243,6 +288,144 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                   >
                     <Save size={18} />
                     {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* AI Settings form */}
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-soft">
+              <h3 className="text-xl font-be-vietnam font-bold text-slate-900 mb-6 flex items-center gap-3">
+                <Sparkles className="text-violet-600" size={24} />
+                Cấu hình AI & Trợ lý RAG
+              </h3>
+              
+              <form onSubmit={handleUpdateAISettings} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  {/* Temperature */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Độ sáng tạo (Temperature)</label>
+                      <span className="text-xs font-mono font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded">{aiSettings.temperature}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0.1" 
+                      max="1.5" 
+                      step="0.1"
+                      value={aiSettings.temperature} 
+                      onChange={(e) => setAiSettings({ ...aiSettings, temperature: parseFloat(e.target.value) })} 
+                      className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600" 
+                    />
+                    <p className="text-[10px] text-slate-400 leading-normal">Giá trị càng thấp, câu trả lời càng chính xác và nhất quán. Giá trị cao giúp câu trả lời đa dạng hơn.</p>
+                  </div>
+
+                  {/* Max Tokens */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Độ dài câu trả lời (Max Tokens)</label>
+                    <select
+                      value={aiSettings.preferred_max_tokens}
+                      onChange={(e) => setAiSettings({ ...aiSettings, preferred_max_tokens: parseInt(e.target.value) })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-medium"
+                    >
+                      <option value="256">Ngắn gọn (256 tokens)</option>
+                      <option value="512">Trung bình (512 tokens)</option>
+                      <option value="1024">Dài (1024 tokens)</option>
+                      <option value="2048">Rất dài (2048 tokens)</option>
+                    </select>
+                  </div>
+
+                  {/* Response Style */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Phong cách phản hồi mặc định</label>
+                    <select
+                      value={aiSettings.response_style}
+                      onChange={(e) => setAiSettings({ ...aiSettings, response_style: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-medium"
+                    >
+                      <option value="concise">Tóm tắt ngắn gọn</option>
+                      <option value="normal">Bình thường đầy đủ</option>
+                      <option value="detailed">Chi tiết từng bước</option>
+                    </select>
+                  </div>
+
+                  {/* Show Sources */}
+                  <div className="space-y-2 flex flex-col justify-center">
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
+                      <div>
+                        <span className="text-xs font-bold text-slate-700 block">Hiển thị nguồn trích dẫn</span>
+                        <span className="text-[10px] text-slate-400">Trích dẫn tài liệu gốc dưới câu trả lời</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={aiSettings.show_sources} 
+                        onChange={(e) => setAiSettings({ ...aiSettings, show_sources: e.target.checked })}
+                        className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ollama Endpoint (Quota Guard Controlled) */}
+                  <div className="space-y-2 col-span-1 md:col-span-2 border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đường dẫn Ollama Local</label>
+                        {user?.subscription_tier === 'free' && (
+                          <span className="px-2 py-0.5 rounded text-[8px] font-extrabold bg-violet-500/15 border border-violet-500/25 text-violet-600">PRO FEATURE</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400">Cấu hình kết nối LLM Offline</span>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={aiSettings.ollama_endpoint} 
+                        disabled={user?.subscription_tier === 'free'}
+                        onChange={(e) => setAiSettings({ ...aiSettings, ollama_endpoint: e.target.value })} 
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-mono ${user?.subscription_tier === 'free' ? 'opacity-60 cursor-not-allowed select-none bg-slate-100/50' : ''}`}
+                        placeholder="http://localhost:11434"
+                      />
+                    </div>
+                    {user?.subscription_tier === 'free' && (
+                      <p className="text-[10px] text-violet-600 font-semibold tracking-wide mt-1">
+                        ⚡ Vui lòng nâng cấp lên gói PRO để tùy biến kết nối Ollama Local chạy offline cục bộ.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Receive Community Knowledge (Quota Guard Controlled) */}
+                  <div className="space-y-2 col-span-1 md:col-span-2">
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-700 block">Nhận tri thức cộng đồng</span>
+                          {user?.subscription_tier === 'free' && (
+                            <span className="px-2 py-0.5 rounded text-[8px] font-extrabold bg-violet-500/15 border border-violet-500/25 text-violet-600">PRO FEATURE</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400">Được phép tham khảo vector tri thức dùng chung của cộng đồng</span>
+                      </div>
+                      <input 
+                        type="checkbox" 
+                        checked={aiSettings.receive_community_knowledge} 
+                        disabled={user?.subscription_tier === 'free'}
+                        onChange={(e) => setAiSettings({ ...aiSettings, receive_community_knowledge: e.target.checked })}
+                        className={`w-4 h-4 rounded text-violet-600 focus:ring-violet-500 ${user?.subscription_tier === 'free' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      />
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-violet-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-50 text-sm"
+                  >
+                    <Save size={18} />
+                    Lưu cấu hình AI
                   </button>
                 </div>
               </form>

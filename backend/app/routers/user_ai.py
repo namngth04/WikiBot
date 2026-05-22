@@ -66,11 +66,28 @@ def update_user_ai_settings(
         settings = UserAISettings(user_id=current_user.id)
         db.add(settings)
     
+    # Check Quota Guard for Free Tier (Personal User)
+    if current_user.subscription_tier == "free" and current_user.tenant_id is None:
+        if settings_data.ollama_endpoint != "http://localhost:11434":
+            raise HTTPException(
+                status_code=403,
+                detail="Tính năng kết nối Ollama Local riêng chỉ dành cho gói Pro. Vui lòng nâng cấp tài khoản."
+            )
+    
     # Update fields
     settings.temperature = settings_data.temperature
     settings.response_style = settings_data.response_style
     settings.show_sources = settings_data.show_sources
     settings.preferred_max_tokens = settings_data.preferred_max_tokens
+    
+    # Update advanced fields based on subscription tier / tenant
+    if current_user.subscription_tier == "pro" or current_user.tenant_id is not None:
+        settings.receive_community_knowledge = settings_data.receive_community_knowledge
+        settings.ollama_endpoint = settings_data.ollama_endpoint
+    else:
+        settings.receive_community_knowledge = False
+        settings.ollama_endpoint = "http://localhost:11434"
+        
     settings.updated_at = datetime.utcnow()
     
     db.commit()

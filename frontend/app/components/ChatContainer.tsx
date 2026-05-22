@@ -30,6 +30,24 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   const [editTitle, setEditTitle] = useState('');
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [inputMessage, setInputMessage] = useState('');
+  const [quota, setQuota] = useState<any>(null);
+
+  const fetchQuota = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/api/upgrade/quota', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setQuota(data);
+      }
+    } catch (error) {
+      console.error('Error fetching quota in chat:', error);
+    }
+  };
   
   // Export states
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -72,8 +90,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   useEffect(() => {
     if (user) {
       loadConversations();
+      fetchQuota();
     }
-  }, [user]);
+  }, [user, messages]);
 
   useEffect(() => {
     // Handle suggested questions from MessageList
@@ -308,6 +327,63 @@ export default function ChatContainer({ className }: ChatContainerProps) {
             ))}
           </div>
 
+          {/* Quota Widget for Free User */}
+          {sidebarOpen && quota && quota.subscription_tier === 'free' && (
+            <div className="mb-4 mx-2 p-3 bg-surface-2 border border-hairline rounded-lg text-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-ink flex items-center gap-1">
+                  <Sparkles size={12} className="text-brand-lavender" /> Gói miễn phí
+                </span>
+                <span className="text-[10px] text-ink-subtle">Hạn ngạch</span>
+              </div>
+              
+              {/* Question progress */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-ink-muted">
+                  <span>Câu hỏi: {quota.questions_used}/{quota.questions_limit}</span>
+                  <span>{Math.round((quota.questions_used / quota.questions_limit) * 100)}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-brand-lavender rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min((quota.questions_used / quota.questions_limit) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Document progress */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[10px] text-ink-muted">
+                  <span>Tài liệu: {quota.documents_used}/{quota.documents_limit}</span>
+                  <span>{Math.round((quota.documents_used / quota.documents_limit) * 100)}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-cyan-500 rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min((quota.documents_used / quota.documents_limit) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={() => router.push('/pricing')}
+                className="w-full py-1.5 mt-1 bg-brand-lavender hover:bg-brand-lavender/90 text-white rounded text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1"
+              >
+                Nâng cấp Pro ⚡
+              </button>
+            </div>
+          )}
+
+          {!sidebarOpen && quota && quota.subscription_tier === 'free' && (
+            <div 
+              onClick={() => router.push('/pricing')}
+              className="mb-4 mx-auto w-8 h-8 rounded-full bg-brand-lavender/10 border border-brand-lavender/30 flex items-center justify-center text-brand-lavender cursor-pointer hover:bg-brand-lavender hover:text-white transition-all active:scale-90"
+              title={`Hạn ngạch câu hỏi: ${quota.questions_used}/${quota.questions_limit}`}
+            >
+              <Sparkles size={14} className="animate-pulse" />
+            </div>
+          )}
+
           {/* User Section */}
           <div className="mt-auto pt-4 border-t border-hairline px-2">
             {isAdmin && (
@@ -381,7 +457,15 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                       className="truncate"
                     >
                       <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
-                      <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">User</p>
+                      <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">
+                        {quota?.subscription_tier === 'pro' ? (
+                          <span className="text-brand-lavender font-bold flex items-center gap-0.5">⚡ PRO TIER</span>
+                        ) : quota?.subscription_tier === 'enterprise' ? (
+                          <span className="text-purple-400 font-bold flex items-center gap-0.5">🛡️ ENTERPRISE</span>
+                        ) : (
+                          'User'
+                        )}
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>

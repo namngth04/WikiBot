@@ -122,6 +122,28 @@ async def upload_document(
     file_size = 0
     content = await file.read()
     file_size = len(content)
+    
+    # Quota Guard for Free Tier (Personal User)
+    if current_user.subscription_tier == "free" and current_user.tenant_id is None:
+        # 1. Kiểm tra kích thước file (> 2MB)
+        if file_size > 2 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dung lượng file vượt quá giới hạn 2MB của gói Free. Vui lòng nâng cấp gói cước để tải lên file lên tới 100MB."
+            )
+        
+        # 2. Kiểm tra số lượng file hiện tại (>= 3)
+        existing_count = db.query(Document).filter(
+            Document.uploaded_by == current_user.id,
+            Document.is_active == True
+        ).count()
+        
+        if existing_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Bạn đã đạt giới hạn tối đa 3 tài liệu của gói Free. Vui lòng nâng cấp gói cước để tải lên không giới hạn."
+            )
+            
     max_size = settings.max_file_size * 1024 * 1024  # Convert MB to bytes
     if file_size > max_size:
         raise HTTPException(
