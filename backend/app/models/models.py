@@ -32,10 +32,15 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Commercial & Multi-tenant fields
+    subscription_tier = Column(String(50), default="free")
+    tenant_id = Column(Integer, nullable=True)
+    
     # Relationships
     role = relationship("Role", back_populates="users")
     documents = relationship("Document", back_populates="uploaded_by_user")
     conversations = relationship("Conversation", back_populates="user")
+    upgrade_requests = relationship("UpgradeRequest", back_populates="user")
 
 
 class Document(Base):
@@ -52,6 +57,11 @@ class Document(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     chunk_count = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    
+    # Commercial & Multi-tenant & Security fields
+    privacy_mode = Column(Boolean, default=False)
+    is_public_community = Column(Boolean, default=False)
+    tenant_id = Column(Integer, nullable=True)
     
     # Enhanced metadata for multimodal documents
     has_images = Column(Boolean, default=False)
@@ -184,7 +194,24 @@ class UserAISettings(Base):
     show_sources = Column(Boolean, default=True)
     preferred_max_tokens = Column(Integer, default=512)
     
+    # Commercial & Privacy fields
+    receive_community_knowledge = Column(Boolean, default=False)
+    ollama_endpoint = Column(String(255), default="http://localhost:11434")
+    
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship
     user = relationship("User")
+
+
+class UpgradeRequest(Base):
+    """Upgrade requests for demo billing"""
+    __tablename__ = "upgrade_requests"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(50), default="pending")  # pending/approved/rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User", back_populates="upgrade_requests")

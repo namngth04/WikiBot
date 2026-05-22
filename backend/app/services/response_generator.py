@@ -275,6 +275,8 @@ HƯỚNG DẪN TRẢ LỜI:
         response_style: str = "concise",
         requested_max_tokens: Optional[int] = None,
         show_sources: bool = True,
+        receive_community: bool = False,
+        current_user_id: Optional[int] = None
     ) -> dict:
         """Generate RAG-based response using enhanced query processing"""
         start_time = time.time()
@@ -303,7 +305,8 @@ HƯỚNG DẪN TRẢ LỜI:
                     query=query_var,
                     accessible_role_ids=accessible_role_ids,
                     top_k=3,  # Giảm vì có nhiều variations
-                    max_distance=self.settings.rag_max_distance
+                    max_distance=self.settings.rag_max_distance,
+                    receive_community=receive_community
                 )
                 all_chunks.extend(chunks)
             
@@ -394,6 +397,19 @@ HƯỚNG DẪN TRẢ LỜI:
             
             # 9. Format final response
             final_response = response_text if not show_sources else self._attach_inline_sources(response_text, sources)
+            
+            # Check if any chunk belongs to community (uploaded by someone else)
+            has_external_community_source = False
+            for chunk in chunks:
+                chunk_uploaded_by = chunk['metadata'].get('uploaded_by')
+                chunk_is_public = chunk['metadata'].get('is_public_community', False)
+                if chunk_is_public and chunk_uploaded_by != current_user_id:
+                    has_external_community_source = True
+                    break
+                    
+            if has_external_community_source:
+                warning_msg = "\n\n⚠️ **Cảnh báo:** Thông tin này được đóng góp từ nguồn cộng đồng bên ngoài, vui lòng xác minh lại trước khi áp dụng."
+                final_response += warning_msg
             
             total_time = time.time() - start_time
             logger.info(f"Total response generation time: {total_time:.3f}s")

@@ -1,20 +1,70 @@
+:root {
+  /* Stripe Light Theme */
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #f8fafc;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #f1f5f9;
+  --color-surface-4: #e2e8f0;
+  --color-hairline: #e3e8ee;
+  --color-hairline-strong: #cbd5e1;
+  --color-hairline-tertiary: #cbd5e1;
+  --color-ink: #0d253d;
+  --color-ink-muted: #475569;
+  --color-ink-subtle: #64748b;
+  --color-ink-tertiary: #94a3b8;
+  --color-brand-lavender: #533afd; /* Indigo for Light */
+  --color-brand-lavender-hover: #432ed6;
+  --color-brand-lavender-focus: #3220b3;
+  --color-brand-lavender-active: #231290;
+  --color-brand-lavender-border: rgba(83, 58, 253, 0.25);
+  --color-brand-secure: #6f7a9c;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+}
+
+.dark {
+  /* Linear Dark Theme */
+  --color-canvas: #010102;
+  --color-canvas-soft: #0b0c0d;
+  --color-surface-1: #0f1011;
+  --color-surface-2: #141516;
+  --color-surface-3: #18191a;
+  --color-surface-4: #191a1b;
+  --color-hairline: #23252a;
+  --color-hairline-strong: #34343a;
+  --color-hairline-tertiary: #3e3e44;
+  --color-ink: #f7f8f8;
+  --color-ink-muted: #d0d6e0;
+  --color-ink-subtle: #8a8f98;
+  --color-ink-tertiary: #62666d;
+  --color-brand-lavender: #5e6ad2; /* Lavender for Dark */
+  --color-brand-lavender-hover: #828fff;
+  --color-brand-lavender-focus: #5e69d1;
+  --color-brand-lavender-active: #4d58b3;
+  --color-brand-lavender-border: rgba(94, 106, 210, 0.25);
+  --color-brand-secure: #7a7fad;
+  --color-success: #27a644;
+  --color-warning: #f59e0b;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply text-ink bg-canvas font-sans antialiased;
+    @apply text-ink bg-canvas font-sans antialiased transition-colors duration-200;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sans font-semibold tracking-[-0.03em] text-ink;
+    @apply font-sans font-semibold tracking-[-0.03em] text-ink transition-colors duration-200;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-surface-1/70 backdrop-blur-md border border-hairline shadow-sm;
+    @apply bg-surface-1/70 backdrop-blur-md border border-hairline shadow-sm transition-all duration-200;
   }
   
   .btn-primary {
@@ -38,7 +88,7 @@
   }
 
   .linear-card {
-    @apply bg-surface-1 border border-hairline rounded-lg p-6 shadow-sm;
+    @apply bg-surface-1 border border-hairline rounded-lg p-6 shadow-sm transition-all duration-200;
   }
 
   .linear-card-hover {
@@ -69,8 +119,12 @@
   position: fixed !important;
   inset: 0 !important;
   z-index: 999 !important;
-  background: rgba(1, 1, 2, 0.8) !important;
+  background: rgba(1, 1, 2, 0.4) !important;
   backdrop-filter: blur(8px) !important;
+}
+
+.dark .modal-backdrop {
+  background: rgba(1, 1, 2, 0.8) !important;
 }
 
 .modal-content {
@@ -82,14 +136,19 @@
   max-width: 90vw !important;
   max-height: 95vh !important;
   overflow: hidden !important;
-  background: #0f1011 !important; /* surface-1 */
+  background: var(--color-surface-1) !important;
   border-radius: 12px !important; /* rounded-lg */
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1) !important;
   display: flex !important;
   flex-direction: column !important;
   padding: 1.5rem !important;
-  border: 1px solid #23252a !important; /* hairline */
-  color: #f7f8f8 !important; /* ink */
+  border: 1px solid var(--color-hairline) !important;
+  color: var(--color-ink) !important;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.dark .modal-content {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* Responsive modal sizes */
@@ -107,11 +166,12 @@
 
 /* Chat message styles matching Linear.app Dark Mode */
 .message-user {
-  @apply bg-brand-lavender text-white rounded-xl rounded-tr-none px-4 py-2.5 ml-auto max-w-[80%] font-sans font-medium text-sm border border-brand-lavender/25 shadow-sm;
+  @apply bg-brand-lavender text-white rounded-xl rounded-tr-none px-4 py-2.5 ml-auto max-w-[80%] font-sans font-medium text-sm border shadow-sm transition-all duration-200;
+  border-color: var(--color-brand-lavender-border);
 }
 
 .message-assistant {
-  @apply bg-surface-1 text-ink rounded-xl rounded-tl-none px-4 py-2.5 mr-auto max-w-[80%] font-sans font-medium text-sm border border-hairline shadow-sm;
+  @apply bg-surface-1 text-ink rounded-xl rounded-tl-none px-4 py-2.5 mr-auto max-w-[80%] font-sans font-medium text-sm border border-hairline shadow-sm transition-all duration-200;
 }
 
 /* Skeleton Loading Animation for Dark Mode */
@@ -121,7 +181,7 @@
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #0f1011 25%, #141516 50%, #0f1011 75%);
+  background: linear-gradient(90deg, var(--color-surface-1) 25%, var(--color-surface-2) 50%, var(--color-surface-1) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
 }

@@ -34,6 +34,8 @@ class UserBase(BaseModel):
     full_name: Optional[str] = Field(None, max_length=200)
     email: Optional[str] = Field(None, max_length=200)
     phone: Optional[str] = Field(None, max_length=50)
+    subscription_tier: Optional[str] = Field(default="free", max_length=50)
+    tenant_id: Optional[int] = None
 
 
 class UserCreate(UserBase):
@@ -49,6 +51,8 @@ class UserUpdate(BaseModel):
     role_id: Optional[int] = None
     password: Optional[str] = Field(None, min_length=6)
     is_active: Optional[bool] = None
+    subscription_tier: Optional[str] = Field(None, max_length=50)
+    tenant_id: Optional[int] = None
 
 
 class UserResponse(UserBase):
@@ -73,6 +77,9 @@ class DocumentBase(BaseModel):
     original_name: str
     file_type: Optional[str] = None
     role_id: Optional[int] = None  # NULL = public
+    privacy_mode: Optional[bool] = False
+    is_public_community: Optional[bool] = False
+    tenant_id: Optional[int] = None
 
 
 class DocumentCreate(DocumentBase):
@@ -85,6 +92,9 @@ class DocumentCreate(DocumentBase):
 class DocumentUpdate(BaseModel):
     role_id: Optional[int] = None
     original_name: Optional[str] = None
+    privacy_mode: Optional[bool] = None
+    is_public_community: Optional[bool] = None
+    tenant_id: Optional[int] = None
 
 
 class DocumentResponse(BaseModel):
@@ -99,6 +109,9 @@ class DocumentResponse(BaseModel):
     uploaded_at: datetime
     chunk_count: int
     is_active: bool
+    privacy_mode: bool
+    is_public_community: bool
+    tenant_id: Optional[int]
     role: Optional[RoleResponse] = None
     uploaded_by_user: Optional[UserResponse] = None
     
@@ -324,6 +337,8 @@ class UserAISettingsSchema(BaseModel):
     response_style: str = Field(default="concise", pattern="^(concise|normal|detailed|creative)$")
     show_sources: bool = True
     preferred_max_tokens: int = Field(default=512, ge=64, le=2048)
+    receive_community_knowledge: bool = False
+    ollama_endpoint: str = Field(default="http://localhost:11434", max_length=255)
 
 
 class UserAISettingsResponse(BaseModel):
@@ -334,6 +349,8 @@ class UserAISettingsResponse(BaseModel):
     response_style: str
     show_sources: bool
     preferred_max_tokens: int
+    receive_community_knowledge: bool
+    ollama_endpoint: str
     updated_at: Optional[datetime] = None
     
     class Config:
@@ -357,3 +374,25 @@ class TestConnectionResponse(BaseModel):
     success: bool
     message: str
     latency_ms: Optional[float] = None
+
+
+# ============== UpgradeRequest Schemas ==============
+class UpgradeRequestBase(BaseModel):
+    user_id: int
+    status: str = "pending"
+
+
+class UpgradeRequestCreate(BaseModel):
+    pass
+
+
+class UpgradeRequestUpdate(BaseModel):
+    status: Literal["pending", "approved", "rejected"]
+
+
+class UpgradeRequestResponse(UpgradeRequestBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

@@ -11,6 +11,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import AppLogo from '@/app/components/AppLogo';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,8 +36,8 @@ export default function AdminLayout({
 
   if (authLoading || !isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-canvas-soft transition-colors duration-200">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-lavender"></div>
       </div>
     );
   }
@@ -51,14 +52,14 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-be-vietnam overflow-hidden">
+    <div className="min-h-screen bg-canvas-soft flex font-be-vietnam overflow-hidden text-ink transition-colors duration-200">
       {/* Sidebar */}
       <motion.aside
         initial={false}
         animate={{ width: sidebarOpen ? 280 : 80 }}
-        className="bg-slate-900 text-slate-400 flex flex-col relative z-30 shadow-2xl"
+        className="bg-surface-1 border-r border-hairline text-ink-muted flex flex-col relative z-30 shadow-2xl transition-colors duration-200"
       >
-        <div className="py-6 flex flex-col h-full overflow-hidden">
+        <div className="py-6 flex flex-col h-full overflow-hidden px-4">
           {/* Logo */}
           <div className={cn(
             "flex items-center gap-3 mb-10 px-2 transition-all duration-300",
@@ -71,7 +72,7 @@ export default function AdminLayout({
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="text-xl font-be-vietnam font-bold text-white tracking-tight whitespace-nowrap"
+                  className="text-xl font-be-vietnam font-bold text-ink tracking-tight whitespace-nowrap"
                 >
                   Admin Panel
                 </motion.h1>
@@ -92,15 +93,15 @@ export default function AdminLayout({
                     "w-full flex items-center transition-all duration-300 group rounded-xl",
                     sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0",
                     isActive 
-                      ? "bg-primary-600 text-white shadow-lg shadow-primary-600/20" 
-                      : "hover:bg-white/5 hover:text-white text-slate-400"
+                      ? "bg-brand-lavender text-white shadow-lg shadow-brand-lavender/20" 
+                      : "hover:bg-surface-2 hover:text-ink text-ink-subtle"
                   )}
                   title={!sidebarOpen ? tab.name : ""}
                 >
                   <Icon size={20} className={cn(
-  "shrink-0 group-hover:scale-110 transition-transform",
-  isActive ? "text-white" : "text-slate-400"
-)} />
+                    "shrink-0 group-hover:scale-110 transition-transform",
+                    isActive ? "text-white" : "text-ink-subtle"
+                  )} />
                   <AnimatePresence>
                     {sidebarOpen && (
                       <motion.span 
@@ -119,11 +120,11 @@ export default function AdminLayout({
           </nav>
 
           {/* Sidebar Footer */}
-          <div className="mt-auto pt-6 border-t border-white/10 space-y-2">
+          <div className="mt-auto pt-6 border-t border-hairline space-y-2">
             <button
               onClick={() => router.push('/chat')}
               className={cn(
-                "w-full flex items-center text-slate-400 hover:text-white hover:bg-white/5 transition-all group rounded-xl",
+                "w-full flex items-center text-ink-muted hover:text-ink hover:bg-surface-2 transition-all group rounded-xl",
                 sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0"
               )}
               title={!sidebarOpen ? "Quay lại Chat" : ""}
@@ -134,7 +135,7 @@ export default function AdminLayout({
             <button
               onClick={() => logout()}
               className={cn(
-                "w-full flex items-center text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 transition-all group rounded-xl",
+                "w-full flex items-center text-ink-muted hover:text-rose-400 hover:bg-rose-950/20 transition-all group rounded-xl",
                 sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0"
               )}
               title={!sidebarOpen ? "Đăng xuất" : ""}
@@ -149,7 +150,7 @@ export default function AdminLayout({
         <button
           type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute -right-3 top-12 z-10 bg-white border border-slate-200 text-slate-500 p-1.5 rounded-full shadow-lg hover:shadow-xl hover:text-primary-600 hover:border-primary-300 transition-all active:scale-90 cursor-pointer"
+          className="absolute -right-3 top-12 z-10 bg-surface-1 border border-hairline text-ink-muted p-1.5 rounded-full shadow-lg hover:shadow-xl hover:text-brand-lavender hover:border-brand-lavender/50 transition-all active:scale-90 cursor-pointer"
         >
           {sidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
@@ -158,25 +159,26 @@ export default function AdminLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 z-[90] relative shadow-sm">
+        <header className="h-20 bg-surface-1 border-b border-hairline px-8 flex items-center justify-between shrink-0 z-[90] relative shadow-sm transition-colors duration-200">
           <div>
-            <h2 className="text-sm text-slate-400 font-bold uppercase tracking-widest mb-0.5">WikiBot Management</h2>
-            <h1 className="text-2xl font-be-vietnam font-bold text-slate-900">
+            <h2 className="text-sm text-ink-subtle font-bold uppercase tracking-widest mb-0.5">WikiBot Management</h2>
+            <h1 className="text-2xl font-be-vietnam font-bold text-ink">
               {tabs.find(t => t.path === pathname)?.name || 'Tổng quan'}
             </h1>
           </div>
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-slate-400 hover:text-primary-600 hover:bg-slate-50 rounded-xl transition-all">
+            <ThemeToggle />
+            <button className="relative p-2 text-ink-muted hover:text-brand-lavender hover:bg-surface-2 rounded-xl transition-all">
               <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border border-surface-1"></span>
             </button>
-            <div className="h-8 w-px bg-slate-200"></div>
+            <div className="h-8 w-px bg-hairline"></div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-sm font-bold text-slate-900 leading-none">{user?.full_name || user?.username}</p>
-                <p className="text-[10px] text-primary-600 font-bold uppercase tracking-wider mt-1">Administrator</p>
+                <p className="text-sm font-bold text-ink leading-none">{user?.full_name || user?.username}</p>
+                <p className="text-[10px] text-brand-lavender font-bold uppercase tracking-wider mt-1">Administrator</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-primary-600 font-bold shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center text-brand-lavender font-bold border border-hairline shadow-sm">
                 {user?.username.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -210,7 +212,7 @@ export default function AdminLayout({
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+          @apply bg-hairline rounded-full hover:bg-hairline-strong transition-colors;
         }
       `}</style>
     </div>

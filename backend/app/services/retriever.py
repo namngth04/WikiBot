@@ -157,7 +157,7 @@ class HybridRetriever:
             logger.error(f"Failed to build BM25 index: {e}")
     
     def search(self, query: str, accessible_role_ids: List[Optional[int]], 
-                top_k: int = 5, max_distance: float = 0.3) -> List[Dict]:
+                top_k: int = 5, max_distance: float = 0.3, receive_community: bool = False) -> List[Dict]:
         """Hybrid search combining vector and keyword search"""
         self._ensure_indexed()
         
@@ -166,11 +166,12 @@ class HybridRetriever:
             query=query,
             accessible_role_ids=accessible_role_ids,
             top_k=top_k * 2,  # Get more to allow for re-ranking
-            max_distance=max_distance
+            max_distance=max_distance,
+            receive_community=receive_community
         )
         
         # 2. Keyword search (BM25)
-        keyword_results = self._search_keyword(query, accessible_role_ids, top_k * 2)
+        keyword_results = self._search_keyword(query, accessible_role_ids, top_k * 2, receive_community=receive_community)
         
         # 3. Combine and re-rank results
         combined_results = self._combine_results(
@@ -183,7 +184,7 @@ class HybridRetriever:
         return combined_results
     
     def _search_keyword(self, query: str, accessible_role_ids: List[Optional[int]], 
-                       top_k: int) -> List[Dict]:
+                       top_k: int, receive_community: bool = False) -> List[Dict]:
         """Search using BM25 keyword search"""
         try:
             # Get BM25 scores
@@ -225,8 +226,13 @@ class HybridRetriever:
                 if role_id is None:
                     role_id = 0
                 
-                # Check role access
-                if role_id in accessible_role_ids or 0 in accessible_role_ids:
+                is_public_community = metadata.get('is_public_community', False)
+                
+                # Check role access HOẶC community sharing
+                role_access = role_id in accessible_role_ids or 0 in accessible_role_ids
+                community_access = receive_community and is_public_community
+                
+                if role_access or community_access:
                     results.append({
                         'content': data['doc'],
                         'metadata': metadata,

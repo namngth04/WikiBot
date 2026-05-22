@@ -30,11 +30,11 @@ export default function MessageList({
   if (messages.length === 0 && !loading) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center px-4">
-        <div className="w-16 h-16 bg-primary-100 text-primary-600 rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-soft">
+        <div className="w-16 h-16 bg-brand-lavender/10 text-brand-lavender rounded-3xl flex items-center justify-center mb-6 animate-bounce shadow-soft border border-brand-lavender/20">
           <MessageSquare size={32} />
         </div>
-        <h3 className="text-2xl font-be-vietnam font-bold text-slate-900 mb-2">Chào mừng đến WikiBot!</h3>
-        <p className="text-slate-500 max-w-md mb-8">
+        <h3 className="text-2xl font-be-vietnam font-bold text-ink mb-2">Chào mừng đến WikiBot!</h3>
+        <p className="text-ink-subtle max-w-md mb-8 text-sm">
           Tôi là trợ lý thông minh của bạn. Hãy đặt câu hỏi về quy trình, tài liệu hoặc bất cứ điều gì bạn cần hỗ trợ.
         </p>
         
@@ -52,7 +52,7 @@ export default function MessageList({
                 const event = new CustomEvent('suggestedQuestion', { detail: q });
                 window.dispatchEvent(event);
               }}
-              className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-left text-sm text-slate-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 transition-all group"
+              className="p-4 bg-surface-2 border border-hairline rounded-2xl text-left text-sm text-ink-muted hover:border-hairline-strong hover:bg-surface-3 hover:text-ink transition-all group active:scale-[0.98]"
             >
               <span className="font-medium">{q}</span>
             </button>
@@ -86,15 +86,15 @@ export default function MessageList({
           animate={{ opacity: 1, y: 0 }}
           className="flex items-start gap-3"
         >
-          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-            <MessageSquare size={16} className="text-primary-600" />
+          <div className="w-8 h-8 bg-brand-lavender/10 rounded-full flex items-center justify-center border border-brand-lavender/20">
+            <MessageSquare size={16} className="text-brand-lavender" />
           </div>
           <div className="flex-1">
-            <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-none p-4 shadow-soft">
+            <div className="bg-surface-1 border border-hairline rounded-2xl rounded-tl-none p-4 shadow-soft">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse delay-75"></div>
-                <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse delay-150"></div>
+                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-75"></div>
+                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-150"></div>
               </div>
             </div>
           </div>

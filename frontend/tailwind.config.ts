@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -39,37 +40,40 @@ const config: Config = {
           800: '#1e293b',
           900: '#0f172a',
         },
-        // Hệ màu Linear.app mới được tích hợp
-        canvas: '#010102',
+        // Hệ màu Đa Theme (Dynamic Theme Colors) sử dụng CSS Variables
+        canvas: {
+          DEFAULT: 'var(--color-canvas)',
+          soft: 'var(--color-canvas-soft)',
+        },
         surface: {
-          1: '#0f1011',
-          2: '#141516',
-          3: '#18191a',
-          4: '#191a1b',
+          1: 'var(--color-surface-1)',
+          2: 'var(--color-surface-2)',
+          3: 'var(--color-surface-3)',
+          4: 'var(--color-surface-4)',
         },
         hairline: {
-          DEFAULT: '#23252a',
-          strong: '#34343a',
-          tertiary: '#3e3e44',
+          DEFAULT: 'var(--color-hairline)',
+          strong: 'var(--color-hairline-strong)',
+          tertiary: 'var(--color-hairline-tertiary)',
         },
         ink: {
-          DEFAULT: '#f7f8f8',
-          muted: '#d0d6e0',
-          subtle: '#8a8f98',
-          tertiary: '#62666d',
+          DEFAULT: 'var(--color-ink)',
+          muted: 'var(--color-ink-muted)',
+          subtle: 'var(--color-ink-subtle)',
+          tertiary: 'var(--color-ink-tertiary)',
         },
         brand: {
           lavender: {
-            DEFAULT: '#5e6ad2',
-            hover: '#828fff',
-            focus: '#5e69d1',
-            active: '#4d58b3',
+            DEFAULT: 'var(--color-brand-lavender)',
+            hover: 'var(--color-brand-lavender-hover)',
+            focus: 'var(--color-brand-lavender-focus)',
+            active: 'var(--color-brand-lavender-active)',
           },
-          secure: '#7a7fad',
+          secure: 'var(--color-brand-secure)',
         },
         semantic: {
-          success: '#27a644',
-          warning: '#f59e0b',
+          success: 'var(--color-success)',
+          warning: 'var(--color-warning)',
           overlay: '#000000',
         }
       },

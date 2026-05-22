@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import tempfile
+import os
 
 from app.core.database import get_db
 from app.models.models import User, Conversation, Message
@@ -13,6 +16,7 @@ from app.routers.auth import get_current_user
 from app.routers.documents import get_accessible_role_ids
 from app.services.response_generator import ResponseGenerator
 from app.models.models import UserAISettings, AISafetyConfig
+from app.services.export_service import ExportService
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -272,13 +276,19 @@ def send_message(
     # Generate RAG response
     try:
         response_generator = ResponseGenerator(db=db)
+        
+        # Get receive_community_knowledge from user settings
+        receive_community = user_settings.receive_community_knowledge if user_settings else False
+        
         response_data = response_generator.generate_response(
             query=request.message,
             conversation_history=history,
             accessible_role_ids=accessible_role_ids,
             response_style=final_response_style,
             requested_max_tokens=final_max_tokens,
-            show_sources=final_show_sources
+            show_sources=final_show_sources,
+            receive_community=receive_community,
+            current_user_id=current_user.id
         )
         
         # Validate response data
@@ -337,3 +347,109 @@ def send_message(
                 "response": None
             }
         )
+
+
+@router.get("/conversations/{conv_id}/export/{export_format}")
+def export_conversation(
+    conv_id: int,
+    export_format: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Exports conversation history into Word (docx), Markdown (md), or text (txt).
+    Enforces user data privacy, only allows export of owned conversations.
+    """
+    # 1. Check conversation exists and belongs to current user
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conv_id,
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy cuộc trò chuyện ID {conv_id}"
+        )
+        
+    # 2. Get messages in chronological order
+    messages = db.query(Message).filter(
+        Message.conversation_id == conv_id
+    ).order_by(Message.created_at.asc()).all()
+    
+    messages_list = [
+        {"role": msg.role, "content": msg.content}
+        for msg in messages
+    ]
+    
+    if not messages_list:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cuộc trò chuyện này chưa có tin nhắn nào để xuất"
+        )
+        
+    # Normalize title for safe filename
+    safe_title = "".join([c for c in conversation.title if c.isalnum() or c in (' ', '_', '-')]).rstrip()
+    safe_title = safe_title.replace(' ', '_')
+    if not safe_title:
+        safe_title = f"Hoi_thoai_{conv_id}"
+        
+    temp_dir = tempfile.gettempdir()
+    
+    headers = {}
+    is_new_file = False
+    
+    # 3. Handle export format logic
+    if export_format == "txt":
+        filename = f"{safe_title}.txt"
+        temp_file_path = os.path.join(temp_dir, filename)
+        content = ExportService.export_to_txt(conversation.title, messages_list)
+        with open(temp_file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        media_type = "text/plain"
+        
+    elif export_format == "md":
+        filename = f"{safe_title}.md"
+        temp_file_path = os.path.join(temp_dir, filename)
+        content = ExportService.export_to_markdown(conversation.title, messages_list)
+        with open(temp_file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        media_type = "text/markdown"
+        
+    elif export_format == "docx":
+        filename = f"{safe_title}.docx"
+        temp_file_path = os.path.join(temp_dir, filename)
+        
+        username = current_user.full_name or current_user.username
+        
+        final_path, is_new_file = ExportService.export_to_docx(
+            conversation.title,
+            messages_list,
+            username,
+            temp_file_path
+        )
+        
+        temp_file_path = final_path
+        filename = os.path.basename(final_path)
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        headers["X-Export-New-File"] = "true" if is_new_file else "false"
+        
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Định dạng '{export_format}' không được hỗ trợ. Chỉ hỗ trợ 'docx', 'md', 'txt'."
+        )
+        
+    # Schedule temp file removal to free disk space
+    background_tasks.add_task(os.remove, temp_file_path)
+    
+    # Expose custom headers so that Next.js / Axios can read it
+    headers["Access-Control-Expose-Headers"] = "Content-Disposition, X-Export-New-File"
+    
+    return FileResponse(
+        temp_file_path,
+        media_type=media_type,
+        filename=filename,
+        headers=headers
+    )

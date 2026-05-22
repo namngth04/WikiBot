@@ -6,7 +6,7 @@ import {
   Send, Plus, Trash2, MessageSquare,
   ChevronLeft, ChevronRight, Shield, Edit, Check, X,
   ThumbsUp, ThumbsDown, Search, Sparkles,
-  User, LogOut
+  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { useChat } from '@/app/hooks/useChat';
@@ -16,6 +16,7 @@ import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { UserSettings } from '@/app/components/UserSettings';
 import AppLogo from './AppLogo';
+import ThemeToggle from './ThemeToggle';
 
 interface ChatContainerProps {
   className?: string;
@@ -29,6 +30,11 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   const [editTitle, setEditTitle] = useState('');
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [inputMessage, setInputMessage] = useState('');
+  
+  // Export states
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [exportWarning, setExportWarning] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const {
     conversations,
@@ -125,14 +131,68 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     router.push('/login');
   };
 
+  // Export functionality
+  const handleExport = async (format: 'docx' | 'md' | 'txt') => {
+    if (!currentConversation) return;
+    setExporting(true);
+    setExportWarning(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/chat/conversations/${currentConversation.id}/export/${format}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Check for locked file warning header
+      const isNewFile = response.headers.get('X-Export-New-File') === 'true';
+      if (isNewFile) {
+        setExportWarning("Tệp tin đang được mở trong MS Word. Bản báo cáo đã được tự động lưu sang tệp mới có hậu tố '_new.docx'.");
+        // Auto-clear warning after 8 seconds
+        setTimeout(() => setExportWarning(null), 8000);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      // Extract filename from headers
+      const disposition = response.headers.get('content-disposition');
+      let filename = `${currentConversation.title.replace(/\s+/g, '_')}.${format}`;
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) { 
+          filename = matches[1].replace(/['"]/g, '');
+        }
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting conversation:', error);
+      alert('Không thể xuất cuộc hội thoại. Vui lòng thử lại sau.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <div className={cn("h-screen bg-slate-50 flex overflow-hidden font-be-vietnam", className)}>
+    <div className={cn("h-screen bg-canvas flex overflow-hidden font-be-vietnam text-ink", className)}>
       {/* Sidebar */}
       <motion.aside
         initial={false}
         animate={{ width: sidebarOpen ? 320 : 80 }}
         className={cn(
-          "bg-white border-r border-slate-200 flex flex-col relative z-20 shadow-soft overflow-hidden",
+          "bg-surface-1 border-r border-hairline flex flex-col relative z-20 overflow-hidden transition-all duration-300",
           !sidebarOpen && "border-none"
         )}
       >
@@ -149,7 +209,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="text-xl font-be-vietnam font-bold text-slate-900 tracking-tight whitespace-nowrap"
+                  className="text-xl font-be-vietnam font-bold text-ink tracking-tight whitespace-nowrap"
                 >
                   WikiBot
                 </motion.h1>
@@ -158,10 +218,10 @@ export default function ChatContainer({ className }: ChatContainerProps) {
             {sidebarOpen && (
               <button
                 onClick={createNewConversation}
-                className="ml-auto p-2 text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all active:scale-90"
+                className="ml-auto p-1.5 border border-hairline text-ink-subtle hover:text-brand-lavender hover:bg-surface-2 rounded-md transition-all active:scale-90"
                 title="Cuộc hội thoại mới"
               >
-                <Plus size={22} />
+                <Plus size={18} />
               </button>
             )}
           </div>
@@ -176,13 +236,13 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 className="px-2 mb-4"
               >
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle group-focus-within:text-brand-lavender transition-colors" size={16} />
                   <input
                     type="text"
                     placeholder="Tìm kiếm hội thoại..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/20 transition-all outline-none"
+                    className="w-full pl-10 pr-4 py-2 bg-surface-2 border border-hairline rounded-md text-xs focus:border-hairline-strong focus:ring-1 focus:ring-brand-lavender/30 transition-all outline-none"
                   />
                 </div>
               </motion.div>
@@ -196,22 +256,22 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 key={conv.id}
                 onClick={() => selectConversation(conv)}
                 className={cn(
-                  "w-full flex items-center transition-all duration-300 group rounded-xl p-3",
+                  "w-full flex items-center transition-all duration-200 group rounded-md p-2.5 cursor-pointer",
                   sidebarOpen ? "gap-3" : "justify-center",
                   currentConversation?.id === conv.id
-                    ? "bg-primary-50 text-primary-700"
-                    : "text-slate-600 hover:bg-slate-50"
+                    ? "bg-surface-2 border border-hairline text-ink"
+                    : "text-ink-muted hover:bg-surface-1/50 hover:text-ink"
                 )}
                 title={!sidebarOpen ? conv.title : ""}
               >
-                <MessageSquare size={18} className={cn("shrink-0", currentConversation?.id === conv.id ? "text-primary-600" : "text-slate-400 group-hover:scale-110 transition-transform")} />
+                <MessageSquare size={16} className={cn("shrink-0", currentConversation?.id === conv.id ? "text-brand-lavender" : "text-ink-subtle group-hover:scale-105 transition-transform")} />
                 <AnimatePresence>
                   {sidebarOpen && (
                     <motion.div 
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
-                      className="flex-1 truncate text-sm font-medium"
+                      className="flex-1 truncate text-xs font-medium"
                     >
                       {editingId === conv.id ? (
                         <input
@@ -220,7 +280,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                           onChange={(e) => setEditTitle(e.target.value)}
                           onBlur={() => handleUpdateTitle(conv.id, editTitle)}
                           onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle(conv.id, editTitle)}
-                          className="bg-white border border-primary-300 rounded px-1 w-full outline-none"
+                          className="bg-surface-3 border border-brand-lavender/50 rounded px-1.5 py-0.5 w-full outline-none text-ink"
                         />
                       ) : (
                         conv.title
@@ -229,18 +289,18 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                   )}
                 </AnimatePresence>
                 {sidebarOpen && (
-                  <div className="hidden group-hover:flex items-center gap-1">
+                  <div className="hidden group-hover:flex items-center gap-1.5">
                     <button
                       onClick={(e) => { e.stopPropagation(); startEditing(conv.id, conv.title); }}
-                      className="p-1 text-slate-400 hover:text-primary-600 rounded transition-colors"
+                      className="p-1 text-ink-subtle hover:text-brand-lavender rounded transition-colors"
                     >
-                      <Edit size={14} />
+                      <Edit size={12} />
                     </button>
                     <button
                       onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      className="p-1 text-slate-400 hover:text-red-600 rounded transition-colors"
+                      className="p-1 text-ink-subtle hover:text-red-400 rounded transition-colors"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 )}
@@ -249,24 +309,24 @@ export default function ChatContainer({ className }: ChatContainerProps) {
           </div>
 
           {/* User Section */}
-          <div className="mt-auto pt-4 border-t border-slate-100 px-2">
+          <div className="mt-auto pt-4 border-t border-hairline px-2">
             {isAdmin && (
               <button
                 onClick={() => router.push('/admin/dashboard')}
                 className={cn(
-                  "w-full flex items-center text-slate-600 hover:text-primary-600 hover:bg-primary-50 transition-all mb-1 group rounded-xl",
-                  sidebarOpen ? "gap-3 p-3" : "justify-center p-3 px-0"
+                  "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
+                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
                 )}
                 title={!sidebarOpen ? "Quản trị hệ thống" : ""}
               >
-                <Shield size={18} className={cn("shrink-0 group-hover:scale-110 transition-transform")} />
+                <Shield size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
                 <AnimatePresence>
                   {sidebarOpen && (
                     <motion.span 
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
-                      className="text-sm font-medium whitespace-nowrap"
+                      className="text-xs font-medium whitespace-nowrap"
                     >
                       Quản trị hệ thống
                     </motion.span>
@@ -278,22 +338,22 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               <button
                 onClick={() => setCurrentView('settings')}
                 className={cn(
-                  "w-full flex items-center transition-all mb-1 group rounded-xl",
-                  sidebarOpen ? "gap-3 p-3" : "justify-center p-3 px-0",
+                  "w-full flex items-center border border-hairline transition-all mb-1 group rounded-md",
+                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0",
                   currentView === 'settings'
-                    ? "text-primary-600 bg-primary-50"
-                    : "text-slate-600 hover:text-primary-600 hover:bg-primary-50"
+                    ? "text-brand-lavender bg-surface-2"
+                    : "text-ink-muted hover:text-brand-lavender hover:bg-surface-2"
                 )}
                 title={!sidebarOpen ? "Cá nhân" : ""}
               >
-                <User size={18} className={cn("shrink-0 group-hover:scale-110 transition-transform")} />
+                <User size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
                 <AnimatePresence>
                   {sidebarOpen && (
                     <motion.span 
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -10 }}
-                      className="text-sm font-medium whitespace-nowrap"
+                      className="text-xs font-medium whitespace-nowrap"
                     >
                       Cá nhân
                     </motion.span>
@@ -302,14 +362,14 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               </button>
             )}
             <div className={cn(
-              "flex items-center p-3 bg-slate-50 rounded-2xl transition-all duration-300",
+              "flex items-center p-2.5 bg-surface-2 border border-hairline rounded-lg transition-all duration-300",
               sidebarOpen ? "justify-between" : "justify-center"
             )}>
               <div className={cn(
-                "flex items-center gap-3 min-w-0",
+                "flex items-center gap-2.5 min-w-0",
                 !sidebarOpen && "hidden"
               )}>
-                <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-soft">
+                <div className="w-7 h-7 rounded bg-brand-lavender flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
                   {user?.username.charAt(0).toUpperCase()}
                 </div>
                 <AnimatePresence>
@@ -320,8 +380,8 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                       exit={{ opacity: 0, x: -10 }}
                       className="truncate"
                     >
-                      <p className="text-sm font-bold text-slate-900 truncate">{user?.full_name || user?.username}</p>
-                      <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">User</p>
+                      <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
+                      <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">User</p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -329,20 +389,20 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               <button
                 onClick={handleLogout}
                 className={cn(
-                  "p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all",
+                  "p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all",
                   !sidebarOpen && "hidden"
                 )}
                 title="Đăng xuất"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
               </button>
               {!sidebarOpen && (
                 <button
                   onClick={handleLogout}
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                  className="p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all"
                   title="Đăng xuất"
                 >
-                  <LogOut size={18} />
+                  <LogOut size={16} />
                 </button>
               )}
             </div>
@@ -351,34 +411,110 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       </motion.aside>
 
       {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col relative bg-white overflow-hidden shadow-2xl z-10">
+      <main className="flex-1 flex flex-col relative bg-canvas overflow-hidden border-l border-hairline">
+        
+        {/* Warning Alert Banner for locked files */}
+        <AnimatePresence>
+          {exportWarning && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute top-18 left-6 right-6 z-30 bg-semantic-warning/20 border border-semantic-warning/40 rounded-lg p-3 text-xs text-semantic-warning flex items-center justify-between backdrop-blur-md"
+            >
+              <div className="flex items-center gap-2 font-medium">
+                <span>⚠️ {exportWarning}</span>
+              </div>
+              <button onClick={() => setExportWarning(null)} className="text-ink-subtle hover:text-ink transition-colors ml-2">
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {currentView === 'chat' ? (
           <>
             {/* Toggle Sidebar Button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="absolute left-4 top-4 z-30 p-2 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl shadow-soft text-slate-500 hover:text-primary-600 transition-all active:scale-90"
+              className="absolute left-4 top-4 z-30 p-2 bg-surface-1/80 backdrop-blur-md border border-hairline rounded-md text-ink-muted hover:text-brand-lavender transition-all active:scale-90"
             >
-              {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+              {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
             </button>
 
             {/* Chat Header */}
-            <header className="h-16 flex items-center justify-center border-b border-slate-100 px-6 relative">
+            <header className="h-16 flex items-center justify-center border-b border-hairline px-6 relative">
               <div className="text-center">
-                <h2 className="text-sm font-bold text-slate-900">
+                <h2 className="text-sm font-bold text-ink tracking-tight">
                   {currentConversation?.title || 'Cuộc hội thoại mới'}
                 </h2>
                 <div className="flex items-center justify-center gap-4 mt-1">
                   <select
                     value={responseStyle}
                     onChange={(e) => setResponseStyle(e.target.value as any)}
-                    className="text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-transparent outline-none cursor-pointer hover:text-primary-600 transition-colors"
+                    className="text-[9px] font-bold uppercase tracking-widest text-ink-subtle bg-canvas border border-hairline rounded-md px-1.5 py-0.5 outline-none cursor-pointer hover:text-brand-lavender transition-colors"
                   >
                     <option value="concise">Ngắn gọn</option>
                     <option value="normal">Bình thường</option>
                     <option value="detailed">Chi tiết</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Action Buttons on the right side of the Header */}
+              <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <ThemeToggle />
+                
+                {currentConversation && messages.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                      disabled={exporting}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 border border-hairline hover:bg-surface-3 hover:text-ink text-ink-muted rounded-md text-xs font-medium transition-all active:scale-95 shadow-sm disabled:opacity-50"
+                      title="Xuất lịch sử hội thoại"
+                    >
+                      <Download size={13} className={cn(exporting && "animate-bounce")} />
+                      <span>{exporting ? 'Đang xuất...' : 'Xuất'}</span>
+                      <ChevronDown size={11} className={cn("transition-transform duration-200", exportDropdownOpen && "rotate-180")} />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {exportDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                            className="absolute right-0 mt-1.5 w-48 bg-surface-3 border border-hairline rounded-md shadow-lg z-50 py-1 overflow-hidden"
+                          >
+                            <button
+                              onClick={() => { handleExport('docx'); setExportDropdownOpen(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-muted hover:text-ink hover:bg-surface-2 text-left transition-colors"
+                            >
+                              <FileEdit size={13} className="text-blue-400" />
+                              <span>Microsoft Word (.docx)</span>
+                            </button>
+                            <button
+                              onClick={() => { handleExport('md'); setExportDropdownOpen(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-muted hover:text-ink hover:bg-surface-2 text-left transition-colors"
+                            >
+                              <FileCode size={13} className="text-emerald-400" />
+                              <span>Markdown (.md)</span>
+                            </button>
+                            <button
+                              onClick={() => { handleExport('txt'); setExportDropdownOpen(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-ink-muted hover:text-ink hover:bg-surface-2 text-left transition-colors"
+                            >
+                              <FileText size={13} className="text-amber-400" />
+                              <span>Văn bản thường (.txt)</span>
+                            </button>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
             </header>
 
@@ -421,11 +557,11 @@ export default function ChatContainer({ className }: ChatContainerProps) {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
+          background: #23252a;
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #cbd5e1;
+          background: #34343a;
         }
       `}</style>
     </div>

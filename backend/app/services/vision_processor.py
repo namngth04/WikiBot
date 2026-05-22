@@ -6,7 +6,6 @@ Supports: OCR, Image Description, Table Extraction from Images
 from typing import Optional, Dict, Any
 from PIL import Image
 import pytesseract
-from paddleocr import PaddleOCR
 import io
 import os
 
@@ -20,14 +19,21 @@ class VisionProcessor:
         self.ocr_engine = ocr_engine
         
         if ocr_engine == "paddle":
-            # PaddleOCR - better for Vietnamese
-            self.ocr = PaddleOCR(
-                use_angle_cls=True,
-                lang='vi',
-                use_gpu=False,
-                show_log=False
-            )
-        elif ocr_engine == "tesseract":
+            try:
+                from paddleocr import PaddleOCR
+                # PaddleOCR - better for Vietnamese
+                self.ocr = PaddleOCR(
+                    use_angle_cls=True,
+                    lang='vi',
+                    use_gpu=False,
+                    show_log=False
+                )
+            except ImportError:
+                print("Warning: PaddleOCR not installed. Falling back to tesseract.")
+                self.ocr_engine = "tesseract"
+                ocr_engine = "tesseract"
+                
+        if ocr_engine == "tesseract":
             # Tesseract - need to install binary
             tesseract_path = os.getenv('TESSERACT_PATH', r'C:\Program Files\Tesseract-OCR\tesseract.exe')
             if os.path.exists(tesseract_path):
