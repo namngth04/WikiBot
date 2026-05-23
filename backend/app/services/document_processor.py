@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import logging
 from typing import List, Optional
 import chromadb
@@ -46,12 +47,41 @@ class DocumentProcessor:
         self.embedding_model = get_embedding_model(db_session)
         
         # Initialize ChromaDB
-        os.makedirs(settings.chroma_db_path, exist_ok=True)
-        self.chroma_client = chromadb.PersistentClient(path=settings.chroma_db_path)
-        self.collection = self.chroma_client.get_or_create_collection(
-            name="documents",
-            metadata={"hnsw:space": "cosine"}
-        )
+        if settings.chroma_type == "http":
+            logger.info(f"Connecting to ChromaDB Server at {settings.chroma_host}:{settings.chroma_port}...")
+            # Retry loop for ChromaDB startup delay in docker env
+            max_retries = 5
+            retry_delay = 3
+            self.chroma_client = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self.chroma_client = chromadb.HttpClient(host=settings.chroma_host, port=int(settings.chroma_port))
+                    # Test heartbeat to verify connection
+                    self.chroma_client.heartbeat()
+                    logger.info("Successfully connected to ChromaDB Server!")
+                    break
+                except Exception as e:
+                    if attempt == max_retries:
+                        logger.error(f"Failed to connect to ChromaDB Server after {max_retries} attempts: {e}")
+                        # Fallback warning, avoid crash
+                        self.chroma_client = None
+                    else:
+                        logger.warning(f"ChromaDB Server connection failed (attempt {attempt}/{max_retries}). Retrying in {retry_delay}s...")
+                        time.sleep(retry_delay)
+        else:
+            logger.info(f"Initializing Local Persistent ChromaDB at {settings.chroma_db_path}")
+            os.makedirs(settings.chroma_db_path, exist_ok=True)
+            self.chroma_client = chromadb.PersistentClient(path=settings.chroma_db_path)
+            
+        # Get or create collection
+        if self.chroma_client is not None:
+            self.collection = self.chroma_client.get_or_create_collection(
+                name="documents",
+                metadata={"hnsw:space": "cosine"}
+            )
+        else:
+            self.collection = None
+            logger.error("ChromaDB Client is not initialized. Collection operations will be disabled.")
         
         # Initialize text splitter for LangChain
         self.text_splitter = RecursiveCharacterTextSplitter(

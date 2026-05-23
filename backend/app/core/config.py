@@ -13,11 +13,18 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite:///./data/wikibot.db"
     
+    # Offline & Local Deployment Configuration
+    offline_mode: bool = False
+    local_db_type: str = "sqlite"  # 'sqlite' or 'postgresql'
+    
     # Security
     encryption_key: str = ""  # For API key encryption, generate with: Fernet.generate_key()
     
     # ChromaDB
     chroma_db_path: str = "./chroma_db"
+    chroma_type: str = "persistent"  # 'persistent' or 'http'
+    chroma_host: str = "localhost"
+    chroma_port: int = 8000
     
     # LLM Model
     model_path: str = "./llm_models/model.gguf"
