@@ -6,12 +6,13 @@ from datetime import datetime, timedelta
 import json
 
 from app.core.database import get_db
-from app.models.models import User, Message, Document, FAQ, Conversation
+from app.models.models import User, Message, Document, FAQ, Conversation, TenantAISettings
 from app.schemas.schemas import (
     DashboardStats, UsageStats, FAQResponse, FAQCreate, FAQUpdate, 
-    SuggestedFAQ, SuccessResponse
+    SuggestedFAQ, SuccessResponse, TenantAISettingsSchema, TenantAISettingsResponse
 )
-from app.routers.auth import get_current_admin
+from app.routers.auth import get_current_admin, get_current_company_admin
+
 from app.services.response_generator import ResponseGenerator
 from app.services.faq_clustering import (
     cluster_similar_questions_with_ai,
@@ -297,3 +298,74 @@ Câu trả lời FAQ:"""
         return SuggestedFAQ(question=question, occurrence=1, suggested_answer=answer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi soạn thảo AI: {str(e)}")
+
+
+# ============== Tenant AI Settings (Company Admin) ==============
+
+@router.get("/tenant/ai-settings", response_model=TenantAISettingsResponse)
+def get_tenant_ai_settings(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_company_admin)
+):
+    """Get AI settings for current tenant (Company Admin or Superadmin)"""
+    tenant_id = current_admin.tenant_id if current_admin.tenant_id is not None else 0
+    
+    settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).first()
+    if not settings:
+        settings = TenantAISettings(
+            tenant_id=tenant_id,
+            temperature=0.2,
+            response_style="concise",
+            show_sources=True,
+            preferred_max_tokens=512,
+            ollama_endpoint="http://localhost:11434",
+            updated_by=current_admin.id
+        )
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+        
+    return settings
+
+
+@router.put("/tenant/ai-settings", response_model=TenantAISettingsResponse)
+def update_tenant_ai_settings(
+    settings_data: TenantAISettingsSchema,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_company_admin)
+):
+    """Update AI settings for current tenant (Company Admin or Superadmin)"""
+    tenant_id = current_admin.tenant_id if current_admin.tenant_id is not None else 0
+    
+    # Enforce safety limits
+    from app.models.models import AISafetyConfig
+    safety = db.query(AISafetyConfig).first()
+    if safety:
+        if settings_data.temperature > safety.max_temperature_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Temperature vượt quá giới hạn hệ thống: {safety.max_temperature_limit}"
+            )
+        if settings_data.preferred_max_tokens > safety.max_tokens_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Max tokens vượt quá giới hạn hệ thống: {safety.max_tokens_limit}"
+            )
+            
+    settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).first()
+    if not settings:
+        settings = TenantAISettings(tenant_id=tenant_id)
+        db.add(settings)
+        
+    settings.temperature = settings_data.temperature
+    settings.response_style = settings_data.response_style
+    settings.show_sources = settings_data.show_sources
+    settings.preferred_max_tokens = settings_data.preferred_max_tokens
+    settings.ollama_endpoint = settings_data.ollama_endpoint
+    settings.updated_by = current_admin.id
+    settings.updated_at = datetime.utcnow()
+    
+    db.commit()
+    db.refresh(settings)
+    return settings
+

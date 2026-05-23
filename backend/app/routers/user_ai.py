@@ -20,6 +20,37 @@ def get_user_ai_settings(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's AI settings"""
+    # Nếu user là Company Staff (level == 2), tự động load cấu hình Tenant dùng chung
+    if current_user.role and current_user.role.level == 2 and current_user.tenant_id is not None:
+        from app.models.models import TenantAISettings
+        settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == current_user.tenant_id).first()
+        if not settings:
+            # Tự động tạo cấu hình Tenant mặc định
+            settings = TenantAISettings(
+                tenant_id=current_user.tenant_id,
+                temperature=0.2,
+                response_style="concise",
+                show_sources=True,
+                preferred_max_tokens=512,
+                ollama_endpoint="http://localhost:11434"
+            )
+            db.add(settings)
+            db.commit()
+            db.refresh(settings)
+        
+        # Format response tương thích với UserAISettingsResponse
+        return {
+            "id": settings.id,
+            "user_id": current_user.id,
+            "temperature": settings.temperature,
+            "response_style": settings.response_style,
+            "show_sources": settings.show_sources,
+            "preferred_max_tokens": settings.preferred_max_tokens,
+            "receive_community_knowledge": False,  # Staff không tự ý dùng tri thức cộng đồng
+            "ollama_endpoint": settings.ollama_endpoint,
+            "updated_at": settings.updated_at
+        }
+
     settings = db.query(UserAISettings).filter(UserAISettings.user_id == current_user.id).first()
     
     if not settings:
@@ -39,6 +70,7 @@ def get_user_ai_settings(
     return settings
 
 
+
 @router.put("", response_model=UserAISettingsResponse)
 def update_user_ai_settings(
     settings_data: UserAISettingsSchema,
@@ -46,7 +78,15 @@ def update_user_ai_settings(
     current_user: User = Depends(get_current_user)
 ):
     """Update current user's AI settings"""
+    # Chặn Company Staff (level == 2)
+    if current_user.role and current_user.role.level == 2:
+        raise HTTPException(
+            status_code=403,
+            detail="Nhân viên công ty không được phép thay đổi cấu hình AI cá nhân. Cấu hình được quản lý tập trung bởi công ty."
+        )
+        
     # Validate against safety limits
+
     safety = db.query(AISafetyConfig).first()
     if safety:
         if settings_data.temperature > safety.max_temperature_limit:

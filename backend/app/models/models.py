@@ -204,6 +204,28 @@ class UserAISettings(Base):
     user = relationship("User")
 
 
+class TenantAISettings(Base):
+    """AI configuration shared by all staff members in a company/tenant"""
+    __tablename__ = "tenant_ai_settings"
+    
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, unique=True, index=True, nullable=False)
+    
+    # Shared preferences configured by Company Admin
+    temperature = Column(Float, default=0.2)
+    response_style = Column(String(20), default="concise")  # concise/normal/detailed
+    show_sources = Column(Boolean, default=True)
+    preferred_max_tokens = Column(Integer, default=512)
+    ollama_endpoint = Column(String(255), default="http://localhost:11434")
+    
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # Relationship
+    updater = relationship("User", foreign_keys=[updated_by])
+
+
+
 class UpgradeRequest(Base):
     """Upgrade requests for demo billing"""
     __tablename__ = "upgrade_requests"

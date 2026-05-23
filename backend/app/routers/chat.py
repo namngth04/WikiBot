@@ -259,23 +259,57 @@ def send_message(
         Message.conversation_id == conversation.id
     ).order_by(Message.created_at.asc()).all()
     
-    # Get user AI settings (or create default)
-    user_settings = db.query(UserAISettings).filter(
-        UserAISettings.user_id == current_user.id
-    ).first()
+    # Get AI settings (User settings or Tenant settings)
+    is_staff = current_user.role and current_user.role.level == 2 and current_user.tenant_id is not None
     
-    if not user_settings:
-        # Create default settings
-        safety_config = db.query(AISafetyConfig).first()
-        user_settings = UserAISettings(
-            user_id=current_user.id,
-            temperature=safety_config.default_temperature if safety_config else 0.2,
-            response_style=safety_config.default_response_style if safety_config else "concise",
-            show_sources=True,
-            preferred_max_tokens=512
-        )
-        db.add(user_settings)
-        db.commit()
+    if is_staff:
+        from app.models.models import TenantAISettings
+        tenant_settings = db.query(TenantAISettings).filter(
+            TenantAISettings.tenant_id == current_user.tenant_id
+        ).first()
+        
+        if not tenant_settings:
+            # Tự động tạo cấu hình Tenant mặc định
+            tenant_settings = TenantAISettings(
+                tenant_id=current_user.tenant_id,
+                temperature=0.2,
+                response_style="concise",
+                show_sources=True,
+                preferred_max_tokens=512,
+                ollama_endpoint="http://localhost:11434"
+            )
+            db.add(tenant_settings)
+            db.commit()
+            db.refresh(tenant_settings)
+            
+        # Ánh xạ thành object tương đương để tương thích ngược với code bên dưới
+        class UnifiedSettings:
+            pass
+        user_settings = UnifiedSettings()
+        user_settings.temperature = tenant_settings.temperature
+        user_settings.response_style = tenant_settings.response_style
+        user_settings.show_sources = tenant_settings.show_sources
+        user_settings.preferred_max_tokens = tenant_settings.preferred_max_tokens
+        user_settings.receive_community_knowledge = False
+    else:
+        user_settings = db.query(UserAISettings).filter(
+            UserAISettings.user_id == current_user.id
+        ).first()
+        
+        if not user_settings:
+            # Create default settings
+            safety_config = db.query(AISafetyConfig).first()
+            user_settings = UserAISettings(
+                user_id=current_user.id,
+                temperature=safety_config.default_temperature if safety_config else 0.2,
+                response_style=safety_config.default_response_style if safety_config else "concise",
+                show_sources=True,
+                preferred_max_tokens=512
+            )
+            db.add(user_settings)
+            db.commit()
+            db.refresh(user_settings)
+
     
     # Get safety limits
     safety_config = db.query(AISafetyConfig).first()

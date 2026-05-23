@@ -6,13 +6,26 @@ import {
   Settings, Server, Key, Brain, Layers, Shield,
   CheckCircle, AlertCircle, Save, TestTube, Eye, MessageCircle
 } from 'lucide-react';
-import { adminAIAPI } from '@/app/lib/ai-config-api';
+import { adminAIAPI, tenantAIAPI } from '@/app/lib/ai-config-api';
+import { useAuth } from '@/app/context/auth-context';
 
 export default function AdminAIConfigPage() {
+  const { user } = useAuth();
+  const isCompanyAdmin = user?.role?.level === 1;
+  
   const [activeTab, setActiveTab] = useState<'safety' | 'chat' | 'embedding' | 'overview'>('safety');
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Tenant AI Settings (for Company Admin)
+  const [tenantSettings, setTenantSettings] = useState({
+    temperature: 0.2,
+    response_style: 'concise',
+    show_sources: true,
+    preferred_max_tokens: 512,
+    ollama_endpoint: 'http://localhost:11434',
+  });
 
   // Default base URLs for providers
   const DEFAULT_BASE_URLS = {
@@ -58,8 +71,35 @@ export default function AdminAIConfigPage() {
   const [availableModels, setAvailableModels] = useState<any[]>([]);
 
   useEffect(() => {
-    loadConfigs();
-  }, []);
+    if (isCompanyAdmin) {
+      loadTenantSettings();
+    } else {
+      loadConfigs();
+    }
+  }, [isCompanyAdmin]);
+
+  const loadTenantSettings = async () => {
+    setLoading(true);
+    try {
+      const response = await tenantAIAPI.getSettings();
+      setTenantSettings(response.data);
+    } catch (err) {
+      console.error('Failed to load tenant settings:', err);
+    }
+    setLoading(false);
+  };
+
+  const handleSaveTenantSettings = async () => {
+    setLoading(true);
+    try {
+      await tenantAIAPI.updateSettings(tenantSettings);
+      showMessage('success', 'Đã lưu cấu hình AI của Doanh nghiệp thành công!');
+    } catch (err: any) {
+      showMessage('error', err.response?.data?.detail || 'Lỗi khi lưu cấu hình');
+    }
+    setLoading(false);
+  };
+
 
   const loadConfigs = async () => {
     try {
@@ -235,8 +275,134 @@ export default function AdminAIConfigPage() {
     );
   };
 
+  if (isCompanyAdmin) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <Brain className="text-violet-600 w-8 h-8" />
+            Cấu hình AI Doanh nghiệp
+          </h1>
+          <p className="text-slate-500">Cấu hình các tham số và mô hình AI mặc định dùng chung cho toàn bộ nhân viên trong công ty.</p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm space-y-6">
+          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-4">
+            <Settings className="text-violet-600" />
+            Tham số AI & Trợ lý RAG
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Temperature */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium text-slate-600">Độ sáng tạo (Temperature)</label>
+                <span className="text-xs font-mono font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded">{tenantSettings.temperature}</span>
+              </div>
+              <input 
+                type="range" 
+                min="0.1" 
+                max="1.5" 
+                step="0.1"
+                value={tenantSettings.temperature} 
+                onChange={(e) => setTenantSettings({ ...tenantSettings, temperature: parseFloat(e.target.value) })} 
+                className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600" 
+              />
+              <p className="text-xs text-slate-400">Giá trị càng thấp, câu trả lời RAG càng chính xác và nhất quán. Giá trị cao giúp bot đa dạng hóa câu trả lời.</p>
+            </div>
+
+            {/* Max Tokens */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-600">Độ dài câu trả lời mặc định (Max Tokens)</label>
+              <select
+                value={tenantSettings.preferred_max_tokens}
+                onChange={(e) => setTenantSettings({ ...tenantSettings, preferred_max_tokens: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500/10 outline-none"
+              >
+                <option value="256">Ngắn gọn (256 tokens)</option>
+                <option value="512">Trung bình (512 tokens)</option>
+                <option value="1024">Dài (1024 tokens)</option>
+                <option value="2048">Rất dài (2048 tokens)</option>
+              </select>
+            </div>
+
+            {/* Response Style */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-600">Phong cách phản hồi mặc định</label>
+              <select
+                value={tenantSettings.response_style}
+                onChange={(e) => setTenantSettings({ ...tenantSettings, response_style: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500/10 outline-none"
+              >
+                <option value="concise">Tóm tắt ngắn gọn</option>
+                <option value="normal">Bình thường đầy đủ</option>
+                <option value="detailed">Chi tiết từng bước</option>
+              </select>
+            </div>
+
+            {/* Show Sources */}
+            <div className="space-y-2 flex flex-col justify-center">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div>
+                  <span className="text-sm font-medium text-slate-700 block">Hiển thị nguồn trích dẫn</span>
+                  <span className="text-xs text-slate-400">Trích dẫn tài liệu nội bộ gốc dưới mỗi câu trả lời</span>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={tenantSettings.show_sources} 
+                  onChange={(e) => setTenantSettings({ ...tenantSettings, show_sources: e.target.checked })}
+                  className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Ollama Endpoint */}
+            <div className="space-y-2 col-span-1 md:col-span-2 border-t border-slate-100 pt-4">
+              <label className="text-sm font-medium text-slate-600 block">Máy chủ Ollama Local của Công ty (Company Ollama Server)</label>
+              <input 
+                type="text" 
+                value={tenantSettings.ollama_endpoint} 
+                onChange={(e) => setTenantSettings({ ...tenantSettings, ollama_endpoint: e.target.value })} 
+                className="w-full px-3 py-2 border rounded-lg font-mono focus:ring-2 focus:ring-violet-500/10 outline-none"
+                placeholder="http://192.168.1.100:11434"
+              />
+              <p className="text-xs text-slate-400">Cấu hình địa chỉ IP máy chủ Ollama chạy cục bộ trong mạng nội bộ của công ty để đảm bảo dữ liệu không rời khỏi hạ tầng doanh nghiệp.</p>
+            </div>
+
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleSaveTenantSettings}
+              disabled={loading}
+              className="flex items-center gap-2 bg-violet-600 text-white px-6 py-2.5 rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-all font-bold shadow-md shadow-violet-500/10"
+            >
+              <Save size={18} />
+              {loading ? 'Đang lưu...' : 'Lưu cấu hình AI'}
+            </button>
+          </div>
+        </div>
+
+        {/* Toast Message */}
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-2 px-6 py-3 rounded-lg shadow-lg border ${
+              message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}
+          >
+            {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+            <span className="font-medium">{message.text}</span>
+          </motion.div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Cấu hình AI Hệ thống</h1>

@@ -39,9 +39,19 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
     if not current_user.role or current_user.role.level != 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Yêu cầu quyền quản trị viên"
+            detail="Yêu cầu quyền quản trị viên hệ thống (Superadmin)"
         )
     return current_user
+
+
+def get_current_company_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.role or current_user.role.level not in [0, 1]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên công ty hoặc hệ thống"
+        )
+    return current_user
+
 
 
 @router.post("/login", response_model=TokenResponse)

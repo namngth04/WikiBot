@@ -46,6 +46,13 @@ export const adminAIAPI = {
     api.get(`/admin/ai-config/models/${provider}${modelType ? `?model_type=${modelType}` : ''}`),
 };
 
+// Tenant AI APIs
+export const tenantAIAPI = {
+  getSettings: () => api.get('/admin/tenant/ai-settings'),
+  updateSettings: (data: any) => api.put('/admin/tenant/ai-settings', data),
+};
+
+
 // User APIs
 export const userAIAPI = {
   getSettings: () => api.get('/users/me/ai-settings'),

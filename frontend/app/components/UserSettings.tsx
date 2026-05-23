@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 
 export function UserSettings({ onBack, user }: { onBack: () => void; user: any }) {
   const [loading, setLoading] = useState(false);
+  const isStaff = user?.role?.level === 2;
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -301,6 +302,13 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
               </h3>
               
               <form onSubmit={handleUpdateAISettings} className="space-y-6">
+                {isStaff && (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-600 text-xs font-semibold leading-relaxed flex items-center gap-3">
+                    <AlertCircle size={18} className="shrink-0" />
+                    <span>⚠️ Các cấu hình AI này được thiết lập tập trung bởi Quản trị viên công ty của bạn để đảm bảo tính đồng bộ dữ liệu. Bạn chỉ có quyền xem, không có quyền chỉnh sửa.</span>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Temperature */}
@@ -315,6 +323,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                       max="1.5" 
                       step="0.1"
                       value={aiSettings.temperature} 
+                      disabled={isStaff}
                       onChange={(e) => setAiSettings({ ...aiSettings, temperature: parseFloat(e.target.value) })} 
                       className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600" 
                     />
@@ -326,6 +335,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Độ dài câu trả lời (Max Tokens)</label>
                     <select
                       value={aiSettings.preferred_max_tokens}
+                      disabled={isStaff}
                       onChange={(e) => setAiSettings({ ...aiSettings, preferred_max_tokens: parseInt(e.target.value) })}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-medium"
                     >
@@ -341,6 +351,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Phong cách phản hồi mặc định</label>
                     <select
                       value={aiSettings.response_style}
+                      disabled={isStaff}
                       onChange={(e) => setAiSettings({ ...aiSettings, response_style: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-medium"
                     >
@@ -360,6 +371,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                       <input 
                         type="checkbox" 
                         checked={aiSettings.show_sources} 
+                        disabled={isStaff}
                         onChange={(e) => setAiSettings({ ...aiSettings, show_sources: e.target.checked })}
                         className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
                       />
@@ -371,7 +383,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Đường dẫn Ollama Local</label>
-                        {user?.subscription_tier === 'free' && (
+                        {(user?.subscription_tier === 'free' || isStaff) && (
                           <span className="px-2 py-0.5 rounded text-[8px] font-extrabold bg-violet-500/15 border border-violet-500/25 text-violet-600">PRO FEATURE</span>
                         )}
                       </div>
@@ -381,13 +393,13 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                       <input 
                         type="text" 
                         value={aiSettings.ollama_endpoint} 
-                        disabled={user?.subscription_tier === 'free'}
+                        disabled={user?.subscription_tier === 'free' || isStaff}
                         onChange={(e) => setAiSettings({ ...aiSettings, ollama_endpoint: e.target.value })} 
-                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-mono ${user?.subscription_tier === 'free' ? 'opacity-60 cursor-not-allowed select-none bg-slate-100/50' : ''}`}
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all text-sm font-mono ${user?.subscription_tier === 'free' || isStaff ? 'opacity-60 cursor-not-allowed select-none bg-slate-100/50' : ''}`}
                         placeholder="http://localhost:11434"
                       />
                     </div>
-                    {user?.subscription_tier === 'free' && (
+                    {user?.subscription_tier === 'free' && !isStaff && (
                       <p className="text-[10px] text-violet-600 font-semibold tracking-wide mt-1">
                         ⚡ Vui lòng nâng cấp lên gói PRO để tùy biến kết nối Ollama Local chạy offline cục bộ.
                       </p>
@@ -400,7 +412,7 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-slate-700 block">Nhận tri thức cộng đồng</span>
-                          {user?.subscription_tier === 'free' && (
+                          {(user?.subscription_tier === 'free' || isStaff) && (
                             <span className="px-2 py-0.5 rounded text-[8px] font-extrabold bg-violet-500/15 border border-violet-500/25 text-violet-600">PRO FEATURE</span>
                           )}
                         </div>
@@ -409,25 +421,27 @@ export function UserSettings({ onBack, user }: { onBack: () => void; user: any }
                       <input 
                         type="checkbox" 
                         checked={aiSettings.receive_community_knowledge} 
-                        disabled={user?.subscription_tier === 'free'}
+                        disabled={user?.subscription_tier === 'free' || isStaff}
                         onChange={(e) => setAiSettings({ ...aiSettings, receive_community_knowledge: e.target.checked })}
-                        className={`w-4 h-4 rounded text-violet-600 focus:ring-violet-500 ${user?.subscription_tier === 'free' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        className={`w-4 h-4 rounded text-violet-600 focus:ring-violet-500 ${user?.subscription_tier === 'free' || isStaff ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       />
                     </div>
                   </div>
 
                 </div>
 
-                <div className="flex justify-end pt-4">
-                  <button 
-                    type="submit" 
-                    disabled={loading}
-                    className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-violet-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-50 text-sm"
-                  >
-                    <Save size={18} />
-                    Lưu cấu hình AI
-                  </button>
-                </div>
+                {!isStaff && (
+                  <div className="flex justify-end pt-4">
+                    <button 
+                      type="submit" 
+                      disabled={loading}
+                      className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-violet-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-50 text-sm"
+                    >
+                      <Save size={18} />
+                      Lưu cấu hình AI
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
 

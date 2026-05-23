@@ -357,6 +357,32 @@ class UserAISettingsResponse(BaseModel):
         from_attributes = True
 
 
+class TenantAISettingsSchema(BaseModel):
+    """Tenant AI preferences configured by Company Admin"""
+    temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    response_style: str = Field(default="concise", pattern="^(concise|normal|detailed|creative)$")
+    show_sources: bool = True
+    preferred_max_tokens: int = Field(default=512, ge=64, le=2048)
+    ollama_endpoint: str = Field(default="http://localhost:11434", max_length=255)
+
+
+class TenantAISettingsResponse(BaseModel):
+    """Tenant AI settings response"""
+    id: int
+    tenant_id: int
+    temperature: float
+    response_style: str
+    show_sources: bool
+    preferred_max_tokens: int
+    ollama_endpoint: str
+    updated_at: Optional[datetime] = None
+    updated_by: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+
+
 class TestConnectionRequest(BaseModel):
     """Test connection request"""
     provider: str = Field(..., pattern="^(local|openrouter|ollama)$")
