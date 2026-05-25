@@ -32,13 +32,13 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
       const currentListKey = `list-${keyCounter++}`;
       if (listType === 'bullet') {
         renderedElements.push(
-          <ul key={currentListKey} className="list-disc pl-5 mb-4 space-y-1.5 text-slate-700">
+          <ul key={currentListKey} className="list-disc pl-5 mb-4 space-y-1.5 text-ink-muted">
             {currentListItems}
           </ul>
         );
       } else if (listType === 'number') {
         renderedElements.push(
-          <ol key={currentListKey} className="list-decimal pl-5 mb-4 space-y-1.5 text-slate-700">
+          <ol key={currentListKey} className="list-decimal pl-5 mb-4 space-y-1.5 text-ink-muted">
             {currentListItems}
           </ol>
         );
@@ -110,13 +110,13 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     return parts.map((part, i) => {
       const partKey = `inline-${i}-${part.text.substring(0, 5)}`;
       if (part.bold) {
-        return <strong key={partKey} className="font-bold text-slate-900">{part.text}</strong>;
+        return <strong key={partKey} className="font-bold text-ink">{part.text}</strong>;
       }
       if (part.italic) {
-        return <em key={partKey} className="italic text-slate-800">{part.text}</em>;
+        return <em key={partKey} className="italic text-ink-muted">{part.text}</em>;
       }
       if (part.code) {
-        return <code key={partKey} className="bg-slate-100 text-rose-600 px-1.5 py-0.5 rounded font-mono text-[13px] border border-slate-200">{part.text}</code>;
+        return <code key={partKey} className="bg-surface-3 text-rose-500 px-1.5 py-0.5 rounded font-mono text-[13px] border border-hairline">{part.text}</code>;
       }
       if (part.link) {
         const safeUrl = (url?: string) => {
@@ -151,7 +151,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     if (trimmedLine.startsWith('### ')) {
       flushList();
       renderedElements.push(
-        <h4 key={`h3-${keyCounter++}`} className="text-base font-bold text-slate-900 mt-4 mb-2 first:mt-0 font-be-vietnam">
+        <h4 key={`h3-${keyCounter++}`} className="text-base font-bold text-ink mt-4 mb-2 first:mt-0 font-be-vietnam">
           {parseInlineStyles(trimmedLine.slice(4))}
         </h4>
       );
@@ -160,7 +160,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     if (trimmedLine.startsWith('## ')) {
       flushList();
       renderedElements.push(
-        <h3 key={`h2-${keyCounter++}`} className="text-lg font-bold text-slate-905 mt-4 mb-2 first:mt-0 font-be-vietnam">
+        <h3 key={`h2-${keyCounter++}`} className="text-lg font-bold text-ink mt-4 mb-2 first:mt-0 font-be-vietnam">
           {parseInlineStyles(trimmedLine.slice(3))}
         </h3>
       );
@@ -169,7 +169,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     if (trimmedLine.startsWith('# ')) {
       flushList();
       renderedElements.push(
-        <h2 key={`h1-${keyCounter++}`} className="text-xl font-bold text-slate-900 mt-4 mb-2 first:mt-0 font-be-vietnam">
+        <h2 key={`h1-${keyCounter++}`} className="text-xl font-bold text-ink mt-4 mb-2 first:mt-0 font-be-vietnam">
           {parseInlineStyles(trimmedLine.slice(2))}
         </h2>
       );
@@ -246,9 +246,9 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         for (let r = startBodyIndex; r < tableRows.length; r++) {
           const cells = tableRows[r].split('|').map(s => s.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
           bodyRows.push(
-            <tr key={`tr-${r}`} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+            <tr key={`tr-${r}`} className="border-b border-hairline hover:bg-surface-2/50 transition-colors">
               {cells.map((cell, cIdx) => (
-                <td key={`td-${cIdx}`} className="px-4 py-2.5 text-sm text-slate-600 font-medium">
+                <td key={`td-${cIdx}`} className="px-4 py-2.5 text-sm text-ink-muted font-medium">
                   {parseInlineStyles(cell)}
                 </td>
               ))}
@@ -257,18 +257,18 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
         }
         
         renderedElements.push(
-          <div key={`table-wrapper-${keyCounter++}`} className="overflow-x-auto my-4 border border-slate-200 rounded-xl shadow-soft bg-white">
-            <table className="min-w-full divide-y divide-slate-250">
-              <thead className="bg-slate-50/75">
+          <div key={`table-wrapper-${keyCounter++}`} className="overflow-x-auto my-4 border border-hairline rounded-xl shadow-soft bg-surface-1/50">
+            <table className="min-w-full divide-y divide-hairline">
+              <thead className="bg-surface-2/75">
                 <tr>
                   {headers.map((header, hIdx) => (
-                    <th key={`th-${hIdx}`} className="px-4 py-3 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <th key={`th-${hIdx}`} className="px-4 py-3 text-left text-xs font-bold text-ink uppercase tracking-wider">
                       {parseInlineStyles(header)}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+              <tbody className="divide-y divide-hairline bg-surface-1/50">
                 {bodyRows}
               </tbody>
             </table>
@@ -288,7 +288,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     // 7. Normal paragraph
     flushList();
     renderedElements.push(
-      <p key={`p-${keyCounter++}`} className="text-sm md:text-[15px] text-slate-700 leading-relaxed mb-3 last:mb-0 font-medium">
+      <p key={`p-${keyCounter++}`} className="text-sm md:text-[15px] text-ink-muted leading-relaxed mb-3 last:mb-0 font-medium">
         {parseInlineStyles(line)}
       </p>
     );

@@ -79,16 +79,30 @@ def request_upgrade(
             detail="Bạn đã gửi một yêu cầu nâng cấp trước đó và đang chờ phê duyệt"
         )
     
-    # Tạo yêu cầu nâng cấp mới
+    # Tạo yêu cầu nâng cấp mới và tự động phê duyệt ngay lập tức (Auto-approve)
     new_request = UpgradeRequest(
         user_id=current_user.id,
-        status="pending"
+        status="approved"
     )
     db.add(new_request)
+    
+    # Nâng cấp gói cước cho người dùng lên PRO
+    current_user.subscription_tier = "pro"
+    
+    # Nếu user có tenant_id (doanh nghiệp), nâng cấp toàn bộ nhân sự cùng tenant lên PRO
+    if current_user.tenant_id is not None:
+        db.query(User).filter(User.tenant_id == current_user.tenant_id).update(
+            {"subscription_tier": "pro"}
+        )
+        
     db.commit()
     db.refresh(new_request)
     
-    return {"message": "Gửi yêu cầu nâng cấp thành công. Đang chờ Superadmin phê duyệt.", "request_id": new_request.id}
+    return {
+        "message": "Nâng cấp tài khoản thành công! Tài khoản của bạn đã được chuyển sang gói PRO.",
+        "request_id": new_request.id,
+        "status": "approved"
+    }
 
 
 @router.get("/requests", response_model=List[UpgradeRequestResponse])
@@ -205,6 +219,19 @@ def get_user_quota(
     
     # 3. Định hình cấu trúc hạn ngạch dựa trên loại gói cước (SaaS Tier)
     tier = current_user.subscription_tier or "free"
+    
+    # Hệ thống quản trị viên (Superadmin/Admin level=0) luôn được hưởng hạn ngạch tối đa không giới hạn
+    is_admin = current_user.role and current_user.role.level == 0
+    if is_admin:
+        return QuotaResponse(
+            subscription_tier="enterprise",
+            questions_limit=999999,
+            questions_used=questions_used,
+            documents_limit=999999,
+            documents_used=documents_used,
+            file_size_limit_mb=100.0,
+            ollama_allowed=True
+        )
     
     # Nếu thuộc công ty (Company Staff/Admin), họ tự động hưởng các hạn ngạch lớn như Enterprise
     if current_user.tenant_id is not None:

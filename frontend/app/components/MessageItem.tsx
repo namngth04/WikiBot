@@ -93,7 +93,7 @@ export default function MessageItem({
       <div className={cn(
         "max-w-[85%] md:max-w-[75%] p-4 shadow-soft transition-all relative rounded-2xl",
         message.role === 'user' 
-          ? "bg-brand-lavender text-ink rounded-tr-none border border-brand-lavender/30" 
+          ? "bg-brand-lavender text-white rounded-tr-none border border-brand-lavender/30 shadow-md shadow-brand-lavender/10" 
           : cn(
               "bg-surface-1 border border-hairline text-ink rounded-tl-none",
               message.status === 'failed' && "border-red-900 bg-red-950/20 text-red-200"
@@ -116,7 +116,7 @@ export default function MessageItem({
         {/* Message content */}
         <div className={cn(
           "text-sm md:text-base leading-relaxed",
-          message.role === 'user' ? "whitespace-pre-wrap font-medium" : "text-ink-muted"
+          message.role === 'user' ? "whitespace-pre-wrap font-medium text-white" : "text-ink-muted"
         )}>
           {message.role === 'user' ? (
             message.content

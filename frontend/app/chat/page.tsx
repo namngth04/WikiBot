@@ -12,8 +12,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
+    } else if (!authLoading && user && isAdmin && user.tenant_id === null) {
+      router.push('/superadmin');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, isAdmin, router]);
 
   if (authLoading || !user) {
     return (

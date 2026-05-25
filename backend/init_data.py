@@ -513,15 +513,14 @@ def clear_existing_data():
 
 
 def init_default_data():
-    """Create default roles, admin user and AI configs"""
+    """Create default roles, users (Admin, Trưởng phòng, Nhân viên), AI settings, FAQs and AI configs"""
     
     print("Starting default data initialization...")
     db = SessionLocal()
     
     try:
-        # Create default roles
+        # 1. Create default roles
         print("Creating default roles...")
-        
         try:
             existing_roles = db.query(Role).all()
             if existing_roles:
@@ -532,12 +531,10 @@ def init_default_data():
                     Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1),
                     Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2),
                 ]
-                
                 for role in roles:
                     db.add(role)
-                
                 db.commit()
-                print("Created 3 default roles:")
+                print("Created 3 default roles successfully:")
                 print("  - Admin (level 0)")
                 print("  - Trưởng phòng (level 1)")
                 print("  - Nhân viên (level 2)")
@@ -546,38 +543,155 @@ def init_default_data():
             db.rollback()
             raise
         
-        # Create default admin user
-        print("\nCreating default admin user...")
+        # 2. Create default users (Admin, Trưởng phòng, Nhân viên A, Nhân viên B)
+        print("\nCreating default users...")
+        users_to_create = [
+            {
+                "username": DEFAULT_ADMIN_USERNAME,
+                "full_name": "Quản trị viên",
+                "email": "admin@wikibot.local",
+                "hashed_password": get_password_hash(DEFAULT_ADMIN_PASSWORD),
+                "role_id": 1,
+                "subscription_tier": "pro",
+                "tenant_id": None,
+                "is_active": True
+            },
+            {
+                "username": "truongphong",
+                "full_name": "Trưởng phòng Nhân sự",
+                "email": "truongphong@wikibot.local",
+                "hashed_password": get_password_hash("tp123"),
+                "role_id": 2,
+                "subscription_tier": "pro",
+                "tenant_id": 1,
+                "is_active": True
+            },
+            {
+                "username": "nhanvien",
+                "full_name": "Nhân viên Thử nghiệm A",
+                "email": "nhanvien@wikibot.local",
+                "hashed_password": get_password_hash("nv123"),
+                "role_id": 3,
+                "subscription_tier": "free",
+                "tenant_id": 1,
+                "is_active": True
+            },
+            {
+                "username": "nhanvien_b",
+                "full_name": "Nhân viên Thử nghiệm B",
+                "email": "nhanvien_b@wikibot.local",
+                "hashed_password": get_password_hash("nv123"),
+                "role_id": 3,
+                "subscription_tier": "free",
+                "tenant_id": 2,
+                "is_active": True
+            }
+        ]
         
+        created_users = []
         try:
-            admin_user = db.query(User).filter(User.username == DEFAULT_ADMIN_USERNAME).first()
-            if admin_user:
-                print("Admin user already exists. Skipping creation.")
-            else:
-                admin = User(
-                    username=DEFAULT_ADMIN_USERNAME,
-                    full_name="Quản trị viên",
-                    email="admin@wikibot.local",
-                    phone=None,
-                    hashed_password=get_password_hash(DEFAULT_ADMIN_PASSWORD),
-                    role_id=1,  # Admin role
-                    is_active=True
-                )
-                
-                db.add(admin)
-                db.commit()
-                print("Created default admin user:")
-                print(f"  Username: {DEFAULT_ADMIN_USERNAME}")
-                print(f"  Password: {DEFAULT_ADMIN_PASSWORD}")
-                print("  Role: Admin")
+            for user_data in users_to_create:
+                existing = db.query(User).filter(User.username == user_data["username"]).first()
+                if existing:
+                    print(f"User '{user_data['username']}' already exists. Skipping.")
+                    created_users.append(existing)
+                else:
+                    user = User(**user_data)
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                    created_users.append(user)
+                    print(f"Created user: {user.username} (Role Level: {user.role_id}, Tier: {user.subscription_tier}, Tenant: {user.tenant_id})")
         except Exception as e:
-            print(f"⚠️  Error creating admin user: {e}")
+            print(f"⚠️  Error creating users: {e}")
+            db.rollback()
+            raise
+
+        # 3. Create default User AI Settings
+        print("\nCreating default User AI Settings...")
+        from app.models.models import UserAISettings
+        try:
+            for user in created_users:
+                existing = db.query(UserAISettings).filter(UserAISettings.user_id == user.id).first()
+                if not existing:
+                    user_settings = UserAISettings(
+                        user_id=user.id,
+                        temperature=0.2,
+                        response_style="concise",
+                        show_sources=True,
+                        preferred_max_tokens=512
+                    )
+                    db.add(user_settings)
+            db.commit()
+            print("✅ Created default User AI Settings for all users")
+        except Exception as e:
+            print(f"⚠️  Error creating User AI Settings: {e}")
+            db.rollback()
+            raise
+
+        # 4. Create default Tenant AI Settings (for tenant 1 and 2)
+        print("\nCreating default Tenant AI Settings...")
+        from app.models.models import TenantAISettings
+        try:
+            for t_id in [1, 2]:
+                existing = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == t_id).first()
+                if not existing:
+                    tenant_settings = TenantAISettings(
+                        tenant_id=t_id,
+                        temperature=0.2,
+                        response_style="concise",
+                        show_sources=True,
+                        preferred_max_tokens=512,
+                        updated_by=1
+                    )
+                    db.add(tenant_settings)
+            db.commit()
+            print("✅ Created default Tenant AI Settings for Tenant 1 and Tenant 2")
+        except Exception as e:
+            print(f"⚠️  Error creating Tenant AI Settings: {e}")
+            db.rollback()
+            raise
+
+        # 5. Create default FAQs
+        print("\nCreating default FAQs...")
+        from app.models.models import FAQ
+        try:
+            faqs_to_create = [
+                {
+                    "question": "Làm thế nào để xin nghỉ phép?",
+                    "answer": "Để xin nghỉ phép, bạn cần điền thông tin vào đơn đăng ký xin nghỉ phép trên hệ thống HR nội bộ trước ít nhất 3 ngày làm việc. Đơn sẽ được chuyển cho Trưởng phòng duyệt trước khi gửi tới ban Nhân sự.",
+                    "category": "HR",
+                    "is_active": True
+                },
+                {
+                    "question": "Thời gian làm việc của công ty như thế nào?",
+                    "answer": "Công ty làm việc từ thứ Hai đến thứ Sáu hàng tuần. Thời gian làm việc cụ thể: Sáng từ 8h00 - 12h00, Chiều từ 13h30 - 17h30. Nghỉ trưa từ 12h00 - 13h30.",
+                    "category": "Quy chế chung",
+                    "is_active": True
+                },
+                {
+                    "question": "Quy định về trang phục của công ty?",
+                    "answer": "Nhân viên mặc trang phục công sở lịch sự từ thứ Hai đến thứ Năm. Thứ Sáu nhân viên có thể mặc trang phục tự do nhưng lịch sự (quần jean, áo thun có cổ). Tránh mặc đồ quá ngắn hoặc đồ thể thao.",
+                    "category": "Quy chế chung",
+                    "is_active": True
+                }
+            ]
+            created_faqs = 0
+            for faq_data in faqs_to_create:
+                existing = db.query(FAQ).filter(FAQ.question == faq_data["question"]).first()
+                if not existing:
+                    faq = FAQ(**faq_data)
+                    db.add(faq)
+                    created_faqs += 1
+            db.commit()
+            print(f"✅ Created {created_faqs} default FAQs successfully")
+        except Exception as e:
+            print(f"⚠️  Error creating FAQs: {e}")
             db.rollback()
             raise
         
-        # Create default AI Safety Config
+        # 6. Create default AI Safety Config
         print("\nCreating default AI Safety Config...")
-        
         try:
             safety_config = db.query(AISafetyConfig).first()
             if safety_config:
@@ -599,9 +713,8 @@ def init_default_data():
             db.rollback()
             raise
         
-        # Create default AI Provider Configs
+        # 7. Create default AI Provider Configs
         print("\nCreating default AI Provider Configs...")
-        
         try:
             provider_configs = [
                 {
@@ -628,7 +741,6 @@ def init_default_data():
                     "updated_by": 1
                 }
             ]
-            
             created_configs = 0
             for config_data in provider_configs:
                 existing = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == config_data["ai_type"]).first()
@@ -647,8 +759,10 @@ def init_default_data():
         
         print("\n✅ Initialization complete!")
         print("\nYou can now start the backend and login with:")
-        print(f"  Username: {DEFAULT_ADMIN_USERNAME}")
-        print(f"  Password: {DEFAULT_ADMIN_PASSWORD}")
+        print(f"  Superadmin: {DEFAULT_ADMIN_USERNAME} / {DEFAULT_ADMIN_PASSWORD}")
+        print("  Trưởng phòng (Pro, Tenant 1): truongphong / tp123")
+        print("  Nhân viên A (Free, Tenant 1): nhanvien / nv123")
+        print("  Nhân viên B (Free, Tenant 2): nhanvien_b / nv123")
         
     except Exception as e:
         db.rollback()

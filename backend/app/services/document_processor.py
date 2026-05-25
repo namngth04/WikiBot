@@ -634,8 +634,10 @@ class DocumentProcessor:
         else:
             if clean_role_ids:
                 where_filter = {
-                    "role_id": {"$in": clean_role_ids},
-                    "is_public_community": False
+                    "$and": [
+                        {"role_id": {"$in": clean_role_ids}},
+                        {"is_public_community": False}
+                    ]
                 }
         
         # Query ChromaDB

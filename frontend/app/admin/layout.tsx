@@ -27,14 +27,18 @@ export default function AdminLayout({
   const { user, isAdmin, logout, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Redirect if not admin
+  // Redirect if not admin or if system superadmin
   useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      router.push('/chat');
+    if (!authLoading) {
+      if (!isAdmin) {
+        router.push('/chat');
+      } else if (user && user.tenant_id === null) {
+        router.push('/superadmin');
+      }
     }
-  }, [isAdmin, authLoading, router]);
+  }, [isAdmin, user, authLoading, router]);
 
-  if (authLoading || !isAdmin) {
+  if (authLoading || !isAdmin || (user && user.tenant_id === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas-soft transition-colors duration-200">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-lavender"></div>

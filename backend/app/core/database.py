@@ -18,6 +18,22 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if "sqlite" in db_url else {}
 )
 
+# Auto migrate schema for SaaS company features if columns don't exist
+from sqlalchemy import text
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE tenant_ai_settings ADD COLUMN company_name VARCHAR(255)"))
+        conn.commit()
+except Exception:
+    pass
+
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE tenant_ai_settings ADD COLUMN invite_code VARCHAR(100)"))
+        conn.commit()
+except Exception:
+    pass
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

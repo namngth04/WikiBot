@@ -217,6 +217,8 @@ class TenantAISettings(Base):
     show_sources = Column(Boolean, default=True)
     preferred_max_tokens = Column(Integer, default=512)
     ollama_endpoint = Column(String(255), default="http://localhost:11434")
+    company_name = Column(String(255), nullable=True)
+    invite_code = Column(String(100), unique=True, nullable=True)
     
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)

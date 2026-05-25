@@ -195,8 +195,16 @@ def send_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Quota Guard for Free Tier (Personal User)
-    if current_user.subscription_tier == "free" and current_user.tenant_id is None:
+    # Chặn Superadmin hệ thống sử dụng tính năng Chat
+    if current_user.role and current_user.role.level == 0 and current_user.tenant_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản Superadmin hệ thống không có quyền sử dụng tính năng Chat."
+        )
+
+    # Quota Guard for Free Tier (Personal User) - Exempt system admin
+    is_admin = current_user.role and current_user.role.level == 0
+    if not is_admin and current_user.subscription_tier == "free" and current_user.tenant_id is None:
         from datetime import datetime, time as datetime_time
         today = datetime.utcnow().date()
         start_of_today = datetime.combine(today, datetime_time.min)

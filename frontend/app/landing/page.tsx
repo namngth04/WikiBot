@@ -59,7 +59,7 @@ export default function LandingPage() {
                   Đăng nhập
                 </Link>
                 <Link 
-                  href="/login" 
+                  href="/register" 
                   className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20"
                 >
                   Dùng thử miễn phí
@@ -91,7 +91,7 @@ export default function LandingPage() {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
           <Link 
-            href={user ? "/chat" : "/login"} 
+            href={user ? "/chat" : "/register"} 
             className="w-full sm:w-auto px-8 py-3 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-xl shadow-[#5e6ad2]/20 flex items-center justify-center gap-2"
           >
             {user ? "Vào phòng chat ngay" : "Bắt đầu miễn phí ngay"} ⚡
@@ -297,7 +297,7 @@ export default function LandingPage() {
           Trải nghiệm ngay khả năng trích xuất thông tin đỉnh cao của RAG kết hợp OCR của WikiBot. Đăng ký tài khoản miễn phí chỉ trong 10 giây.
         </p>
         <Link 
-          href={user ? "/chat" : "/login"} 
+          href={user ? "/chat" : "/register"} 
           className="px-8 py-3.5 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20 inline-flex items-center gap-2"
         >
           {user ? "Vào phòng chat ngay" : "Bắt đầu miễn phí ngay"} ⚡

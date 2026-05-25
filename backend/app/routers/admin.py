@@ -4,6 +4,13 @@ from sqlalchemy import func, desc
 from typing import List, Optional
 from datetime import datetime, timedelta
 import json
+import os
+from app.core.config import get_settings
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 from app.core.database import get_db
 from app.models.models import User, Message, Document, FAQ, Conversation, TenantAISettings
@@ -368,4 +375,145 @@ def update_tenant_ai_settings(
     db.commit()
     db.refresh(settings)
     return settings
+
+
+@router.get("/stats/resources")
+def get_system_resources(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Get system resources and statistics for Superadmin dashboard"""
+    # Enforce Superadmin check (role level 0, tenant_id must be None)
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    settings = get_settings()
+    data_dir = settings.data_dir
+    
+    # Calculate disk usage of document folder
+    disk_usage_mb = 0.0
+    if os.path.exists(data_dir):
+        for dirpath, dirnames, filenames in os.walk(data_dir):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if not os.path.islink(fp):
+                    try:
+                        disk_usage_mb += os.path.getsize(fp)
+                    except OSError:
+                        pass
+    disk_usage_mb = round(disk_usage_mb / (1024 * 1024), 2)  # MB
+    
+    # Get total vector chunks in database
+    total_chunks = db.query(func.sum(Document.chunk_count)).filter(Document.is_active == True).scalar() or 0
+    
+    # Measure RAM & CPU usage
+    cpu_usage_percent = 0.0
+    ram_usage_percent = 0.0
+    if psutil:
+        try:
+            cpu_usage_percent = psutil.cpu_percent(interval=None)
+            ram_usage_percent = psutil.virtual_memory().percent
+        except Exception:
+            pass
+            
+    # Count unique tenants
+    total_tenants = db.query(func.count(func.distinct(User.tenant_id))).filter(
+        User.tenant_id.isnot(None), 
+        User.tenant_id != 0
+    ).scalar() or 0
+    
+    return {
+        "disk_usage_mb": disk_usage_mb,
+        "chromadb_chunks": int(total_chunks),
+        "ram_usage_percent": round(ram_usage_percent, 1),
+        "cpu_usage_percent": round(cpu_usage_percent, 1),
+        "total_tenants": int(total_tenants)
+    }
+
+
+@router.get("/tenants")
+def list_tenants(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """List all registered tenants on the platform (Superadmin only)"""
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    tenant_settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id > 0).all()
+    
+    result = []
+    for t in tenant_settings:
+        # Đếm số lượng nhân sự thuộc tenant này
+        staff_count = db.query(User).filter(User.tenant_id == t.tenant_id).count()
+        
+        # Đếm số lượng tài liệu đã tải lên
+        doc_count = db.query(Document).filter(Document.tenant_id == t.tenant_id).count()
+        
+        # Tìm Company Admin (role_id = 2) để lấy trạng thái hoạt động của doanh nghiệp
+        company_admin = db.query(User).filter(
+            User.tenant_id == t.tenant_id,
+            User.role_id == 2
+        ).first()
+        
+        is_active = company_admin.is_active if company_admin else True
+        
+        result.append({
+            "tenant_id": t.tenant_id,
+            "company_name": t.company_name or f"Doanh nghiệp #{t.tenant_id}",
+            "invite_code": t.invite_code or "N/A",
+            "staff_count": staff_count,
+            "doc_count": doc_count,
+            "is_active": is_active
+        })
+        
+    return result
+
+
+@router.put("/tenants/{tenant_id}/status")
+def toggle_tenant_status(
+    tenant_id: int,
+    is_active: bool,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Suspend or Activate a tenant (Superadmin only)"""
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    # Tìm xem tenant này có tồn tại trong TenantAISettings không
+    tenant = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy Doanh nghiệp ID {tenant_id}"
+        )
+        
+    try:
+        # Cập nhật trạng thái is_active cho tất cả user cùng tenant_id đó
+        db.query(User).filter(User.tenant_id == tenant_id).update({"is_active": is_active})
+        db.commit()
+        
+        status_text = "kích hoạt" if is_active else "vô hiệu hóa"
+        return {
+            "success": True,
+            "message": f"Đã {status_text} thành công toàn bộ tài khoản thuộc doanh nghiệp {tenant.company_name or tenant_id}."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi cập nhật trạng thái: {str(e)}"
+        )
+
+
 
