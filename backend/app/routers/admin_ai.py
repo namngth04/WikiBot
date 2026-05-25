@@ -113,7 +113,10 @@ def update_provider_config(
         raise HTTPException(status_code=400, detail="Invalid AI type")
     
     # Validate config
-    if config_data.provider == "local":
+    if ai_type == "faq" and config_data.use_rag_provider:
+        # If FAQ uses RAG/Chat provider, we don't need any other fields
+        pass
+    elif config_data.provider == "local":
         if not config_data.local_model_path:
             raise HTTPException(status_code=400, detail="local_model_path required for local provider")
     else:
@@ -209,6 +212,13 @@ def test_connection_auto_load(
     print(f"[DEBUG] test_config.api_model type: {type(config.get('api_model'))}")
     
     # Validation for API providers
+    if config["provider"] in ["openrouter", "openai"]:
+        if not config.get("api_key") or not config.get("api_key").strip():
+            return TestConnectionResponse(
+                success=False,
+                message="Chưa có API Key nào được lưu cấu hình trong cơ sở dữ liệu cho nhà cung cấp Cloud."
+            )
+            
     if config["provider"] in ["openrouter", "ollama"] and not config.get("api_model"):
         return TestConnectionResponse(
             success=False,
@@ -272,14 +282,20 @@ def test_provider_connection(
     provider = test_config.provider
     api_base_url = test_config.api_base_url
     api_key = test_config.api_key
-    api_model = test_config.custom_api_model if test_config.use_custom_model else test_config.api_model
+    api_model = test_config.custom_api_model if (test_config.use_custom_model and test_config.custom_api_model) else test_config.api_model
     local_model_path = test_config.local_model_path
     timeout = test_config.timeout or (config_row.timeout if config_row else 30)
 
-    # If api_key is missing in request, use the one from database (and decrypt it)
-    if not api_key and config_row and config_row.api_key:
+    # Nếu api_key bị trống hoặc là placeholder mặt nạ '••••••••', lấy API key đã lưu trong CSDL
+    if (not api_key or api_key == "••••••••") and config_row and config_row.api_key:
         api_key = config_row.api_key
-        # Note: ProviderFactory will handle decryption if it doesn't start with sk-
+        
+    # Kiểm tra nếu API key vẫn trống hoặc là placeholder (khi CSDL chưa lưu key nào) đối với các nhà cung cấp Cloud
+    if (not api_key or api_key == "••••••••" or not api_key.strip()) and provider in ["openrouter", "openai"]:
+        return TestConnectionResponse(
+            success=False,
+            message="API Key đang bị trống hoặc không hợp lệ. Vui lòng nhập API Key chính xác để thử nghiệm."
+        )
     
     # Build final config for factory
     config = {

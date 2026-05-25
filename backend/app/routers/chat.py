@@ -268,7 +268,7 @@ def send_message(
     ).order_by(Message.created_at.asc()).all()
     
     # Get AI settings (User settings or Tenant settings)
-    is_staff = current_user.role and current_user.role.level == 2 and current_user.tenant_id is not None
+    is_staff = current_user.user_type == "employee"
     
     if is_staff:
         from app.models.models import TenantAISettings

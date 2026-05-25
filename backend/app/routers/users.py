@@ -4,9 +4,9 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.models.models import User, Role
+from app.models.models import User, Role, Conversation, Message
 from app.schemas.schemas import UserCreate, UserUpdate, UserResponse, SuccessResponse
-from app.routers.auth import get_current_admin, get_current_user
+from app.routers.auth import get_current_admin, get_current_user, get_current_company_admin
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -17,13 +17,16 @@ def list_users(
     limit: int = Query(100, ge=1, le=1000),
     role_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     query = db.query(User).outerjoin(User.role)
     
-    # Exclude admin users (level 0) from list
-    # Include users without roles (role_id IS NULL) OR non-admin roles
-    query = query.filter((Role.level != 0) | (User.role_id.is_(None)))
+    if current_user.tenant_id is not None:
+        # Company Admin: lọc nhân viên thuộc doanh nghiệp của mình
+        query = query.filter(User.tenant_id == current_user.tenant_id)
+    else:
+        # Superadmin: lọc bỏ các Superadmin khác ra khỏi danh sách người dùng thông thường
+        query = query.filter((Role.level != 0) | (User.role_id.is_(None)))
     
     if role_id is not None:
         query = query.filter(User.role_id == role_id)
@@ -36,7 +39,7 @@ def list_users(
 def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     # Check if username exists
     existing = db.query(User).filter(User.username == user_data.username).first()
@@ -61,6 +64,9 @@ def create_user(
                 detail="Không được gán chức vụ Admin cho người dùng mới"
             )
     
+    tenant_id = current_user.tenant_id if current_user.tenant_id is not None else user_data.tenant_id
+    user_type = "employee" if current_user.tenant_id is not None else "personal"
+    
     new_user = User(
         username=user_data.username,
         full_name=user_data.full_name,
@@ -68,6 +74,8 @@ def create_user(
         phone=user_data.phone,
         hashed_password=get_password_hash(user_data.password),
         role_id=user_data.role_id,
+        tenant_id=tenant_id,
+        user_type=user_type,
         is_active=True
     )
     
@@ -82,7 +90,7 @@ def create_user(
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -90,6 +98,14 @@ def get_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy người dùng ID {user_id}"
         )
+    
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xem thông tin người dùng này"
+        )
+        
     return user
 
 
@@ -129,18 +145,75 @@ def update_me(
     return current_user
 
 
+@router.get("/me/stats")
+def get_my_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Lấy thống kê sử dụng cá nhân của người dùng đang đăng nhập"""
+    from datetime import datetime, time as datetime_time
+
+    # Đếm cuộc hội thoại
+    conv_count = db.query(Conversation).filter(
+        Conversation.user_id == current_user.id
+    ).count()
+
+    # Đếm tổng tin nhắn đã gửi (role = user)
+    message_count = db.query(Message).join(Conversation).filter(
+        Conversation.user_id == current_user.id,
+        Message.role == "user"
+    ).count()
+
+    # Đếm tài liệu đang active
+    from app.models.models import Document
+    doc_count = db.query(Document).filter(
+        Document.uploaded_by == current_user.id,
+        Document.is_active == True
+    ).count()
+
+    # Đếm câu hỏi đã dùng hôm nay
+    today = datetime.utcnow().date()
+    start_of_today = datetime.combine(today, datetime_time.min)
+    questions_used_today = db.query(Message).join(Conversation).filter(
+        Conversation.user_id == current_user.id,
+        Message.role == "user",
+        Message.created_at >= start_of_today
+    ).count()
+
+    # Xác định quota_limit
+    is_superadmin = current_user.role and current_user.role.level == 0
+    is_free = current_user.subscription_tier == "free"
+    quota_limit = 999999 if (not is_free or is_superadmin) else 10
+
+    return {
+        "conv_count": conv_count,
+        "message_count": message_count,
+        "doc_count": doc_count,
+        "questions_used_today": questions_used_today,
+        "quota_limit": quota_limit,
+        "subscription_tier": current_user.subscription_tier or "free"
+    }
+
+
 @router.put("/{user_id}", response_model=UserResponse)
 def update_user(
     user_id: int,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy người dùng ID {user_id}"
+        )
+    
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền chỉnh sửa người dùng này"
         )
     
     # Prevent editing OTHER admin users - but allow self-edit
@@ -201,13 +274,20 @@ def update_user(
 def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy người dùng ID {user_id}"
+        )
+    
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xóa người dùng này"
         )
     
     # Don't delete yourself

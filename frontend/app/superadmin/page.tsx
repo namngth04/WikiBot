@@ -24,7 +24,8 @@ import {
   Building,
   Lock,
   Unlock,
-  Building2
+  Building2,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '@/app/components/ThemeToggle';
@@ -62,11 +63,46 @@ interface TenantData {
   is_active: boolean;
 }
 
+interface PersonalUserData {
+  id: number;
+  username: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  subscription_tier: string;
+  is_active: boolean;
+  created_at: string;
+  doc_count: number;
+  conv_count: number;
+}
+
+interface AIProviderConfigData {
+  ai_type: string;
+  provider: string;
+  local_model_path: string | null;
+  api_base_url: string | null;
+  api_key: string | null;
+  api_model: string | null;
+  use_custom_model: boolean;
+  custom_api_model: string | null;
+  default_temperature: number;
+  default_max_tokens: number;
+  embedding_model_name: string | null;
+}
+
+interface AISafetyConfigData {
+  max_temperature_limit: number;
+  max_context_length: number;
+  max_tokens_limit: number;
+  default_temperature: number;
+  default_response_style: string;
+}
+
 export default function SuperadminPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout, isAdmin } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'resources' | 'tenants' | 'upgrade-logs'>('resources');
+  const [activeTab, setActiveTab] = useState<'resources' | 'tenants' | 'personal-users' | 'upgrade-logs' | 'ai-config'>('resources');
   
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [requests, setRequests] = useState<UpgradeRequest[]>([]);
@@ -77,10 +113,29 @@ export default function SuperadminPage() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [loadingResources, setLoadingResources] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
+  const [personalUsers, setPersonalUsers] = useState<PersonalUserData[]>([]);
+  const [loadingPersonal, setLoadingPersonal] = useState(false);
+  const [personalSearchTerm, setPersonalSearchTerm] = useState('');
+  const [actionLoadingUserId, setActionLoadingUserId] = useState<number | null>(null);
+
+  // AI Config states
+  const [aiConfigs, setAiConfigs] = useState<AIProviderConfigData[]>([]);
+  const [safetyConfig, setSafetyConfig] = useState<AISafetyConfigData | null>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [testResults, setTestResults] = useState<Record<string, {success: boolean; message: string; latency_ms?: number} | null>>({});
+  const [savingAI, setSavingAI] = useState<string | null>(null);
+  const [editingConfigs, setEditingConfigs] = useState<Record<string, Partial<AIProviderConfigData>>>({});
+  const [savingSafety, setSavingSafety] = useState(false);
+  const [editingSafety, setEditingSafety] = useState<AISafetyConfigData | null>(null);
   
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [tenantSearchTerm, setTenantSearchTerm] = useState('');
+
+  // Delete States
+  const [deleteTenantModal, setDeleteTenantModal] = useState<{ isOpen: boolean; tenantId: number | null; companyName: string }>({ isOpen: false, tenantId: null, companyName: '' });
+  const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean; userId: number | null; username: string }>({ isOpen: false, userId: null, username: '' });
+  const [confirmInput, setConfirmInput] = useState('');
 
   // Verify Superadmin privileges (isAdmin and no tenant)
   const isSuperadmin = isAdmin && user?.tenant_id === null;
@@ -131,6 +186,38 @@ export default function SuperadminPage() {
     }
   }, [user, authLoading]);
 
+  // Fetch Personal Users list
+  const fetchPersonalUsers = async () => {
+    if (!isSuperadmin) return;
+    setLoadingPersonal(true);
+    try {
+      const res = await api.get('/admin/users/personal');
+      setPersonalUsers(res.data);
+    } catch (err) {
+      console.error('Error fetching personal users:', err);
+    } finally {
+      setLoadingPersonal(false);
+    }
+  };
+
+  // Handle Toggle Personal User Status (Suspend / Activate)
+  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+    setActionLoadingUserId(userId);
+    const newStatus = !currentStatus;
+    try {
+      await api.put(`/admin/users/${userId}/status?is_active=${newStatus}`);
+      // Refresh list in-place
+      setPersonalUsers(prev =>
+        prev.map(u => u.id === userId ? { ...u, is_active: newStatus } : u)
+      );
+    } catch (err) {
+      console.error('Error updating user status:', err);
+      alert('Không thể cập nhật trạng thái tài khoản. Vui lòng thử lại.');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
   // Handle Toggle Tenant Status (Suspend / Activate)
   const handleToggleTenant = async (tenantId: number, currentStatus: boolean) => {
     setActionLoadingId(tenantId);
@@ -145,6 +232,43 @@ export default function SuperadminPage() {
       alert('Không thể cập nhật trạng thái doanh nghiệp. Vui lòng thử lại.');
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // Handle Delete Tenant
+  const handleDeleteTenant = async () => {
+    if (!deleteTenantModal.tenantId) return;
+    setActionLoadingId(deleteTenantModal.tenantId);
+    try {
+      await api.delete(`/admin/tenants/${deleteTenantModal.tenantId}`);
+      setDeleteTenantModal({ isOpen: false, tenantId: null, companyName: '' });
+      setConfirmInput('');
+      const tenantsRes = await api.get('/admin/tenants');
+      setTenants(tenantsRes.data);
+      alert('Đã xóa doanh nghiệp thành công!');
+    } catch (err: any) {
+      console.error('Error deleting tenant:', err);
+      alert(err.response?.data?.detail || 'Không thể xóa doanh nghiệp. Vui lòng thử lại.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Handle Delete Personal User
+  const handleDeletePersonalUser = async () => {
+    if (!deleteUserModal.userId) return;
+    setActionLoadingUserId(deleteUserModal.userId);
+    try {
+      await api.delete(`/admin/users/personal/${deleteUserModal.userId}`);
+      setDeleteUserModal({ isOpen: false, userId: null, username: '' });
+      setConfirmInput('');
+      await fetchPersonalUsers();
+      alert('Đã xóa người dùng cá nhân thành công!');
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      alert(err.response?.data?.detail || 'Không thể xóa người dùng cá nhân. Vui lòng thử lại.');
+    } finally {
+      setActionLoadingUserId(null);
     }
   };
 
@@ -173,6 +297,91 @@ export default function SuperadminPage() {
     t.company_name.toLowerCase().includes(tenantSearchTerm.toLowerCase()) ||
     t.invite_code.toLowerCase().includes(tenantSearchTerm.toLowerCase())
   );
+
+  // Filter personal users
+  const filteredPersonalUsers = personalUsers.filter(u =>
+    u.username.toLowerCase().includes(personalSearchTerm.toLowerCase()) ||
+    (u.email && u.email.toLowerCase().includes(personalSearchTerm.toLowerCase())) ||
+    (u.full_name && u.full_name.toLowerCase().includes(personalSearchTerm.toLowerCase()))
+  );
+
+  // Fetch personal users when tab switches to it
+  useEffect(() => {
+    if (activeTab === 'personal-users' && isSuperadmin && personalUsers.length === 0) {
+      fetchPersonalUsers();
+    }
+  }, [activeTab]);
+
+  // AI Config functions
+  const fetchAIConfigs = async () => {
+    setLoadingAI(true);
+    try {
+      const [configsRes, safetyRes] = await Promise.all([
+        api.get('/admin/ai-config'),
+        api.get('/admin/ai-config/safety')
+      ]);
+      setAiConfigs(configsRes.data);
+      setSafetyConfig(safetyRes.data);
+      setEditingSafety(safetyRes.data);
+      const initialEditing: Record<string, Partial<AIProviderConfigData>> = {};
+      configsRes.data.forEach((c: AIProviderConfigData) => { initialEditing[c.ai_type] = {...c}; });
+      setEditingConfigs(initialEditing);
+    } catch (err) { console.error('Error fetching AI configs:', err); }
+    finally { setLoadingAI(false); }
+  };
+
+  const handleSaveAIConfig = async (ai_type: string) => {
+    setSavingAI(ai_type);
+    try {
+      await api.put(`/admin/ai-config/${ai_type}`, editingConfigs[ai_type]);
+      await fetchAIConfigs();
+    } catch (err: any) {
+      alert(`Lỗi khi lưu cấu hình AI: ${err?.response?.data?.detail || 'Vui lòng thử lại'}`);
+    }
+    finally { setSavingAI(null); }
+  };
+
+  const handleTestConnection = async (ai_type: string) => {
+    setTestResults(prev => ({...prev, [ai_type]: null}));
+    try {
+      const cfg = editingConfigs[ai_type] || {};
+      const payload = {
+        provider: cfg.provider,
+        api_base_url: cfg.api_base_url || null,
+        api_key: cfg.api_key || null,
+        api_model: cfg.api_model || null,
+        local_model_path: cfg.local_model_path || null,
+        use_custom_model: cfg.use_custom_model || false,
+        custom_api_model: cfg.custom_api_model || null,
+        timeout: cfg.timeout || 30
+      };
+      const res = await api.post(`/admin/ai-config/${ai_type}/test`, payload);
+      setTestResults(prev => ({...prev, [ai_type]: res.data}));
+    } catch (err: any) {
+      setTestResults(prev => ({...prev, [ai_type]: {success: false, message: 'Không thể kết nối'}}));
+    }
+  };
+
+  const handleSaveSafety = async () => {
+    if (!editingSafety) return;
+    setSavingSafety(true);
+    try {
+      await api.put('/admin/ai-config/safety', editingSafety);
+      setSafetyConfig(editingSafety);
+      alert('Đã lưu Safety Config thành công!');
+    } catch (err) {
+      alert('Lỗi khi lưu Safety Config');
+    } finally {
+      setSavingSafety(false);
+    }
+  };
+
+  // Lazy-load AI configs when tab switches to ai-config
+  useEffect(() => {
+    if (activeTab === 'ai-config' && isSuperadmin && aiConfigs.length === 0) {
+      fetchAIConfigs();
+    }
+  }, [activeTab]);
 
   // If Auth loading, show spinner
   if (authLoading) {
@@ -298,6 +507,19 @@ export default function SuperadminPage() {
             🏢 Danh sách Khách thuê (Tenants)
           </button>
           <button
+            onClick={() => setActiveTab('personal-users')}
+            className={`pb-3 font-semibold transition-all relative flex items-center gap-1.5 ${
+              activeTab === 'personal-users'
+                ? 'text-white border-b-2 border-[#5e6ad2]'
+                : 'text-[#8a8f98] hover:text-white'
+            }`}
+          >
+            👤 Người dùng cá nhân
+            <span className="text-[10px] font-mono border border-[#23252a] bg-[#141516] px-1.5 py-0.5 rounded text-[#8a8f98]">
+              {personalUsers.length}
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('upgrade-logs')}
             className={`pb-3 font-semibold transition-all relative ${
               activeTab === 'upgrade-logs' 
@@ -306,6 +528,16 @@ export default function SuperadminPage() {
             }`}
           >
             ⚡ Lịch sử Nâng cấp Gói cước (Auto-PRO)
+          </button>
+          <button
+            onClick={() => setActiveTab('ai-config')}
+            className={`pb-3 font-semibold transition-all relative ${
+              activeTab === 'ai-config' 
+                ? 'text-white border-b-2 border-[#5e6ad2]' 
+                : 'text-[#8a8f98] hover:text-white'
+            }`}
+          >
+            🤖 Cấu hình AI hệ thống
           </button>
         </div>
 
@@ -509,23 +741,203 @@ export default function SuperadminPage() {
                             )}
                           </td>
                           <td className="pr-2 text-right">
-                            <button
-                              onClick={() => handleToggleTenant(t.tenant_id, t.is_active)}
-                              disabled={actionLoadingId !== null}
-                              className={`px-3 py-1.5 rounded text-[10px] font-bold transition-all ${
-                                t.is_active
-                                  ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
-                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              } disabled:opacity-50 flex items-center gap-1.5 ml-auto`}
-                            >
-                              {actionLoadingId === t.tenant_id ? (
-                                <Loader2 className="animate-spin" size={10} />
-                              ) : t.is_active ? (
-                                <><Lock size={10} /> Khóa Tenant</>
-                              ) : (
-                                <><Unlock size={10} /> Kích hoạt</>
-                              )}
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleToggleTenant(t.tenant_id, t.is_active)}
+                                disabled={actionLoadingId !== null}
+                                className={`px-3 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                  t.is_active
+                                    ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
+                                    : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                } disabled:opacity-50 flex items-center gap-1.5`}
+                              >
+                                {actionLoadingId === t.tenant_id ? (
+                                  <Loader2 className="animate-spin" size={10} />
+                                ) : t.is_active ? (
+                                  <><Lock size={10} /> Khóa Tenant</>
+                                ) : (
+                                  <><Unlock size={10} /> Kích hoạt</>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => setDeleteTenantModal({ isOpen: true, tenantId: t.tenant_id, companyName: t.company_name })}
+                                className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 transition-colors"
+                                title="Xóa doanh nghiệp vĩnh viễn"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'personal-users' && (
+            <motion.div
+              key="personal-users"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6"
+            >
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#23252a]/60 pb-5 mb-6">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Quản lý Người dùng cá nhân (Personal Users)
+                    <span className="text-[10px] font-mono border border-[#23252a] bg-[#141516] px-1.5 py-0.5 rounded text-[#8a8f98]">
+                      {filteredPersonalUsers.length}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#8a8f98] mt-1">Người dùng tự do, không thuộc doanh nghiệp nào (tenant_id = null)</p>
+                </div>
+
+                {/* Search Bar + Refresh */}
+                <div className="flex items-center gap-2">
+                  <div className="relative w-full md:w-64">
+                    <Search className="absolute left-2.5 top-2.5 text-[#8a8f98]" size={12} />
+                    <input
+                      type="text"
+                      placeholder="Tìm username, email, họ tên..."
+                      value={personalSearchTerm}
+                      onChange={(e) => setPersonalSearchTerm(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={fetchPersonalUsers}
+                    disabled={loadingPersonal}
+                    className="p-1.5 rounded-lg border border-[#23252a] hover:bg-[#141516] text-[#8a8f98] hover:text-white transition-colors disabled:opacity-50"
+                    title="Tải lại danh sách"
+                  >
+                    <RefreshCw size={12} className={loadingPersonal ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Personal Users Table */}
+              <div className="overflow-x-auto w-full">
+                {loadingPersonal ? (
+                  <div className="py-16 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="animate-spin text-[#5e6ad2]" size={28} />
+                    <span className="text-xs text-[#8a8f98]">Đang tải danh sách người dùng cá nhân...</span>
+                  </div>
+                ) : filteredPersonalUsers.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <Users className="mx-auto mb-3 text-[#474a52]" size={32} />
+                    <p className="text-xs text-[#8a8f98]">
+                      {personalSearchTerm ? 'Không tìm thấy người dùng phù hợp.' : 'Chưa có người dùng cá nhân nào đăng ký.'}
+                    </p>
+                  </div>
+                ) : (
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-[#23252a]/60 text-[#8a8f98] select-none h-10 uppercase tracking-wider text-[10px]">
+                        <th className="font-bold pb-3 pl-2">NGƯỜI DÙNG</th>
+                        <th className="font-bold pb-3">GÓI DỊCH VỤ</th>
+                        <th className="font-bold pb-3 text-center">TÀI LIỆU</th>
+                        <th className="font-bold pb-3 text-center">HỘI THOẠI</th>
+                        <th className="font-bold pb-3">NGÀY THAM GIA</th>
+                        <th className="font-bold pb-3">TRẠNG THÁI</th>
+                        <th className="font-bold pb-3 pr-2 text-right">HÀNH ĐỘNG</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#23252a]/40">
+                      {filteredPersonalUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-[#141516]/40 transition-colors h-14">
+                          {/* User Info */}
+                          <td className="pl-2">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#5e6ad2]/30 to-[#8b5cf6]/20 border border-[#5e6ad2]/30 flex items-center justify-center text-[10px] font-bold text-[#a5b4fc] uppercase flex-shrink-0">
+                                {u.username.substring(0, 2)}
+                              </div>
+                              <div className="flex flex-col leading-tight">
+                                <span className="font-bold text-white">{u.username}</span>
+                                <span className="text-[10px] text-[#565860]">{u.email || 'Chưa có email'}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Subscription Tier Badge */}
+                          <td>
+                            {u.subscription_tier === 'pro' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gradient-to-r from-amber-500/20 to-purple-500/20 border border-amber-500/30 text-amber-300 inline-flex items-center gap-1">
+                                ⚡ PRO
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#141516] border border-[#23252a] text-[#8a8f98]">
+                                FREE
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Doc Count */}
+                          <td className="text-center">
+                            <span className="inline-flex items-center gap-1 text-[#d0d6e0] font-semibold">
+                              <FileText size={11} className="text-[#474a52]" />
+                              {u.doc_count}
+                            </span>
+                          </td>
+
+                          {/* Conv Count */}
+                          <td className="text-center">
+                            <span className="inline-flex items-center gap-1 text-[#d0d6e0] font-semibold">
+                              <MessageSquare size={11} className="text-[#474a52]" />
+                              {u.conv_count}
+                            </span>
+                          </td>
+
+                          {/* Joined Date */}
+                          <td className="text-[#8a8f98]">
+                            <div className="flex items-center gap-1">
+                              <Clock size={11} className="text-[#474a52]" />
+                              {new Date(u.created_at).toLocaleDateString('vi-VN')}
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td>
+                            <div className="flex items-center gap-1.5">
+                              <div className={`w-1.5 h-1.5 rounded-full ${u.is_active ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]' : 'bg-red-500'}`} />
+                              <span className={`text-[10px] font-semibold ${u.is_active ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {u.is_active ? 'Active' : 'Blocked'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Action */}
+                          <td className="pr-2 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleToggleUserStatus(u.id, u.is_active)}
+                                disabled={actionLoadingUserId !== null}
+                                className={`px-3 py-1.5 rounded text-[10px] font-bold transition-all ${
+                                  u.is_active
+                                    ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
+                                    : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                } disabled:opacity-50 flex items-center gap-1.5`}
+                              >
+                                {actionLoadingUserId === u.id ? (
+                                  <Loader2 className="animate-spin" size={10} />
+                                ) : u.is_active ? (
+                                  <><Lock size={10} /> Khóa</>  
+                                ) : (
+                                  <><Unlock size={10} /> Mở khóa</>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => setDeleteUserModal({ isOpen: true, userId: u.id, username: u.username })}
+                                className="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 transition-colors"
+                                title="Xóa người dùng vĩnh viễn"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -622,6 +1034,393 @@ export default function SuperadminPage() {
                 )}
               </div>
             </motion.div>
+          )}
+
+          {/* AI Config Tab */}
+          {activeTab === 'ai-config' && (
+            <motion.div
+              key="ai-config"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white">Cấu hình Nhà Cung Cấp AI</h3>
+                  <p className="text-xs text-[#8a8f98] mt-0.5">Cấu hình provider cho từng loại AI: Chat, Embedding, FAQ</p>
+                </div>
+                <button
+                  onClick={fetchAIConfigs}
+                  disabled={loadingAI}
+                  className="px-3 py-1.5 text-xs font-semibold border border-[#23252a] hover:bg-[#141516] rounded-lg transition-colors flex items-center gap-1.5 text-[#8a8f98] hover:text-white disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={loadingAI ? 'animate-spin' : ''} /> Làm mới
+                </button>
+              </div>
+
+              {loadingAI ? (
+                <div className="py-16 flex flex-col items-center gap-3">
+                  <Loader2 className="animate-spin text-[#5e6ad2]" size={28} />
+                  <span className="text-xs text-[#8a8f98]">Đang tải cấu hình AI...</span>
+                </div>
+              ) : (
+                <>
+                  {/* Provider Panels */}
+                  {(['chat', 'embedding', 'faq'] as const).map((ai_type) => {
+                    const cfg = editingConfigs[ai_type] || {};
+                    const testResult = testResults[ai_type];
+                    const typeLabels: Record<string, string> = { chat: '🗣️ Chat (Trả lời câu hỏi)', embedding: '📐 Embedding (Vector hoá tài liệu)', faq: '❓ FAQ (Phân loại câu hỏi)' };
+                    const providers = ['local', 'openrouter', 'openai', 'ollama'];
+                    const isFaqWithRag = ai_type === 'faq' && (cfg.use_rag_provider ?? true);
+                    return (
+                      <div key={ai_type} className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6 space-y-4">
+                        <div className="flex items-center gap-2 pb-3 border-b border-[#23252a]/60">
+                          <span className="text-sm font-bold text-white">{typeLabels[ai_type]}</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#23252a] bg-[#141516] text-[#8a8f98]">{ai_type.toUpperCase()}</span>
+                        </div>
+
+                        {/* Special FAQ Toggle */}
+                        {ai_type === 'faq' && (
+                          <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#23252a]/60 bg-[#141516]/50">
+                            <div>
+                              <span className="text-xs font-semibold text-white block">Dùng chung cấu hình với Chat AI</span>
+                              <span className="text-[10px] text-[#8a8f98] mt-0.5 block">Hệ thống sẽ tự động dùng chung mô hình và API key của mục Chat</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={cfg.use_rag_provider ?? true}
+                              onChange={(e) => setEditingConfigs(prev => ({...prev, faq: {...prev.faq, use_rag_provider: e.target.checked}}))}
+                              className="w-4 h-4 rounded text-[#5e6ad2] bg-[#141516] border-[#23252a] focus:ring-[#5e6ad2] cursor-pointer"
+                            />
+                          </div>
+                        )}
+
+                        {!isFaqWithRag ? (
+                          <>
+                            {/* Provider Selection */}
+                            <div>
+                              <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-2">Provider</label>
+                              <div className="flex flex-wrap gap-2">
+                                {providers.map(p => (
+                                  <button
+                                    key={p}
+                                    onClick={() => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], provider: p}}))}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                      cfg.provider === p
+                                        ? 'bg-[#5e6ad2] border-[#5e6ad2] text-white'
+                                        : 'border-[#23252a] text-[#8a8f98] hover:border-[#5e6ad2]/50 hover:text-white'
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Local Model Path (only for local) */}
+                            {cfg.provider === 'local' && (
+                              <div>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Local Model Path</label>
+                                <input
+                                  type="text"
+                                  value={cfg.local_model_path || ''}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], local_model_path: e.target.value}}))}
+                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
+                                  placeholder="./llm_models/model.gguf"
+                                />
+                              </div>
+                            )}
+
+                            {/* API fields (non-local) */}
+                            {cfg.provider !== 'local' && (
+                              <>
+                                <div>
+                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">API Base URL</label>
+                                  <input
+                                    type="text"
+                                    value={cfg.api_base_url || ''}
+                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_base_url: e.target.value}}))}
+                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                    placeholder="https://openrouter.ai/api/v1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">API Key</label>
+                                  <input
+                                    type="password"
+                                    value={cfg.api_key || ''}
+                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_key: e.target.value}}))}
+                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
+                                    placeholder="••••••••"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Model</label>
+                                  <input
+                                    type="text"
+                                    value={cfg.api_model || ''}
+                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_model: e.target.value}}))}
+                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                    placeholder="openai/gpt-4o-mini"
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {/* Temperature & Max Tokens */}
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Temperature</label>
+                                <input
+                                  type="number"
+                                  min={0} max={2} step={0.1}
+                                  value={cfg.default_temperature ?? 0.2}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_temperature: parseFloat(e.target.value)}}))}
+                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens</label>
+                                <input
+                                  type="number"
+                                  min={128} max={4096}
+                                  value={cfg.default_max_tokens ?? 512}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_max_tokens: parseInt(e.target.value)}}))}
+                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                />
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="p-4 rounded-lg border border-dashed border-[#23252a] bg-[#141516]/20 text-center text-xs text-[#8a8f98]">
+                            💡 FAQ đang sử dụng chung cấu hình với **Chat AI**. Bạn không cần thiết lập thêm.
+                          </div>
+                        )}
+
+                        {/* Test Result Badge */}
+                        {testResult !== undefined && testResult !== null && (
+                          <div className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                            testResult.success
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-red-500/10 border-red-500/30 text-red-400'
+                          }`}>
+                            <span>{testResult.success ? '✅' : '❌'}</span>
+                            <span>{testResult.message}</span>
+                            {testResult.success && testResult.latency_ms && (
+                              <span className="ml-auto font-mono text-[10px]">{testResult.latency_ms}ms</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-2">
+                          {!isFaqWithRag && (
+                            <button
+                              onClick={() => handleTestConnection(ai_type)}
+                              className="px-4 py-2 text-xs font-bold border border-[#23252a] hover:bg-[#141516] hover:border-[#5e6ad2]/50 rounded-lg transition-colors text-[#8a8f98] hover:text-white flex items-center gap-1.5"
+                            >
+                              🔌 Test Connection
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleSaveAIConfig(ai_type)}
+                            disabled={savingAI === ai_type}
+                            className="px-4 py-2 text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {savingAI === ai_type ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu cấu hình'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Safety Limits Panel */}
+                  {editingSafety && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-4">
+                      <div className="pb-3 border-b border-[#23252a]/60">
+                        <h4 className="text-sm font-bold text-white">⚠️ Safety Limits Toàn Hệ Thống</h4>
+                        <p className="text-xs text-[#8a8f98] mt-0.5">Giới hạn toàn cục áp dụng cho tất cả người dùng</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Temperature</label>
+                          <input
+                            type="number" min={0.1} max={2} step={0.1}
+                            value={editingSafety.max_temperature_limit}
+                            onChange={(e) => setEditingSafety({...editingSafety, max_temperature_limit: parseFloat(e.target.value)})}
+                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens Limit</label>
+                          <input
+                            type="number" min={128} max={4096}
+                            value={editingSafety.max_tokens_limit}
+                            onChange={(e) => setEditingSafety({...editingSafety, max_tokens_limit: parseInt(e.target.value)})}
+                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Temperature</label>
+                          <input
+                            type="number" min={0} max={2} step={0.1}
+                            value={editingSafety.default_temperature}
+                            onChange={(e) => setEditingSafety({...editingSafety, default_temperature: parseFloat(e.target.value)})}
+                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Response Style</label>
+                          <select
+                            value={editingSafety.default_response_style}
+                            onChange={(e) => setEditingSafety({...editingSafety, default_response_style: e.target.value})}
+                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                          >
+                            <option value="concise">Ngắn gọn</option>
+                            <option value="detailed">Chi tiết</option>
+                            <option value="technical">Kỹ thuật</option>
+                          </select>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSaveSafety}
+                        disabled={savingSafety}
+                        className="px-5 py-2 text-xs font-bold bg-amber-500/80 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {savingSafety ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu Safety Config'}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Modal xác nhận xóa Tenant */}
+        <AnimatePresence>
+          {deleteTenantModal.isOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => { setDeleteTenantModal({ isOpen: false, tenantId: null, companyName: '' }); setConfirmInput(''); }}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-md bg-[#0f1011] border border-red-500/20 p-6 rounded-2xl shadow-2xl space-y-6 text-left"
+                >
+                  <div className="flex items-center gap-3 pb-3 border-b border-[#23252a]/60">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                      <ShieldAlert size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Xóa doanh nghiệp vĩnh viễn</h3>
+                      <p className="text-[10px] text-[#8a8f98] font-medium">Hành động này KHÔNG THỂ HOÀN TÁC</p>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-[#8a8f98] leading-relaxed space-y-2">
+                    <p>Toàn bộ tài khoản, tài liệu tải lên (kể cả file vật lý trên đĩa và vector embeddings trong ChromaDB) và lịch sử chat của doanh nghiệp <strong>{deleteTenantModal.companyName}</strong> sẽ bị xóa vĩnh viễn khỏi hệ thống.</p>
+                    <p>Vui lòng gõ lại tên doanh nghiệp <strong>{deleteTenantModal.companyName}</strong> để xác nhận hành động xóa:</p>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={confirmInput}
+                    onChange={(e) => setConfirmInput(e.target.value)}
+                    placeholder={deleteTenantModal.companyName}
+                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-red-500/50 transition-colors"
+                  />
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => { setDeleteTenantModal({ isOpen: false, tenantId: null, companyName: '' }); setConfirmInput(''); }}
+                      className="px-4 py-2 text-xs font-bold border border-[#23252a] hover:bg-[#141516] rounded-lg text-[#8a8f98] hover:text-white transition-colors flex-1"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      onClick={handleDeleteTenant}
+                      disabled={confirmInput !== deleteTenantModal.companyName || actionLoadingId !== null}
+                      className="px-4 py-2 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 flex-1"
+                    >
+                      {actionLoadingId === deleteTenantModal.tenantId ? <Loader2 className="animate-spin" size={12} /> : "Xác nhận xóa"}
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Modal xác nhận xóa Personal User */}
+        <AnimatePresence>
+          {deleteUserModal.isOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => { setDeleteUserModal({ isOpen: false, userId: null, username: '' }); setConfirmInput(''); }}
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full max-w-md bg-[#0f1011] border border-red-500/20 p-6 rounded-2xl shadow-2xl space-y-6 text-left"
+                >
+                  <div className="flex items-center gap-3 pb-3 border-b border-[#23252a]/60">
+                    <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                      <ShieldAlert size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Xóa người dùng vĩnh viễn</h3>
+                      <p className="text-[10px] text-[#8a8f98] font-medium">Hành động này KHÔNG THỂ HOÀN TÁC</p>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-[#8a8f98] leading-relaxed space-y-2">
+                    <p>Tài khoản của người dùng cá nhân <strong>{deleteUserModal.username}</strong>, cùng toàn bộ file tải lên và lịch sử trò chuyện sẽ bị xóa sạch khỏi hệ thống.</p>
+                    <p>Vui lòng gõ lại tên tài khoản <strong>{deleteUserModal.username}</strong> để xác nhận hành động xóa:</p>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={confirmInput}
+                    onChange={(e) => setConfirmInput(e.target.value)}
+                    placeholder={deleteUserModal.username}
+                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-red-500/50 transition-colors"
+                  />
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => { setDeleteUserModal({ isOpen: false, userId: null, username: '' }); setConfirmInput(''); }}
+                      className="px-4 py-2 text-xs font-bold border border-[#23252a] hover:bg-[#141516] rounded-lg text-[#8a8f98] hover:text-white transition-colors flex-1"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      onClick={handleDeletePersonalUser}
+                      disabled={confirmInput !== deleteUserModal.username || actionLoadingUserId !== null}
+                      className="px-4 py-2 text-xs font-bold bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 flex-1"
+                    >
+                      {actionLoadingUserId === deleteUserModal.userId ? <Loader2 className="animate-spin" size={12} /> : "Xác nhận xóa"}
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
 

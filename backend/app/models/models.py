@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -8,10 +8,15 @@ class Role(Base):
     __tablename__ = "roles"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     level = Column(Integer, default=2)  # 0=Admin, 1=Truong phong, 2=Nhan vien
+    tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('name', 'tenant_id', name='_name_tenant_uc'),
+    )
     
     # Relationships
     users = relationship("User", back_populates="role")
@@ -29,6 +34,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     is_active = Column(Boolean, default=True)
+    user_type = Column(String(50), default="personal", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -39,8 +45,9 @@ class User(Base):
     # Relationships
     role = relationship("Role", back_populates="users")
     documents = relationship("Document", back_populates="uploaded_by_user")
-    conversations = relationship("Conversation", back_populates="user")
-    upgrade_requests = relationship("UpgradeRequest", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+    upgrade_requests = relationship("UpgradeRequest", back_populates="user", cascade="all, delete-orphan")
+    ai_settings = relationship("UserAISettings", back_populates="user", cascade="all, delete-orphan", uselist=False)
 
 
 class Document(Base):
@@ -79,7 +86,7 @@ class Conversation(Base):
     __tablename__ = "conversations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), default="Cuộc trò chuyện mới")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -186,7 +193,7 @@ class UserAISettings(Base):
     __tablename__ = "user_ai_settings"
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     
     # User preferences (bounded by system limits)
     temperature = Column(Float, default=0.2)
@@ -201,7 +208,7 @@ class UserAISettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship
-    user = relationship("User")
+    user = relationship("User", back_populates="ai_settings")
 
 
 class TenantAISettings(Base):
@@ -233,7 +240,7 @@ class UpgradeRequest(Base):
     __tablename__ = "upgrade_requests"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     status = Column(String(50), default="pending")  # pending/approved/rejected
     created_at = Column(DateTime, default=datetime.utcnow)
     

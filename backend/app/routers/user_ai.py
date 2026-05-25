@@ -20,8 +20,8 @@ def get_user_ai_settings(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's AI settings"""
-    # Nếu user là Company Staff (level == 2), tự động load cấu hình Tenant dùng chung
-    if current_user.role and current_user.role.level == 2 and current_user.tenant_id is not None:
+    # Nếu user là Company Staff (employee), tự động load cấu hình Tenant dùng chung
+    if current_user.user_type == "employee" and current_user.tenant_id is not None:
         from app.models.models import TenantAISettings
         settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == current_user.tenant_id).first()
         if not settings:
@@ -78,8 +78,8 @@ def update_user_ai_settings(
     current_user: User = Depends(get_current_user)
 ):
     """Update current user's AI settings"""
-    # Chặn Company Staff (level == 2)
-    if current_user.role and current_user.role.level == 2:
+    # Chặn Company Staff (employee)
+    if current_user.user_type == "employee":
         raise HTTPException(
             status_code=403,
             detail="Nhân viên công ty không được phép thay đổi cấu hình AI cá nhân. Cấu hình được quản lý tập trung bởi công ty."

@@ -513,7 +513,6 @@ def clear_existing_data():
 
 
 def init_default_data():
-    """Create default roles, users (Admin, Trưởng phòng, Nhân viên), AI settings, FAQs and AI configs"""
     
     print("Starting default data initialization...")
     db = SessionLocal()
@@ -527,64 +526,115 @@ def init_default_data():
                 print(f"Found {len(existing_roles)} existing roles. Skipping role creation.")
             else:
                 roles = [
-                    Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0),
-                    Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1),
-                    Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2),
+                    # Hệ thống toàn cục (Superadmin & Personal)
+                    Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0, tenant_id=None),
+                    Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1, tenant_id=None),
+                    Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2, tenant_id=None),
+                    Role(id=4, name="Cá nhân", description="Người dùng cá nhân tự do", level=3, tenant_id=None),
+                    
+                    # Doanh nghiệp 1: FPT Software (tenant_id = 101)
+                    Role(id=5, name="Trưởng phòng", description="Trưởng phòng FPT Software", level=1, tenant_id=101),
+                    Role(id=6, name="Nhân viên", description="Nhân viên FPT Software", level=2, tenant_id=101),
+                    
+                    # Doanh nghiệp 2: Viettel Group (tenant_id = 102)
+                    Role(id=7, name="Trưởng phòng", description="Trưởng phòng Viettel Group", level=1, tenant_id=102),
+                    Role(id=8, name="Nhân viên", description="Nhân viên Viettel Group", level=2, tenant_id=102),
                 ]
                 for role in roles:
                     db.add(role)
                 db.commit()
-                print("Created 3 default roles successfully:")
-                print("  - Admin (level 0)")
-                print("  - Trưởng phòng (level 1)")
-                print("  - Nhân viên (level 2)")
+                print("Created default global and tenant-specific roles successfully.")
         except Exception as e:
             print(f"⚠️  Error creating roles: {e}")
             db.rollback()
             raise
         
-        # 2. Create default users (Admin, Trưởng phòng, Nhân viên A, Nhân viên B)
+        # 2. Create default users (Only Superadmin)
         print("\nCreating default users...")
         users_to_create = [
+            # Superadmin
             {
                 "username": DEFAULT_ADMIN_USERNAME,
-                "full_name": "Quản trị viên",
+                "full_name": "Quản trị viên hệ thống",
                 "email": "admin@wikibot.local",
                 "hashed_password": get_password_hash(DEFAULT_ADMIN_PASSWORD),
                 "role_id": 1,
                 "subscription_tier": "pro",
                 "tenant_id": None,
-                "is_active": True
+                "is_active": True,
+                "user_type": "superadmin"
             },
+            # Người dùng tự do (Free)
             {
-                "username": "truongphong",
-                "full_name": "Trưởng phòng Nhân sự",
-                "email": "truongphong@wikibot.local",
-                "hashed_password": get_password_hash("tp123"),
-                "role_id": 2,
+                "username": "freeman",
+                "full_name": "Người dùng tự do Free",
+                "email": "freeman@gmail.com",
+                "hashed_password": get_password_hash("free123"),
+                "role_id": 4,
+                "subscription_tier": "free",
+                "tenant_id": None,
+                "is_active": True,
+                "user_type": "personal"
+            },
+            # Người dùng tự do (Pro)
+            {
+                "username": "proman",
+                "full_name": "Người dùng tự do Pro",
+                "email": "proman@gmail.com",
+                "hashed_password": get_password_hash("pro123"),
+                "role_id": 4,
                 "subscription_tier": "pro",
-                "tenant_id": 1,
-                "is_active": True
+                "tenant_id": None,
+                "is_active": True,
+                "user_type": "personal"
             },
+            # Doanh nghiệp 1 (FPT Software - Tenant 101) - Admin
             {
-                "username": "nhanvien",
-                "full_name": "Nhân viên Thử nghiệm A",
-                "email": "nhanvien@wikibot.local",
-                "hashed_password": get_password_hash("nv123"),
-                "role_id": 3,
+                "username": "fptadmin",
+                "full_name": "Trưởng phòng FPT",
+                "email": "fptadmin@fpt.com",
+                "hashed_password": get_password_hash("fpt123"),
+                "role_id": 5,
                 "subscription_tier": "free",
-                "tenant_id": 1,
-                "is_active": True
+                "tenant_id": 101,
+                "is_active": True,
+                "user_type": "employee"
             },
+            # Doanh nghiệp 1 (FPT Software - Tenant 101) - Staff
             {
-                "username": "nhanvien_b",
-                "full_name": "Nhân viên Thử nghiệm B",
-                "email": "nhanvien_b@wikibot.local",
-                "hashed_password": get_password_hash("nv123"),
-                "role_id": 3,
+                "username": "fptstaff",
+                "full_name": "Nhân viên FPT",
+                "email": "fptstaff@fpt.com",
+                "hashed_password": get_password_hash("fpt123"),
+                "role_id": 6,
                 "subscription_tier": "free",
-                "tenant_id": 2,
-                "is_active": True
+                "tenant_id": 101,
+                "is_active": True,
+                "user_type": "employee"
+            },
+            # Doanh nghiệp 2 (Viettel Group - Tenant 102) - Admin
+            {
+                "username": "vtadmin",
+                "full_name": "Trưởng phòng Viettel",
+                "email": "vtadmin@viettel.com",
+                "hashed_password": get_password_hash("vt123"),
+                "role_id": 7,
+                "subscription_tier": "free",
+                "tenant_id": 102,
+                "is_active": True,
+                "user_type": "employee"
+            },
+            # Doanh nghiệp 2 (Viettel Group - Tenant 102) - Staff
+            {
+                "username": "vtstaff",
+                "full_name": "Nhân viên Viettel",
+                "email": "vtstaff@viettel.com",
+                "hashed_password": get_password_hash("vt123"),
+                "role_id": 8,
+                "subscription_tier": "free",
+                "tenant_id": 102,
+                "is_active": True,
+                "user_type": "employee"
             }
         ]
         
@@ -601,92 +651,78 @@ def init_default_data():
                     db.commit()
                     db.refresh(user)
                     created_users.append(user)
-                    print(f"Created user: {user.username} (Role Level: {user.role_id}, Tier: {user.subscription_tier}, Tenant: {user.tenant_id})")
+                    print(f"Created user: {user.username} (Role Level: {user.role_id}, Type: {user.user_type}, Tenant: {user.tenant_id})")
         except Exception as e:
             print(f"⚠️  Error creating users: {e}")
             db.rollback()
             raise
-
+ 
         # 3. Create default User AI Settings
         print("\nCreating default User AI Settings...")
-        from app.models.models import UserAISettings
+        from app.models.models import UserAISettings, TenantAISettings
         try:
             for user in created_users:
-                existing = db.query(UserAISettings).filter(UserAISettings.user_id == user.id).first()
+                # Chỉ tạo UserAISettings cho các tài khoản không phải employee
+                if user.user_type != "employee":
+                    existing = db.query(UserAISettings).filter(UserAISettings.user_id == user.id).first()
+                    if not existing:
+                        user_settings = UserAISettings(
+                            user_id=user.id,
+                            temperature=0.2,
+                            response_style="concise",
+                            show_sources=True,
+                            preferred_max_tokens=512
+                        )
+                        db.add(user_settings)
+            db.commit()
+            print("✅ Created default User AI Settings for personal users")
+        except Exception as e:
+            print(f"⚠️  Error creating User AI Settings: {e}")
+            db.rollback()
+            raise
+            
+        # 4. Create default Tenant AI Settings for simulated companies
+        print("\nCreating Tenant AI Settings...")
+        try:
+            tenants_data = [
+                {
+                    "tenant_id": 101,
+                    "company_name": "FPT Software",
+                    "invite_code": "COMP-101-FPT",
+                    "temperature": 0.2,
+                    "response_style": "concise",
+                    "show_sources": True,
+                    "preferred_max_tokens": 512,
+                    "ollama_endpoint": "http://localhost:11434"
+                },
+                {
+                    "tenant_id": 102,
+                    "company_name": "Viettel Group",
+                    "invite_code": "COMP-102-VT",
+                    "temperature": 0.2,
+                    "response_style": "detailed",
+                    "show_sources": True,
+                    "preferred_max_tokens": 512,
+                    "ollama_endpoint": "http://localhost:11434"
+                }
+            ]
+            for t_data in tenants_data:
+                existing = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == t_data["tenant_id"]).first()
                 if not existing:
-                    user_settings = UserAISettings(
-                        user_id=user.id,
-                        temperature=0.2,
-                        response_style="concise",
-                        show_sources=True,
-                        preferred_max_tokens=512
+                    t_settings = TenantAISettings(**t_data)
+                    db.add(t_settings)
+            db.commit()
+            print("✅ Created Tenant AI Settings with invite codes")
+        except Exception as e:
+            print(f"⚠️  Error creating Tenant AI Settings: {e}")
+            db.rollback()
+            raise                      preferred_max_tokens=512
                     )
                     db.add(user_settings)
             db.commit()
             print("✅ Created default User AI Settings for all users")
         except Exception as e:
             print(f"⚠️  Error creating User AI Settings: {e}")
-            db.rollback()
-            raise
-
-        # 4. Create default Tenant AI Settings (for tenant 1 and 2)
-        print("\nCreating default Tenant AI Settings...")
-        from app.models.models import TenantAISettings
-        try:
-            for t_id in [1, 2]:
-                existing = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == t_id).first()
-                if not existing:
-                    tenant_settings = TenantAISettings(
-                        tenant_id=t_id,
-                        temperature=0.2,
-                        response_style="concise",
-                        show_sources=True,
-                        preferred_max_tokens=512,
-                        updated_by=1
-                    )
-                    db.add(tenant_settings)
-            db.commit()
-            print("✅ Created default Tenant AI Settings for Tenant 1 and Tenant 2")
-        except Exception as e:
-            print(f"⚠️  Error creating Tenant AI Settings: {e}")
-            db.rollback()
-            raise
-
-        # 5. Create default FAQs
-        print("\nCreating default FAQs...")
-        from app.models.models import FAQ
-        try:
-            faqs_to_create = [
-                {
-                    "question": "Làm thế nào để xin nghỉ phép?",
-                    "answer": "Để xin nghỉ phép, bạn cần điền thông tin vào đơn đăng ký xin nghỉ phép trên hệ thống HR nội bộ trước ít nhất 3 ngày làm việc. Đơn sẽ được chuyển cho Trưởng phòng duyệt trước khi gửi tới ban Nhân sự.",
-                    "category": "HR",
-                    "is_active": True
-                },
-                {
-                    "question": "Thời gian làm việc của công ty như thế nào?",
-                    "answer": "Công ty làm việc từ thứ Hai đến thứ Sáu hàng tuần. Thời gian làm việc cụ thể: Sáng từ 8h00 - 12h00, Chiều từ 13h30 - 17h30. Nghỉ trưa từ 12h00 - 13h30.",
-                    "category": "Quy chế chung",
-                    "is_active": True
-                },
-                {
-                    "question": "Quy định về trang phục của công ty?",
-                    "answer": "Nhân viên mặc trang phục công sở lịch sự từ thứ Hai đến thứ Năm. Thứ Sáu nhân viên có thể mặc trang phục tự do nhưng lịch sự (quần jean, áo thun có cổ). Tránh mặc đồ quá ngắn hoặc đồ thể thao.",
-                    "category": "Quy chế chung",
-                    "is_active": True
-                }
-            ]
-            created_faqs = 0
-            for faq_data in faqs_to_create:
-                existing = db.query(FAQ).filter(FAQ.question == faq_data["question"]).first()
-                if not existing:
-                    faq = FAQ(**faq_data)
-                    db.add(faq)
-                    created_faqs += 1
-            db.commit()
-            print(f"✅ Created {created_faqs} default FAQs successfully")
-        except Exception as e:
-            print(f"⚠️  Error creating FAQs: {e}")
             db.rollback()
             raise
         
@@ -760,9 +796,6 @@ def init_default_data():
         print("\n✅ Initialization complete!")
         print("\nYou can now start the backend and login with:")
         print(f"  Superadmin: {DEFAULT_ADMIN_USERNAME} / {DEFAULT_ADMIN_PASSWORD}")
-        print("  Trưởng phòng (Pro, Tenant 1): truongphong / tp123")
-        print("  Nhân viên A (Free, Tenant 1): nhanvien / nv123")
-        print("  Nhân viên B (Free, Tenant 2): nhanvien_b / nv123")
         
     except Exception as e:
         db.rollback()

@@ -230,7 +230,8 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         )
         
         api_time = time.time() - api_start
-        response_text = response.choices[0].message.content.strip()
+        content = response.choices[0].message.content
+        response_text = content.strip() if content is not None else ""
         
         print(f"[DEBUG OpenAICompatible] API call completed in {api_time:.3f}s")
         print(f"[DEBUG OpenAICompatible] Response length: {len(response_text)} chars")
@@ -462,15 +463,17 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     def __init__(self, base_url: str, api_key: str, model: str = "text-embedding-3-small", **kwargs):
         self.base_url = base_url
         self.api_key = api_key
-        self.model = model
+        self.model = model or "text-embedding-3-small"
         self._client = None
         # Filter kwargs to only valid OpenAI v1.x parameters
         self._kwargs = {k: v for k, v in kwargs.items() if k in OpenAICompatibleProvider.VALID_OPENAI_KEYS}
         # Auto-detect multimodal capability
-        self.is_multimodal = self._detect_multimodal_model(model)
+        self.is_multimodal = self._detect_multimodal_model(self.model)
     
     def _detect_multimodal_model(self, model_name: str) -> bool:
         """Detect if model supports multimodal input based on model name"""
+        if not model_name or not isinstance(model_name, str):
+            return False
         multimodal_keywords = [
             "nemotron-embed-vl",
             "clip",

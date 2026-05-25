@@ -29,6 +29,7 @@ export const useChat = (options: UseChatOptions = {}) => {
   const [showSources, setShowSources] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingMessageId, setRatingMessageId] = useState<number | null>(null);
+  const [quotaReached, setQuotaReached] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -216,6 +217,30 @@ export const useChat = (options: UseChatOptions = {}) => {
     } catch (error) {
       console.error('Failed to send message:', error);
       
+      const is403 = (error as any)?.response?.status === 403 || 
+                    (error as any)?.message?.includes('403') || 
+                    String(error).includes('403');
+      
+      if (is403) {
+        setQuotaReached(true);
+      }
+
+      let errorContent = 'Xin lỗi, đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại.';
+      if (error && (error as any).response) {
+        const responseData = (error as any).response.data;
+        if (responseData && responseData.detail) {
+          errorContent = typeof responseData.detail === 'string' 
+            ? responseData.detail 
+            : JSON.stringify(responseData.detail);
+        } else if (responseData && responseData.error) {
+          errorContent = responseData.error;
+        } else if (is403) {
+          errorContent = 'Bạn đã sử dụng hết hạn ngạch tin nhắn trong ngày. Vui lòng nâng cấp gói cước để tiếp tục.';
+        }
+      } else if (error instanceof Error) {
+        errorContent = `Lỗi: ${error.message}`;
+      }
+
       // Update user message to failed status
       setMessages(prev => prev.map(msg =>
         msg.id === tempUserMessage.id
@@ -233,7 +258,7 @@ export const useChat = (options: UseChatOptions = {}) => {
         id: generateTempId(),
         conversation_id: conversationId || currentConversation?.id || 0,
         role: 'assistant',
-        content: 'Xin lỗi, đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại.',
+        content: errorContent,
         created_at: new Date().toISOString(),
         status: 'failed',
         error: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -327,6 +352,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     filteredConversations,
     messagesEndRef,
     ratingMessageId,
+    quotaReached,
     
     // Actions
     loadConversations,
@@ -344,5 +370,6 @@ export const useChat = (options: UseChatOptions = {}) => {
     setSearchQuery,
     setCurrentConversation,
     setMessages,
+    setQuotaReached,
   };
 };

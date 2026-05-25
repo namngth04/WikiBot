@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
-from app.models.models import Role
+from app.models.models import Role, User
 from app.schemas.schemas import RoleCreate, RoleUpdate, RoleResponse, SuccessResponse
-from app.routers.auth import get_current_admin
+from app.routers.auth import get_current_admin, get_current_company_admin
 
 router = APIRouter(prefix="/api/roles", tags=["Roles"])
 
@@ -13,9 +13,13 @@ router = APIRouter(prefix="/api/roles", tags=["Roles"])
 @router.get("/", response_model=List[RoleResponse])
 def list_roles(
     db: Session = Depends(get_db),
-    current_user: Role = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
-    roles = db.query(Role).order_by(Role.level).all()
+    query = db.query(Role)
+    if current_user.tenant_id is not None:
+        # Company Admin: chỉ xem chức vụ thuộc doanh nghiệp của mình (cách ly 100%)
+        query = query.filter(Role.tenant_id == current_user.tenant_id)
+    roles = query.order_by(Role.level).all()
     return roles
 
 
@@ -23,27 +27,30 @@ def list_roles(
 def create_role(
     role_data: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: Role = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
-    # Prevent creating role with level 0 (reserved for Admin)
-    if role_data.level == 0:
+    # Ngăn chặn tạo vai trò có level <= 0 (chỉ Superadmin hệ thống có level = 0 nhưng không nằm ở bảng roles doanh nghiệp)
+    if role_data.level <= 0:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cấp độ 0 được dành riêng cho Admin, không thể tạo chức vụ với cấp độ này"
+            detail="Cấp độ 0 được dành riêng cho hệ thống, vui lòng chọn cấp độ lớn hơn hoặc bằng 1"
         )
 
-    # Check if role name exists
-    existing = db.query(Role).filter(Role.name == role_data.name).first()
+    tenant_id = current_user.tenant_id if current_user.tenant_id is not None else role_data.tenant_id
+
+    # Kiểm tra trùng tên vai trò trong nội bộ doanh nghiệp (tenant)
+    existing = db.query(Role).filter(Role.name == role_data.name, Role.tenant_id == tenant_id).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Chức vụ '{role_data.name}' đã tồn tại"
+            detail=f"Chức vụ '{role_data.name}' đã tồn tại trong doanh nghiệp"
         )
     
     new_role = Role(
         name=role_data.name,
         description=role_data.description,
-        level=role_data.level
+        level=role_data.level,
+        tenant_id=tenant_id
     )
     
     db.add(new_role)
@@ -57,13 +64,20 @@ def create_role(
 def get_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: Role = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy chức vụ ID {role_id}"
+        )
+    
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and role.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập chức vụ này"
         )
     return role
 
@@ -73,7 +87,7 @@ def update_role(
     role_id: int,
     role_data: RoleUpdate,
     db: Session = Depends(get_db),
-    current_user: Role = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
@@ -82,9 +96,23 @@ def update_role(
             detail=f"Không tìm thấy chức vụ ID {role_id}"
         )
     
-    # Check name uniqueness if changing
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and role.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền chỉnh sửa chức vụ này"
+        )
+    
+    # Ngăn chặn cập nhật level chức vụ xuống <= 0
+    if role_data.level is not None and role_data.level <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cấp độ 0 được dành riêng cho hệ thống, không thể đặt cấp độ này"
+        )
+
+    # Kiểm tra trùng tên vai trò trong nội bộ doanh nghiệp nếu đổi tên
     if role_data.name and role_data.name != role.name:
-        existing = db.query(Role).filter(Role.name == role_data.name).first()
+        existing = db.query(Role).filter(Role.name == role_data.name, Role.tenant_id == role.tenant_id).first()
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -92,14 +120,7 @@ def update_role(
             )
         role.name = role_data.name
     
-    # Prevent changing role level to 0 (reserved for Admin)
-    if role_data.level is not None and role_data.level == 0:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cấp độ 0 được dành riêng cho Admin, không thể đặt cấp độ này"
-        )
-
-    # Update other fields
+    # Cập nhật các trường khác
     if role_data.description is not None:
         role.description = role_data.description
     if role_data.level is not None:
@@ -115,7 +136,7 @@ def update_role(
 def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: Role = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     role = db.query(Role).filter(Role.id == role_id).first()
     if not role:
@@ -124,7 +145,14 @@ def delete_role(
             detail=f"Không tìm thấy chức vụ ID {role_id}"
         )
     
-    # Check if role has users or documents
+    # Kiểm tra bảo mật Multi-tenancy
+    if current_user.tenant_id is not None and role.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xóa chức vụ này"
+        )
+    
+    # Kiểm tra xem chức vụ có người dùng hoặc tài liệu nào đang sử dụng không
     if role.users:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

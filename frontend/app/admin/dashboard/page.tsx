@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { adminAPI } from '@/app/lib/api';
 import { DashboardStats, UsageStats } from '@/app/lib/types';
 import { 
-  Users, MessageSquare, FileText, Star, TrendingUp, ThumbsUp, AlertCircle,
+  Users, MessageSquare, FileText, Star, ThumbsUp, AlertCircle,
   ArrowUpRight, ArrowDownRight, Activity, Sparkles
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -15,12 +15,12 @@ import ModelStatusCard from '@/components/admin/ModelStatusCard';
 // Import các component biểu đồ động để tránh lỗi SSR
 const UsageTrendChart = dynamic(() => import('@/components/admin/Charts').then(mod => mod.UsageTrendChart), { 
   ssr: false,
-  loading: () => <div className="h-full w-full bg-slate-50 animate-pulse rounded-2xl" />
+  loading: () => <div className="h-full w-full bg-surface-2 animate-pulse rounded-2xl" />
 });
 
 const FeedbackPieChart = dynamic(() => import('@/components/admin/Charts').then(mod => mod.FeedbackPieChart), { 
   ssr: false,
-  loading: () => <div className="h-full w-full bg-slate-50 animate-pulse rounded-2xl" />
+  loading: () => <div className="h-full w-full bg-surface-2 animate-pulse rounded-2xl" />
 });
 
 export default function DashboardPage() {
@@ -59,10 +59,10 @@ export default function DashboardPage() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-32 bg-white rounded-2xl border border-slate-100 animate-pulse" />
+          <div key={i} className="h-36 bg-surface-1 border border-hairline rounded-3xl skeleton" />
         ))}
-        <div className="lg:col-span-3 h-80 bg-white rounded-2xl border border-slate-100 animate-pulse" />
-        <div className="h-80 bg-white rounded-2xl border border-slate-100 animate-pulse" />
+        <div className="lg:col-span-2 h-[450px] bg-surface-1 border border-hairline rounded-[2rem] skeleton" />
+        <div className="h-[450px] bg-surface-1 border border-hairline rounded-[2rem] skeleton" />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export default function DashboardPage() {
 
   // Helper function để format trend
   const formatTrend = (trend: number | null | undefined): string => {
-    if (trend === null || trend === undefined) return 'N/A';
+    if (trend === null || trend === undefined) return '0.0%';
     const formatted = trend.toFixed(1);
     return trend > 0 ? `+${formatted}%` : `${formatted}%`;
   };
@@ -87,14 +87,14 @@ export default function DashboardPage() {
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
+        staggerChildren: 0.08
       }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
+    hidden: { opacity: 0, y: 15 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };
 
   return (
@@ -102,38 +102,38 @@ export default function DashboardPage() {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="space-y-8"
+      className="space-y-8 select-none"
     >
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Người dùng', value: stats?.total_users, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', trend: formatTrend(stats?.user_trend) },
-          { label: 'Tổng tin nhắn', value: stats?.total_messages, icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50', trend: formatTrend(stats?.message_trend) },
-          { label: 'Tài liệu', value: stats?.total_documents, icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50', trend: formatTrend(stats?.document_trend) },
-          { label: 'Tỷ lệ hài lòng', value: `${stats?.satisfaction_rate}%`, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', trend: formatTrend(stats?.rating_trend) },
+          { label: 'Người dùng', value: stats?.total_users, icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10 border-blue-500/20', trend: formatTrend(stats?.user_trend) },
+          { label: 'Tổng tin nhắn', value: stats?.total_messages, icon: MessageSquare, color: 'text-violet-500', bg: 'bg-violet-500/10 border-violet-500/20', trend: formatTrend(stats?.message_trend) },
+          { label: 'Tài liệu', value: stats?.total_documents, icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/20', trend: formatTrend(stats?.document_trend) },
+          { label: 'Tỷ lệ hài lòng', value: `${stats?.satisfaction_rate}%`, icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20', trend: formatTrend(stats?.rating_trend) },
         ].map((item, idx) => (
           <motion.div 
             key={idx}
             variants={itemVariants}
-            className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft hover:shadow-soft-xl transition-all group cursor-default"
+            className="bg-surface-1/60 backdrop-blur-md p-6 rounded-3xl border border-hairline shadow-md hover:shadow-xl hover:border-brand-lavender/30 transition-all duration-300 group cursor-default relative overflow-hidden"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className={cn("p-3 rounded-2xl transition-colors", item.bg, item.color)}>
-                <item.icon size={24} />
+            <div className="absolute inset-0 bg-gradient-to-tr from-brand-secure/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="flex items-start justify-between mb-4 relative z-10">
+              <div className={`p-3 rounded-2xl border ${item.bg} ${item.color} group-hover:scale-110 transition-transform duration-300`}>
+                <item.icon size={20} />
               </div>
-              <div className={cn(
-                "flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full",
-                item.trend.startsWith('+') ? "bg-emerald-50 text-emerald-600" : 
-                item.trend.startsWith('-') ? "bg-rose-50 text-rose-600" : "bg-slate-50 text-slate-500"
-              )}>
-                {item.trend.startsWith('+') && <ArrowUpRight size={12} />}
-                {item.trend.startsWith('-') && <ArrowDownRight size={12} />}
+              <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${
+                item.trend.startsWith('+') ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/25" : 
+                item.trend.startsWith('-') ? "bg-rose-500/10 text-rose-500 border-rose-500/25" : "bg-surface-2 text-ink-subtle border-hairline"
+              }`}>
+                {item.trend.startsWith('+') && <ArrowUpRight size={10} />}
+                {item.trend.startsWith('-') && <ArrowDownRight size={10} />}
                 {item.trend}
               </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{item.label}</p>
-              <h3 className="text-3xl font-be-vietnam font-bold text-slate-900 mt-1">{item.value || 0}</h3>
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold text-ink-tertiary uppercase tracking-widest leading-none">{item.label}</p>
+              <h3 className="text-3xl font-be-vietnam font-bold text-ink mt-2 tracking-tight">{item.value !== undefined ? item.value : 0}</h3>
             </div>
           </motion.div>
         ))}
@@ -144,19 +144,19 @@ export default function DashboardPage() {
         {/* Usage Trend - Bento Large */}
         <motion.div 
           variants={itemVariants}
-          className="lg:col-span-2 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-soft relative overflow-hidden"
+          className="lg:col-span-2 bg-surface-1/60 backdrop-blur-md p-8 rounded-[2rem] border border-hairline shadow-md relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-50 text-primary-600 rounded-lg">
-                <Activity size={20} />
+              <div className="p-2.5 bg-brand-lavender/10 text-brand-lavender border border-brand-lavender-border rounded-xl">
+                <Activity size={18} />
               </div>
               <div>
-                <h3 className="font-be-vietnam font-bold text-slate-900 text-lg">Hoạt động hệ thống</h3>
-                <p className="text-xs text-slate-400 font-medium">Tần suất tra cứu trong 30 ngày gần nhất</p>
+                <h3 className="font-be-vietnam font-bold text-ink text-lg">Hoạt động hệ thống</h3>
+                <p className="text-xs text-ink-subtle font-medium mt-0.5">Tần suất tra cứu trong 30 ngày gần nhất</p>
               </div>
             </div>
-            <select className="bg-slate-50 border-none text-xs font-bold text-slate-500 rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary-500/10 outline-none">
+            <select className="bg-surface-2 border border-hairline text-xs font-bold text-ink-muted rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-lavender/25 outline-none transition-all cursor-pointer">
               <option>30 ngày qua</option>
               <option>7 ngày qua</option>
             </select>
@@ -166,9 +166,9 @@ export default function DashboardPage() {
             {usage.length > 0 ? (
               <UsageTrendChart data={usage} />
             ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center text-slate-300">
-                <AlertCircle size={48} strokeWidth={1.5} className="mb-4 opacity-20" />
-                <p className="font-medium">Chưa có dữ liệu thống kê</p>
+              <div className="h-full w-full flex flex-col items-center justify-center text-ink-tertiary">
+                <AlertCircle size={44} strokeWidth={1.5} className="mb-3 opacity-25" />
+                <p className="font-medium text-sm">Chưa có dữ liệu thống kê</p>
               </div>
             )}
           </div>
@@ -177,39 +177,39 @@ export default function DashboardPage() {
         {/* Feedback Distribution - Bento Small */}
         <motion.div 
           variants={itemVariants}
-          className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-soft flex flex-col"
+          className="bg-surface-1/60 backdrop-blur-md p-8 rounded-[2rem] border border-hairline shadow-md flex flex-col justify-between"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <ThumbsUp size={20} />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 rounded-xl">
+              <ThumbsUp size={18} />
             </div>
             <div>
-              <h3 className="font-be-vietnam font-bold text-slate-900 text-lg">Phản hồi</h3>
-              <p className="text-xs text-slate-400 font-medium">Mức độ hài lòng của nhân viên</p>
+              <h3 className="font-be-vietnam font-bold text-ink text-lg">Đánh giá RAG</h3>
+              <p className="text-xs text-ink-subtle font-medium mt-0.5">Mức độ hài lòng của nhân viên</p>
             </div>
           </div>
           
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center min-h-[220px]">
             {hasFeedback ? (
               <FeedbackPieChart 
                 data={feedbackData} 
-                colors={['#10b981', '#f43f5e', '#cbd5e1']} 
+                colors={['#10b981', '#f43f5e', '#64748b']} 
               />
             ) : (
-              <div className="flex flex-col items-center text-slate-300">
-                <ThumbsUp size={48} strokeWidth={1.5} className="mb-4 opacity-20" />
-                <p className="font-medium">Chưa có đánh giá</p>
+              <div className="flex flex-col items-center text-ink-tertiary">
+                <ThumbsUp size={44} strokeWidth={1.5} className="mb-3 opacity-25" />
+                <p className="font-medium text-sm">Chưa có đánh giá từ cuộc chat</p>
               </div>
             )}
           </div>
 
-          <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-3 gap-2">
+          <div className="mt-4 pt-6 border-t border-hairline grid grid-cols-3 gap-2">
             {feedbackData.map((d, i) => (
               <div key={i} className="text-center flex flex-col items-center">
-                <div className="h-8 flex items-start">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase leading-tight">{d.name}</p>
+                <div className="h-8 flex items-center justify-center">
+                  <p className="text-[10px] font-bold text-ink-tertiary uppercase leading-tight">{d.name}</p>
                 </div>
-                <p className="text-sm font-be-vietnam font-bold text-slate-900 mt-1">{d.value}</p>
+                <p className="text-base font-be-vietnam font-bold text-ink mt-1">{d.value}</p>
               </div>
             ))}
           </div>
@@ -219,28 +219,24 @@ export default function DashboardPage() {
       {/* Recent Activity / Insights Section */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-none"
       >
-        <div className="md:col-span-2 bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden group">
+        <div className="md:col-span-2 bg-gradient-to-br from-surface-1 to-surface-2 border border-hairline rounded-[2rem] p-8 text-ink relative overflow-hidden group shadow-md hover:border-brand-lavender/25 transition-all duration-300">
           <div className="relative z-10">
-            <h3 className="text-xl font-be-vietnam font-bold mb-2">Tối ưu hóa dữ liệu FAQ</h3>
-            <p className="text-slate-400 text-sm max-w-md mb-6">Hệ thống phát hiện 12 câu hỏi mới thường xuyên xuất hiện nhưng chưa có trong danh mục FAQ chuẩn.</p>
+            <h3 className="text-xl font-be-vietnam font-bold text-ink mb-2">Tối ưu hóa dữ liệu FAQ</h3>
+            <p className="text-ink-muted text-sm max-w-md mb-8 leading-relaxed">Hệ thống phát hiện các câu hỏi mới thường xuyên xuất hiện trong phòng chat nhưng chưa có trong danh mục FAQ chuẩn.</p>
             <button 
               onClick={() => router.push('/admin/faqs')}
-              className="bg-white text-slate-900 px-6 py-3 rounded-2xl font-bold text-sm hover:bg-primary-500 hover:text-white transition-all active:scale-95"
+              className="bg-brand-lavender hover:bg-brand-lavender-hover text-white px-6 py-3 rounded-2xl font-bold text-sm hover:scale-[1.02] transition-all duration-200 active:scale-95 shadow-sm"
             >
-              Xem gợi ý ngay
+              Xem gợi ý câu hỏi FAQ ⚡
             </button>
           </div>
-          <Sparkles className="absolute -right-8 -bottom-8 text-white/5 w-64 h-64 group-hover:text-primary-500/10 transition-colors duration-700" />
+          <Sparkles className="absolute -right-8 -bottom-8 text-brand-lavender/5 w-64 h-64 group-hover:scale-110 group-hover:text-brand-lavender/10 transition-all duration-700 pointer-events-none" />
         </div>
         
         <ModelStatusCard />
       </motion.div>
     </motion.div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

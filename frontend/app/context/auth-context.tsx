@@ -7,10 +7,11 @@ import { authAPI } from '@/app/lib/api';
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<User>;
   logout: () => void;
   loading: boolean;
   isAdmin: boolean;
+  isCompanyAdmin: boolean;
   refreshUser: (user: User) => void;
 }
 
@@ -55,6 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setToken(data.access_token);
     setUser(data.user);
+
+    return data.user;
   };
 
   const logout = () => {
@@ -69,10 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
-  const isAdmin = user?.role?.name?.toLowerCase() === 'admin' || user?.role?.level === 0;
+  const isAdmin = user?.role?.level === 0 && (user?.tenant_id === null || user?.tenant_id === undefined);
+  const isCompanyAdmin = (user?.role?.level === 0 || user?.role?.level === 1)
+                         && user?.tenant_id !== null
+                         && user?.tenant_id !== undefined;
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading, isAdmin, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading, isAdmin, isCompanyAdmin, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

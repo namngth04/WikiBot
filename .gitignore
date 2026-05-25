@@ -69,6 +69,15 @@ backend/alembic/__pycache__/
 
 # Temp (tạo ra trong quá trình test)
 temp/
+*temp/
+*.tmp
 
 # Reports (tạo ra trong quá trình test)
 baocao/
+
+# Docker Local Volumes & Data
+*data/
+postgres_data/
+chromadb_data/
+backend_uploads/
+.docker/

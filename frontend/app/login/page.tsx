@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/app/context/auth-context';
 import { Lock, User, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,8 +48,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(username, password);
-      router.push('/chat');
+      const loggedInUser = await login(username, password);
+      
+      const isSystemAdmin = loggedInUser.role?.level === 0 && (loggedInUser.tenant_id === null || loggedInUser.tenant_id === undefined);
+      const isTenantAdmin = (loggedInUser.role?.level === 0 || loggedInUser.role?.level === 1) && loggedInUser.tenant_id !== null && loggedInUser.tenant_id !== undefined;
+
+      if (isSystemAdmin) {
+        router.push('/superadmin');
+      } else if (isTenantAdmin) {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/chat');
+      }
     } catch (err: any) {
       setError(err.message || 'Đăng nhập thất bại');
     } finally {
@@ -90,14 +101,16 @@ export default function LoginPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <AppLogo size="lg" className="mb-4" />
-            <motion.h1
-              className="text-3xl font-bold text-white tracking-tight"
-              animate={{ textShadow: ['0 0 0px rgba(59,130,246,0)', '0 0 20px rgba(59,130,246,0.4)', '0 0 0px rgba(59,130,246,0)'] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              WikiBot
-            </motion.h1>
+            <Link href="/" className="inline-flex flex-col items-center group cursor-pointer">
+              <AppLogo size="lg" className="mb-4 mx-auto group-hover:scale-105 transition-transform duration-300" />
+              <motion.h1
+                className="text-3xl font-bold text-white tracking-tight group-hover:text-blue-400 transition-colors duration-300"
+                animate={{ textShadow: ['0 0 0px rgba(59,130,246,0)', '0 0 20px rgba(59,130,246,0.4)', '0 0 0px rgba(59,130,246,0)'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                WikiBot
+              </motion.h1>
+            </Link>
             <p className="text-slate-300 mt-2 text-sm">Hệ thống Chatbot Nội Bộ</p>
           </motion.div>
 

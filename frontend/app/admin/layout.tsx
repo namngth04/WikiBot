@@ -6,7 +6,7 @@ import { useAuth } from '@/app/context/auth-context';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Shield, FileText, ArrowLeft, Settings, LayoutDashboard, HelpCircle,
-  ChevronLeft, ChevronRight, LogOut, Sparkles, Bell, Brain
+  ChevronLeft, ChevronRight, LogOut, Sparkles, Bell, Brain, MessageSquare, User
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -24,23 +24,24 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAdmin, logout, loading: authLoading } = useAuth();
+  const { user, isAdmin, isCompanyAdmin, logout, loading: authLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Redirect if not admin or if system superadmin
+  // Redirect if not admin of any kind, or if system superadmin (→ /superadmin)
   useEffect(() => {
     if (!authLoading) {
-      if (!isAdmin) {
+      if (!isAdmin && !isCompanyAdmin) {
         router.push('/chat');
-      } else if (user && user.tenant_id === null) {
+      } else if (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined)) {
         router.push('/superadmin');
       }
+      // isCompanyAdmin (tenant_id not null) → stay at /admin
     }
-  }, [isAdmin, user, authLoading, router]);
+  }, [isAdmin, isCompanyAdmin, user, authLoading, router]);
 
-  if (authLoading || !isAdmin || (user && user.tenant_id === null)) {
+  if (authLoading || (!isAdmin && !isCompanyAdmin) || (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined))) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas-soft transition-colors duration-200">
+      <div className="min-h-screen flex items-center justify-center bg-canvas transition-colors duration-200">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-lavender"></div>
       </div>
     );
@@ -56,12 +57,12 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-canvas-soft flex font-be-vietnam overflow-hidden text-ink transition-colors duration-200">
+    <div className="min-h-screen bg-canvas flex font-be-vietnam overflow-hidden text-ink transition-colors duration-200">
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: sidebarOpen ? 280 : 80 }}
-        className="bg-surface-1 border-r border-hairline text-ink-muted flex flex-col relative z-30 shadow-2xl transition-colors duration-200"
+        animate={{ width: sidebarOpen ? 320 : 80 }}
+        className="bg-surface-1 border-r border-hairline text-ink-muted flex flex-col relative z-30 transition-all duration-300"
       >
         <div className="py-6 flex flex-col h-full overflow-hidden px-4">
           {/* Logo */}
@@ -85,7 +86,7 @@ export default function AdminLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-2">
+          <nav className="flex-1 space-y-2 relative">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = pathname === tab.path || (pathname === '/admin' && tab.id === 'dashboard');
@@ -94,16 +95,25 @@ export default function AdminLayout({
                   key={tab.id}
                   onClick={() => router.push(tab.path)}
                   className={cn(
-                    "w-full flex items-center transition-all duration-300 group rounded-xl",
-                    sidebarOpen ? "gap-4 p-3" : "justify-center p-3 px-0",
+                    "w-full flex items-center transition-all duration-300 group rounded-2xl relative overflow-hidden",
+                    sidebarOpen ? "gap-4 p-3.5" : "justify-center p-3.5 px-0",
                     isActive 
-                      ? "bg-brand-lavender text-white shadow-lg shadow-brand-lavender/20" 
+                      ? "text-white font-bold" 
                       : "hover:bg-surface-2 hover:text-ink text-ink-subtle"
                   )}
                   title={!sidebarOpen ? tab.name : ""}
                 >
+                  {/* Active Background Indicator using layoutId */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeAdminTab"
+                      className="absolute inset-0 bg-brand-lavender shadow-lg shadow-brand-lavender/20 z-0 rounded-2xl"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+
                   <Icon size={20} className={cn(
-                    "shrink-0 group-hover:scale-110 transition-transform",
+                    "shrink-0 group-hover:scale-110 transition-transform relative z-10",
                     isActive ? "text-white" : "text-ink-subtle"
                   )} />
                   <AnimatePresence>
@@ -112,7 +122,7 @@ export default function AdminLayout({
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -10 }}
-                        className="text-sm font-medium whitespace-nowrap"
+                        className="text-sm font-medium whitespace-nowrap relative z-10"
                       >
                         {tab.name}
                       </motion.span>
@@ -163,7 +173,7 @@ export default function AdminLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Header */}
-        <header className="h-20 bg-surface-1 border-b border-hairline px-8 flex items-center justify-between shrink-0 z-[90] relative shadow-sm transition-colors duration-200">
+        <header className="h-20 bg-surface-1/70 backdrop-blur-md sticky top-0 border-b border-hairline px-8 flex items-center justify-between shrink-0 z-[90] shadow-sm transition-colors duration-200">
           <div>
             <h2 className="text-sm text-ink-subtle font-bold uppercase tracking-widest mb-0.5">WikiBot Management</h2>
             <h1 className="text-2xl font-be-vietnam font-bold text-ink">
@@ -180,7 +190,7 @@ export default function AdminLayout({
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-bold text-ink leading-none">{user?.full_name || user?.username}</p>
-                <p className="text-[10px] text-brand-lavender font-bold uppercase tracking-wider mt-1">Administrator</p>
+                <p className="text-[10px] text-brand-lavender font-bold uppercase tracking-wider mt-1">{isCompanyAdmin ? 'Company Admin' : 'Administrator'}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-surface-2 flex items-center justify-center text-brand-lavender font-bold border border-hairline shadow-sm">
                 {user?.username.charAt(0).toUpperCase()}

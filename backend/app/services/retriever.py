@@ -229,7 +229,7 @@ class HybridRetriever:
                 is_public_community = metadata.get('is_public_community', False)
                 
                 # Check role access HOẶC community sharing
-                role_access = role_id in accessible_role_ids or 0 in accessible_role_ids
+                role_access = role_id in accessible_role_ids
                 community_access = receive_community and is_public_community
                 
                 if role_access or community_access:

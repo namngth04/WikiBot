@@ -6,7 +6,7 @@ import {
   Send, Plus, Trash2, MessageSquare,
   ChevronLeft, ChevronRight, Shield, Edit, Check, X,
   ThumbsUp, ThumbsDown, Search, Sparkles,
-  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown
+  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown, BarChart3
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { useChat } from '@/app/hooks/useChat';
@@ -24,7 +24,7 @@ interface ChatContainerProps {
 
 export default function ChatContainer({ className }: ChatContainerProps) {
   const router = useRouter();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isCompanyAdmin, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -77,6 +77,8 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     setResponseStyle,
     setShowSources,
     setSearchQuery,
+    quotaReached,
+    setQuotaReached,
   } = useChat({
     onNewConversation: (conv) => {
       // Auto-select new conversation
@@ -386,9 +388,15 @@ export default function ChatContainer({ className }: ChatContainerProps) {
 
           {/* User Section */}
           <div className="mt-auto pt-4 border-t border-hairline px-2">
-            {isAdmin && (
+            {(isAdmin || isCompanyAdmin) && (
               <button
-                onClick={() => router.push('/admin/dashboard')}
+                onClick={() => {
+                  if (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined)) {
+                    router.push('/superadmin');
+                  } else {
+                    router.push('/admin/dashboard');
+                  }
+                }}
                 className={cn(
                   "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
                   sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
@@ -410,7 +418,30 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 </AnimatePresence>
               </button>
             )}
-            {!isAdmin && (
+            {!isAdmin && !isCompanyAdmin && (
+              <button
+                onClick={() => router.push('/dashboard')}
+                className={cn(
+                  "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
+                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
+                )}
+                title={!sidebarOpen ? "Dashboard cá nhân" : ""}
+              >
+                <BarChart3 size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
+                <AnimatePresence>
+                  {sidebarOpen && (
+                    <motion.span 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="text-xs font-medium whitespace-nowrap"
+                    >
+                      📊 Dashboard
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            )}
               <button
                 onClick={() => setCurrentView('settings')}
                 className={cn(
@@ -436,7 +467,6 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                   )}
                 </AnimatePresence>
               </button>
-            )}
             <div className={cn(
               "flex items-center p-2.5 bg-surface-2 border border-hairline rounded-lg transition-all duration-300",
               sidebarOpen ? "justify-between" : "justify-center"
@@ -631,6 +661,63 @@ export default function ChatContainer({ className }: ChatContainerProps) {
           )
         )}
       </main>
+
+      {/* Premium Quota Modal */}
+      <AnimatePresence>
+        {quotaReached && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white rounded-[2.5rem] p-8 border border-white/10 shadow-2xl max-w-md w-full relative overflow-hidden text-center"
+            >
+              {/* Decorative backgrounds */}
+              <div className="absolute -right-16 -top-16 w-36 h-36 bg-brand-lavender/20 rounded-full blur-3xl" />
+              <div className="absolute -left-16 -bottom-16 w-36 h-36 bg-cyan-500/20 rounded-full blur-3xl" />
+
+              <button
+                onClick={() => setQuotaReached(false)}
+                className="absolute right-6 top-6 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="w-16 h-16 bg-gradient-to-tr from-brand-lavender to-violet-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-violet-500/30 ring-4 ring-white/10 animate-bounce">
+                <Sparkles size={32} className="text-white animate-pulse" />
+              </div>
+
+              <h3 className="text-2xl font-be-vietnam font-bold mb-3 bg-gradient-to-r from-white via-indigo-200 to-brand-lavender bg-clip-text text-transparent">
+                Hạn ngạch giới hạn
+              </h3>
+              
+              <p className="text-slate-300 text-sm leading-relaxed mb-8 px-2">
+                Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn và mở khóa các tính năng AI nâng cao!
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setQuotaReached(false);
+                    router.push('/pricing');
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-brand-lavender to-violet-600 hover:from-brand-lavender/90 hover:to-violet-600/90 text-white font-bold rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 text-sm tracking-wide"
+                >
+                  <span>Nâng cấp PRO ngay ⚡</span>
+                </button>
+                
+                <button
+                  onClick={() => setQuotaReached(false)}
+                  className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-semibold rounded-2xl transition-all text-xs"
+                >
+                  Xem lại lịch sử chat
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Styles for scrollbar */}
       <style jsx global>{`

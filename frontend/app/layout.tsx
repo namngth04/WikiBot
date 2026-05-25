@@ -22,6 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={`${beVietnamPro.variable}`}>
+      <head>
+        <script src="/env-config.js" defer />
+      </head>
       <body className="font-be-vietnam antialiased">
         <AuthProvider>
           {children}

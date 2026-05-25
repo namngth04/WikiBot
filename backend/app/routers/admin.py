@@ -38,60 +38,72 @@ _suggested_faqs_cache = {
 @router.get("/stats/overview", response_model=DashboardStats)
 def get_dashboard_stats(
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
-    total_users = db.query(User).count()
-    total_messages = db.query(Message).count()
-    total_documents = db.query(Document).count()
+    tenant_id = current_admin.tenant_id
+    
+    # Base queries with optional tenant filter
+    user_query = db.query(User)
+    doc_query = db.query(Document)
+    msg_query = db.query(Message)
+    
+    if tenant_id is not None:
+        user_query = user_query.filter(User.tenant_id == tenant_id)
+        doc_query = doc_query.filter(Document.tenant_id == tenant_id)
+        msg_query = msg_query.join(Conversation).join(User).filter(User.tenant_id == tenant_id)
+        
+    total_users = user_query.count()
+    total_documents = doc_query.count()
+    total_messages = msg_query.count()
     
     # Calculate satisfaction rate
-    likes = db.query(Message).filter(Message.rating == 1).count()
-    dislikes = db.query(Message).filter(Message.rating == -1).count()
+    likes = msg_query.filter(Message.rating == 1).count()
+    dislikes = msg_query.filter(Message.rating == -1).count()
     total_rated = likes + dislikes
     satisfaction_rate = (likes / total_rated * 100) if total_rated > 0 else 0.0
     
     # Feedback ratio
-    no_rating = db.query(Message).filter(Message.role == "assistant", Message.rating.is_(None)).count()
+    no_rating = msg_query.filter(Message.role == "assistant", Message.rating.is_(None)).count()
     
     # Tính toán trend so với ngày hôm qua
     yesterday = datetime.utcnow() - timedelta(days=1)
     
-    # User trend: số người dùng mới hôm nay so với hôm qua
-    users_today = db.query(User).filter(User.created_at >= yesterday).count()
-    users_yesterday = db.query(User).filter(
+    # User trend
+    users_today = user_query.filter(User.created_at >= yesterday).count()
+    users_yesterday = user_query.filter(
         User.created_at >= yesterday - timedelta(days=1),
         User.created_at < yesterday
     ).count()
     user_trend = round((users_today - users_yesterday) / users_yesterday * 100, 1) if users_yesterday > 0 else None
     
-    # Message trend: số tin nhắn hôm nay so với hôm qua
-    messages_today = db.query(Message).filter(Message.created_at >= yesterday).count()
-    messages_yesterday = db.query(Message).filter(
+    # Message trend
+    messages_today = msg_query.filter(Message.created_at >= yesterday).count()
+    messages_yesterday = msg_query.filter(
         Message.created_at >= yesterday - timedelta(days=1),
         Message.created_at < yesterday
     ).count()
     message_trend = round((messages_today - messages_yesterday) / messages_yesterday * 100, 1) if messages_yesterday > 0 else None
     
-    # Document trend: số tài liệu upload hôm nay so với hôm qua
-    documents_today = db.query(Document).filter(Document.uploaded_at >= yesterday).count()
-    documents_yesterday = db.query(Document).filter(
+    # Document trend
+    documents_today = doc_query.filter(Document.uploaded_at >= yesterday).count()
+    documents_yesterday = doc_query.filter(
         Document.uploaded_at >= yesterday - timedelta(days=1),
         Document.uploaded_at < yesterday
     ).count()
     document_trend = round((documents_today - documents_yesterday) / documents_yesterday * 100, 1) if documents_yesterday > 0 else None
     
-    # Rating trend: tỷ lệ hài lòng hôm nay so với hôm qua
-    likes_today = db.query(Message).filter(Message.rating == 1, Message.created_at >= yesterday).count()
-    dislikes_today = db.query(Message).filter(Message.rating == -1, Message.created_at >= yesterday).count()
+    # Rating trend
+    likes_today = msg_query.filter(Message.rating == 1, Message.created_at >= yesterday).count()
+    dislikes_today = msg_query.filter(Message.rating == -1, Message.created_at >= yesterday).count()
     total_rated_today = likes_today + dislikes_today
     satisfaction_rate_today = (likes_today / total_rated_today * 100) if total_rated_today > 0 else 0.0
     
-    likes_yesterday = db.query(Message).filter(
+    likes_yesterday = msg_query.filter(
         Message.rating == 1,
         Message.created_at >= yesterday - timedelta(days=1),
         Message.created_at < yesterday
     ).count()
-    dislikes_yesterday = db.query(Message).filter(
+    dislikes_yesterday = msg_query.filter(
         Message.rating == -1,
         Message.created_at >= yesterday - timedelta(days=1),
         Message.created_at < yesterday
@@ -126,18 +138,24 @@ def get_dashboard_stats(
 def get_usage_stats(
     days: int = Query(7, ge=1, le=30),
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     start_date = datetime.utcnow() - timedelta(days=days)
+    tenant_id = current_admin.tenant_id
     
     # Group by date
-    stats = db.query(
+    query = db.query(
         func.date(Message.created_at).label("date"),
         func.count(Message.id).label("count")
     ).filter(
         Message.created_at >= start_date,
         Message.role == "user"
-    ).group_by(
+    )
+    
+    if tenant_id is not None:
+        query = query.join(Conversation).join(User).filter(User.tenant_id == tenant_id)
+        
+    stats = query.group_by(
         func.date(Message.created_at)
     ).order_by("date").all()
     
@@ -513,6 +531,292 @@ def toggle_tenant_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi cập nhật trạng thái: {str(e)}"
+        )
+
+
+@router.get("/users/personal")
+def list_personal_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """List all registered personal users (Superadmin only)"""
+    # Enforce Superadmin check (role level 0, tenant_id must be None)
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    query = db.query(User).filter(
+        User.tenant_id.is_(None),
+        User.id != current_admin.id  # Exclude current superadmin
+    )
+    
+    # Exclude other superadmins (role.level == 0) to prevent accidental block
+    from app.models.models import Role
+    query = query.outerjoin(Role).filter(
+        (Role.level > 0) | (Role.id.is_(None))
+    )
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            User.username.ilike(search_term) |
+            User.email.ilike(search_term) |
+            User.full_name.ilike(search_term)
+        )
+        
+    users = query.offset(skip).limit(limit).all()
+    
+    result = []
+    for u in users:
+        # Count uploaded documents
+        doc_count = db.query(Document).filter(
+            Document.uploaded_by == u.id,
+            Document.is_active == True
+        ).count()
+        
+        # Count conversations
+        conv_count = db.query(Conversation).filter(
+            Conversation.user_id == u.id
+        ).count()
+        
+        result.append({
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "email": u.email,
+            "phone": u.phone,
+            "subscription_tier": u.subscription_tier or "free",
+            "is_active": u.is_active if u.is_active is not None else True,
+            "created_at": u.created_at,
+            "doc_count": doc_count,
+            "conv_count": conv_count
+        })
+        
+    return result
+
+
+@router.put("/users/{user_id}/status")
+def toggle_personal_user_status(
+    user_id: int,
+    is_active: bool,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Suspend or Activate a personal user (Superadmin only)"""
+    # Enforce Superadmin check
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    # Find personal user
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.tenant_id.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy người dùng cá nhân ID {user_id}"
+        )
+        
+    # Prevent self-blocking
+    if user.id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể tự khóa tài khoản quản trị của chính mình."
+        )
+        
+    # Prevent blocking other superadmins
+    if user.role and user.role.level == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể thay đổi trạng thái của quản trị viên hệ thống khác."
+        )
+        
+    try:
+        user.is_active = is_active
+        db.commit()
+        
+        status_text = "kích hoạt" if is_active else "vô hiệu hóa"
+        return {
+            "success": True,
+            "message": f"Đã {status_text} thành công tài khoản của người dùng {user.username}."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi cập nhật trạng thái: {str(e)}"
+        )
+
+
+@router.delete("/tenants/{tenant_id}", response_model=SuccessResponse)
+def delete_tenant(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Delete a tenant and all its associated data (Superadmin only)"""
+    # Enforce Superadmin check
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    # Check if tenant exists
+    tenant_exists = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).first()
+    if not tenant_exists:
+        user_exists = db.query(User).filter(User.tenant_id == tenant_id).first()
+        if not user_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Không tìm thấy doanh nghiệp ID {tenant_id}"
+            )
+            
+    company_name = tenant_exists.company_name if tenant_exists else f"Doanh nghiệp #{tenant_id}"
+    
+    try:
+        # 1. Delete vectors in ChromaDB for this tenant
+        from app.services.document_processor import DocumentProcessor
+        processor = DocumentProcessor(db)
+        if processor.collection is not None:
+            try:
+                processor.collection.delete(where={"tenant_id": tenant_id})
+                from app.services.retriever import invalidate_bm25_cache
+                invalidate_bm25_cache()
+            except Exception as chroma_err:
+                print(f"Lỗi khi xóa vector ChromaDB cho tenant {tenant_id}: {chroma_err}")
+                
+        # 2. Get all documents and delete physical files
+        documents = db.query(Document).filter(Document.tenant_id == tenant_id).all()
+        for doc in documents:
+            if doc.file_path and os.path.exists(doc.file_path):
+                try:
+                    os.remove(doc.file_path)
+                except Exception as file_err:
+                    print(f"Lỗi khi xóa file vật lý {doc.file_path}: {file_err}")
+                    
+        # 3. Get all users belonging to this tenant
+        tenant_users = db.query(User).filter(User.tenant_id == tenant_id).all()
+        tenant_user_ids = [u.id for u in tenant_users]
+        
+        # 4. Delete Messages of these users
+        if tenant_user_ids:
+            conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.user_id.in_(tenant_user_ids)).all()]
+            if conv_ids:
+                db.query(Message).filter(Message.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+                db.query(Conversation).filter(Conversation.id.in_(conv_ids)).delete(synchronize_session=False)
+                
+            db.query(Document).filter(Document.tenant_id == tenant_id).delete(synchronize_session=False)
+            db.query(User).filter(User.tenant_id == tenant_id).delete(synchronize_session=False)
+            
+        # 5. Delete TenantAISettings
+        db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).delete(synchronize_session=False)
+        
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Đã xóa hoàn toàn doanh nghiệp '{company_name}' và tất cả dữ liệu liên quan thành công."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi xóa doanh nghiệp: {str(e)}"
+        )
+
+
+@router.delete("/users/personal/{user_id}", response_model=SuccessResponse)
+def delete_personal_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Delete a personal user and all associated data (Superadmin only)"""
+    # Enforce Superadmin check
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+        
+    # Find personal user
+    user = db.query(User).filter(
+        User.id == user_id,
+        User.tenant_id.is_(None)
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy người dùng cá nhân ID {user_id}"
+        )
+        
+    # Prevent self-deletion
+    if user.id == current_admin.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể tự xóa tài khoản quản trị của chính mình."
+        )
+        
+    # Prevent deleting other superadmins
+    if user.role and user.role.level == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Không thể xóa tài khoản của quản trị viên hệ thống khác."
+        )
+        
+    try:
+        # 1. Delete vectors in ChromaDB for this user
+        from app.services.document_processor import DocumentProcessor
+        processor = DocumentProcessor(db)
+        if processor.collection is not None:
+            try:
+                processor.collection.delete(where={"uploaded_by": user_id})
+                from app.services.retriever import invalidate_bm25_cache
+                invalidate_bm25_cache()
+            except Exception as chroma_err:
+                print(f"Lỗi khi xóa vector ChromaDB cho user {user_id}: {chroma_err}")
+                
+        # 2. Get all documents and delete physical files
+        documents = db.query(Document).filter(Document.uploaded_by == user_id).all()
+        for doc in documents:
+            if doc.file_path and os.path.exists(doc.file_path):
+                try:
+                    os.remove(doc.file_path)
+                except Exception as file_err:
+                    print(f"Lỗi khi xóa file vật lý {doc.file_path}: {file_err}")
+                    
+        # 3. Delete Messages, Conversations, Documents of this user in SQL
+        conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.user_id == user_id).all()]
+        if conv_ids:
+            db.query(Message).filter(Message.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+            db.query(Conversation).filter(Conversation.id.in_(conv_ids)).delete(synchronize_session=False)
+            
+        db.query(Document).filter(Document.uploaded_by == user_id).delete(synchronize_session=False)
+        
+        # 4. Delete the User record
+        db.delete(user)
+        
+        db.commit()
+        return {
+            "success": True,
+            "message": f"Đã xóa hoàn toàn người dùng '{user.username}' và tất cả dữ liệu liên quan thành công."
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống khi xóa người dùng: {str(e)}"
         )
 
 

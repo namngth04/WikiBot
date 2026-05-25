@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.config import get_settings
 from app.models.models import User, Document, Role
 from app.schemas.schemas import DocumentUpdate, DocumentResponse, SuccessResponse
-from app.routers.auth import get_current_user, get_current_admin
+from app.routers.auth import get_current_user, get_current_admin, get_current_company_admin
 from app.services.document_processor import DocumentProcessor
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
@@ -21,15 +21,18 @@ def get_accessible_role_ids(user: User) -> List[Optional[int]]:
         # User has no role - only public documents
         return [0]
     
-    if user.role.level == 0:
-        # Admin can access all documents
-        return [0, 1, 2, 3]  # 0 + all role IDs (will be expanded dynamically)
+    db_session = user._sa_instance_state.session
     
-    # User with role can access their role + all lower level roles
+    if user.role.level == 0:
+        # Admin can access all documents of their tenant
+        tenant_roles = db_session.query(Role).filter(Role.tenant_id == user.tenant_id).all()
+        return [0] + [r.id for r in tenant_roles]
+    
+    # User with role can access their role + all lower level roles within the same tenant
     accessible_roles = [0]  # Public docs
     
-    # Get all roles at user's level or lower
-    all_roles = user._sa_instance_state.session.query(Role).all()
+    # Get all roles at user's level or lower (larger level number = lower privilege) for this tenant
+    all_roles = db_session.query(Role).filter(Role.tenant_id == user.tenant_id).all()
     for role in all_roles:
         if role.level >= user.role.level:
             accessible_roles.append(role.id)
@@ -166,11 +169,26 @@ async def upload_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Chức vụ ID {role_id} không tồn tại"
             )
-        # Only admin can assign documents to roles
-        if not current_user.role or current_user.role.level != 0:
+        
+        print(f"[DEBUG UPLOAD] User role: {current_user.role}")
+        if current_user.role:
+            print(f"[DEBUG UPLOAD] User role level: {current_user.role.level}")
+        print(f"[DEBUG UPLOAD] User tenant_id: {current_user.tenant_id}")
+        print(f"[DEBUG UPLOAD] Target role tenant_id: {role.tenant_id}")
+
+        # Chỉ Admin hệ thống (level=0) hoặc Admin doanh nghiệp (level=1) mới được gán chức vụ cho tài liệu
+        if not current_user.role or current_user.role.level not in [0, 1]:
+            print(f"[DEBUG UPLOAD] Blocked: Role not found or level not in [0, 1]")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Chỉ quản trị viên mới có thể gán chức vụ cho tài liệu"
+            )
+        # Nếu là Admin doanh nghiệp, chức vụ được gán phải thuộc về doanh nghiệp đó
+        if current_user.tenant_id is not None and role.tenant_id != current_user.tenant_id:
+            print(f"[DEBUG UPLOAD] Blocked: role.tenant_id ({role.tenant_id}) != user.tenant_id ({current_user.tenant_id})")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn chỉ có thể gán chức vụ thuộc doanh nghiệp của mình cho tài liệu"
             )
     
     # Create data directory if not exists
@@ -194,6 +212,7 @@ async def upload_document(
         file_type=file_ext.replace('.', ''),
         role_id=role_id,
         uploaded_by=current_user.id,
+        tenant_id=current_user.tenant_id,  # Tự động gán tenant_id để cách ly dữ liệu
         chunk_count=0
     )
     
@@ -226,13 +245,28 @@ def update_document(
     doc_id: int,
     update_data: DocumentUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_company_admin)
 ):
     document = db.query(Document).filter(Document.id == doc_id, Document.is_active == True).first()
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy tài liệu ID {doc_id}"
+        )
+    
+    # Kiểm tra bảo mật Multi-tenancy & Quyền chỉnh sửa
+    has_permission = False
+    if current_user.user_type == "superadmin":
+        has_permission = True
+    elif current_user.tenant_id is not None and document.tenant_id == current_user.tenant_id and current_user.role and current_user.role.level == 1:
+        has_permission = True  # Company Admin toàn quyền sửa tài liệu thuộc tenant của mình
+    elif document.uploaded_by == current_user.id:
+        has_permission = True  # Chủ sở hữu tài liệu được quyền sửa tài liệu của mình
+        
+    if not has_permission:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền chỉnh sửa tài liệu này"
         )
     
     # Validate new role_id
@@ -242,6 +276,12 @@ def update_document(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Chức vụ ID {update_data.role_id} không tồn tại"
+            )
+        # Chỉ Admin doanh nghiệp mới gán được vai trò trong cùng tenant
+        if current_user.tenant_id is not None and role.tenant_id != current_user.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn chỉ có thể gán chức vụ thuộc doanh nghiệp của mình cho tài liệu"
             )
     
     # Update role and metadata if changed
@@ -269,13 +309,28 @@ def update_document(
 def delete_document(
     doc_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     document = db.query(Document).filter(Document.id == doc_id).first()
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy tài liệu ID {doc_id}"
+        )
+    
+    # Kiểm tra bảo mật Multi-tenancy & Quyền xóa tài liệu
+    has_permission = False
+    if current_user.user_type == "superadmin":
+        has_permission = True
+    elif current_user.tenant_id is not None and document.tenant_id == current_user.tenant_id and current_user.role and current_user.role.level == 1:
+        has_permission = True  # Company Admin được quyền xóa mọi tài liệu thuộc doanh nghiệp của mình
+    elif document.uploaded_by == current_user.id:
+        has_permission = True  # Chủ sở hữu tài liệu được quyền xóa tài liệu của mình
+        
+    if not has_permission:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xóa tài liệu này"
         )
     
     # Delete from vector DB

@@ -8,6 +8,7 @@ class RoleBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=255)
     level: int = Field(default=2, ge=0, le=10)
+    tenant_id: Optional[int] = None
 
 
 class RoleCreate(RoleBase):
@@ -18,6 +19,7 @@ class RoleUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=255)
     level: Optional[int] = Field(None, ge=0, le=10)
+    tenant_id: Optional[int] = None
 
 
 class RoleResponse(RoleBase):
@@ -60,6 +62,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     role_id: Optional[int]
+    user_type: str
     is_active: bool
     created_at: datetime
     role: Optional[RoleResponse] = None
