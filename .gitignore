@@ -80,4 +80,7 @@ baocao/
 postgres_data/
 chromadb_data/
 backend_uploads/
-.docker/
+.docker/
+
+# Docker local dev overrides
+docker-compose.override.yml

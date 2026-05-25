@@ -17,6 +17,9 @@ export interface User {
   is_active: boolean;
   created_at: string;
   role?: Role;
+  tenant_id?: number | null;
+  user_type?: string | null;
+  subscription_tier?: string | null;
 }
 
 export interface Document {

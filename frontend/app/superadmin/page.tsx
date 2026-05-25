@@ -88,6 +88,8 @@ interface AIProviderConfigData {
   default_temperature: number;
   default_max_tokens: number;
   embedding_model_name: string | null;
+  timeout?: number | null;
+  use_rag_provider?: boolean | null;
 }
 
 interface AISafetyConfigData {
@@ -1073,7 +1075,9 @@ export default function SuperadminPage() {
                     const cfg = editingConfigs[ai_type] || {};
                     const testResult = testResults[ai_type];
                     const typeLabels: Record<string, string> = { chat: '🗣️ Chat (Trả lời câu hỏi)', embedding: '📐 Embedding (Vector hoá tài liệu)', faq: '❓ FAQ (Phân loại câu hỏi)' };
-                    const providers = ['local', 'openrouter', 'openai', 'ollama'];
+                    const providers = ai_type === 'embedding' 
+                      ? ['local', 'openrouter', 'openai'] 
+                      : ['openrouter', 'openai', 'ollama'];
                     const isFaqWithRag = ai_type === 'faq' && (cfg.use_rag_provider ?? true);
                     return (
                       <div key={ai_type} className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6 space-y-4">
@@ -1120,19 +1124,7 @@ export default function SuperadminPage() {
                               </div>
                             </div>
 
-                            {/* Local Model Path (only for local) */}
-                            {cfg.provider === 'local' && (
-                              <div>
-                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Local Model Path</label>
-                                <input
-                                  type="text"
-                                  value={cfg.local_model_path || ''}
-                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], local_model_path: e.target.value}}))}
-                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
-                                  placeholder="./llm_models/model.gguf"
-                                />
-                              </div>
-                            )}
+
 
                             {/* API fields (non-local) */}
                             {cfg.provider !== 'local' && (

@@ -9,7 +9,7 @@ import {
   Users, MessageSquare, FileText, Star, ThumbsUp, AlertCircle,
   ArrowUpRight, ArrowDownRight, Activity, Sparkles
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import ModelStatusCard from '@/components/admin/ModelStatusCard';
 
 // Import các component biểu đồ động để tránh lỗi SSR
@@ -92,7 +92,7 @@ export default function DashboardPage() {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 15 },
     show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
   };

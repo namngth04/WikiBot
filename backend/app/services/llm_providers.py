@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 from cryptography.fernet import Fernet
 from openai import OpenAI
-from llama_cpp import Llama
+# from llama_cpp import Llama  # Disabled in Docker build to save build time
 
 from app.core.config import get_settings
 
@@ -81,15 +81,12 @@ class LocalGGUFProvider(BaseLLMProvider):
                 raise FileNotFoundError(f"Model file not found: {self.model_path}")
             
             try:
-                self._llm = Llama(
-                    model_path=self.model_path,
-                    n_ctx=self.context_length,
-                    verbose=False,
-                    **self._kwargs
+                raise ImportError(
+                    "Local GGUF execution is disabled in this build to optimize container compilation. "
+                    "Please run GGUF models locally via Ollama (http://localhost:11434) and connect using the Ollama provider instead."
                 )
-                print(f"[DEBUG LocalGGUF] Model loaded successfully!")
             except Exception as e:
-                print(f"[ERROR LocalGGUF] Failed to load model: {e}")
+                print(f"[ERROR LocalGGUF] Local GGUF is disabled: {e}")
                 raise
         return self._llm
     

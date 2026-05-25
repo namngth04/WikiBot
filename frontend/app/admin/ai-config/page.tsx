@@ -532,7 +532,7 @@ export default function AdminAIConfigPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-600">Provider</label>
               <div className="flex gap-2">
-                {['local', 'openrouter', 'ollama'].map((p) => (
+                {['openrouter', 'openai', 'ollama'].map((p) => (
                   <button
                     key={p}
                     onClick={() => {
@@ -546,117 +546,87 @@ export default function AdminAIConfigPage() {
                         provider: p,
                         ...(shouldAutoFill && newBaseUrl ? { api_base_url: newBaseUrl } : {})
                       });
-                      if (p !== 'local') {
-                        loadModels(p);
-                      }
+                      loadModels(p);
                     }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${chatConfig.provider === p
                       ? 'bg-primary-600 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                   >
-                    {p === 'local' ? 'Local GGUF' : p}
+                    {p}
                   </button>
                 ))}
               </div>
             </div>
 
-            {chatConfig.provider === 'local' ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Model Path</label>
-                  <input
-                    type="text"
-                    value={chatConfig.local_model_path}
-                    onChange={(e) => setChatConfig({ ...chatConfig, local_model_path: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="./llm_models/model.gguf"
-                  />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600">Base URL</label>
+                <input
+                  type="text"
+                  value={chatConfig.api_base_url || ''}
+                  onChange={(e) => setChatConfig({ ...chatConfig, api_base_url: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="https://openrouter.ai/api/v1"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-600">API Key</label>
+                <input
+                  type="password"
+                  value={chatConfig.api_key || ''}
+                  onChange={(e) => setChatConfig({ ...chatConfig, api_key: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="sk-..."
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-slate-600">Model Selection</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="chatModelType"
+                      checked={!chatConfig.use_custom_model}
+                      onChange={() => setChatConfig({ ...chatConfig, use_custom_model: false })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Chọn từ danh sách</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="chatModelType"
+                      checked={chatConfig.use_custom_model}
+                      onChange={() => setChatConfig({ ...chatConfig, use_custom_model: true })}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm">Nhập model ID tùy chỉnh</span>
+                  </label>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Context Length</label>
+
+                {!chatConfig.use_custom_model ? (
                   <select
-                    value={chatConfig.local_context_length || 4096}
-                    onChange={(e) => setChatConfig({ ...chatConfig, local_context_length: parseInt(e.target.value) })}
+                    value={chatConfig.api_model || ''}
+                    onChange={(e) => setChatConfig({ ...chatConfig, api_model: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
-                    <option value={2048}>2048</option>
-                    <option value={4096}>4096</option>
-                    <option value={8192}>8192</option>
-                    <option value={16384}>16384</option>
+                    <option value="">Chọn model...</option>
+                    {availableModels.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name} - {m.description}</option>
+                    ))}
                   </select>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Base URL</label>
+                ) : (
                   <input
                     type="text"
-                    value={chatConfig.api_base_url || ''}
-                    onChange={(e) => setChatConfig({ ...chatConfig, api_base_url: e.target.value })}
+                    value={chatConfig.custom_api_model || ''}
+                    onChange={(e) => setChatConfig({ ...chatConfig, custom_api_model: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="https://openrouter.ai/api/v1"
+                    placeholder="Nhập model ID (vd: google/gemini-1.5-flash, anthropic/claude-3-haiku-20240307)"
                   />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">API Key</label>
-                  <input
-                    type="password"
-                    value={chatConfig.api_key || ''}
-                    onChange={(e) => setChatConfig({ ...chatConfig, api_key: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="sk-..."
-                  />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-slate-600">Model Selection</label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="chatModelType"
-                        checked={!chatConfig.use_custom_model}
-                        onChange={() => setChatConfig({ ...chatConfig, use_custom_model: false })}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Chọn từ danh sách</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="chatModelType"
-                        checked={chatConfig.use_custom_model}
-                        onChange={() => setChatConfig({ ...chatConfig, use_custom_model: true })}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">Nhập model ID tùy chỉnh</span>
-                    </label>
-                  </div>
-
-                  {!chatConfig.use_custom_model ? (
-                    <select
-                      value={chatConfig.api_model || ''}
-                      onChange={(e) => setChatConfig({ ...chatConfig, api_model: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="">Chọn model...</option>
-                      {availableModels.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name} - {m.description}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={chatConfig.custom_api_model || ''}
-                      onChange={(e) => setChatConfig({ ...chatConfig, custom_api_model: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Nhập model ID (vd: google/gemini-1.5-flash, anthropic/claude-3-haiku-20240307)"
-                    />
-                  )}
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="mt-6 flex gap-3 justify-end">
