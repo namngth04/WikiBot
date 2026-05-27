@@ -96,7 +96,11 @@
   }
 
   .linear-input {
-    @apply bg-surface-2 border border-hairline rounded-md text-ink text-sm px-3 py-2 outline-none focus:border-hairline-strong focus:ring-1 focus:ring-brand-lavender/50 placeholder-ink-tertiary transition-all duration-200;
+    @apply bg-surface-2 border border-hairline rounded-md text-ink text-sm px-3 py-2 outline-none placeholder-ink-tertiary transition-all duration-200;
+  }
+  .linear-input:focus {
+    border-color: var(--color-hairline-strong);
+    box-shadow: 0 0 0 1px var(--color-brand-lavender-border);
   }
 }
 

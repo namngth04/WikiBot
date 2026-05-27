@@ -39,8 +39,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [requireSelection, setRequireSelection] = useState(false);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [tempToken, setTempToken] = useState('');
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, selectTenant } = useAuth();
+
+  const handleRedirect = (loggedInUser: any) => {
+    const isSystemAdmin = loggedInUser.role?.level === 0 && (loggedInUser.tenant_id === null || loggedInUser.tenant_id === undefined);
+    const isTenantAdmin = (loggedInUser.role?.level === 0 || loggedInUser.role?.level === 1) && loggedInUser.tenant_id !== null && loggedInUser.tenant_id !== undefined;
+
+    if (isSystemAdmin) {
+      router.push('/superadmin');
+    } else if (isTenantAdmin) {
+      router.push('/admin/dashboard');
+    } else {
+      router.push('/chat');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,20 +64,33 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const loggedInUser = await login(username, password);
+      const result = await login(username, password);
       
-      const isSystemAdmin = loggedInUser.role?.level === 0 && (loggedInUser.tenant_id === null || loggedInUser.tenant_id === undefined);
-      const isTenantAdmin = (loggedInUser.role?.level === 0 || loggedInUser.role?.level === 1) && loggedInUser.tenant_id !== null && loggedInUser.tenant_id !== undefined;
-
-      if (isSystemAdmin) {
-        router.push('/superadmin');
-      } else if (isTenantAdmin) {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/chat');
+      if (result && result.require_tenant_selection) {
+        setTempToken(result.temp_token);
+        setTenants(result.tenants);
+        setRequireSelection(true);
+        return;
+      }
+      
+      if (result) {
+        handleRedirect(result);
       }
     } catch (err: any) {
       setError(err.message || 'Đăng nhập thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectTenant = async (tenantId: number | null) => {
+    setError('');
+    setLoading(true);
+    try {
+      const loggedInUser = await selectTenant(tempToken, tenantId);
+      handleRedirect(loggedInUser);
+    } catch (err: any) {
+      setError(err.message || 'Lựa chọn Workspace thất bại');
     } finally {
       setLoading(false);
     }
@@ -130,75 +159,136 @@ export default function LoginPage() {
             )}
           </AnimatePresence>
 
-          {/* Form */}
-          <motion.form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Tên đăng nhập
-              </label>
-              <motion.div
-                className="relative"
-                whileFocus={{ scale: 1.01 }}
+          {/* Dynamic forms / Selector */}
+          <AnimatePresence mode="wait">
+            {!requireSelection ? (
+              <motion.form
+                key="login-form"
+                onSubmit={handleSubmit}
+                className="space-y-5"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
               >
-                <User className="absolute left-3 top-3 text-slate-400" size={20} />
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
-                  placeholder="Nhập tên đăng nhập"
-                  required
-                />
-              </motion.div>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Mật khẩu
-              </label>
-              <motion.div className="relative">
-                <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
-                  placeholder="Nhập mật khẩu"
-                  required
-                />
-              </motion.div>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <motion.button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
-                whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(59,130,246,0.35)' }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <motion.span
-                      className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                <motion.div variants={itemVariants}>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Tên đăng nhập hoặc Email
+                  </label>
+                  <motion.div
+                    className="relative"
+                    whileFocus={{ scale: 1.01 }}
+                  >
+                    <User className="absolute left-3 top-3 text-slate-400" size={20} />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
+                      placeholder="Nhập tên đăng nhập hoặc email"
+                      required
                     />
-                    Đang đăng nhập...
-                  </span>
-                ) : (
-                  'Đăng nhập'
-                )}
-              </motion.button>
-            </motion.div>
-          </motion.form>
+                  </motion.div>
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Mật khẩu
+                  </label>
+                  <motion.div className="relative">
+                    <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-800/60 border border-slate-600/50 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all outline-none"
+                      placeholder="Nhập mật khẩu"
+                      required
+                    />
+                  </motion.div>
+                </motion.div>
+
+                <motion.div variants={itemVariants}>
+                  <motion.button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-2.5 rounded-xl font-medium shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                    whileHover={{ scale: 1.02, boxShadow: '0 10px 30px rgba(59,130,246,0.35)' }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <motion.span
+                          className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        />
+                        Đang đăng nhập...
+                      </span>
+                    ) : (
+                      'Đăng nhập'
+                    )}
+                  </motion.button>
+                </motion.div>
+              </motion.form>
+            ) : (
+              <motion.div
+                key="workspace-selector"
+                className="space-y-5"
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="text-center mb-4">
+                  <h2 className="text-lg font-medium text-slate-200">Chọn Workspace làm việc</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Tài khoản của bạn được liên kết với nhiều Workspace. Vui lòng chọn một để tiếp tục:
+                  </p>
+                </div>
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  {tenants.map((t, idx) => (
+                    <motion.button
+                      key={t.tenant_id ?? `personal-${idx}`}
+                      onClick={() => handleSelectTenant(t.tenant_id)}
+                      disabled={loading}
+                      className="w-full text-left p-4 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/30 hover:border-blue-500/50 rounded-xl transition-all duration-300 flex flex-col group disabled:opacity-50"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <span className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+                        {t.company_name}
+                      </span>
+                      <span className="text-xs text-slate-400 mt-1.5 flex justify-between w-full">
+                        <span>Tài khoản: <strong className="text-slate-300">{t.username}</strong></span>
+                        {t.tenant_id ? (
+                          <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-[10px] font-medium border border-blue-500/30">Doanh nghiệp</span>
+                        ) : (
+                          <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-medium border border-emerald-500/30">Cá nhân</span>
+                        )}
+                      </span>
+                    </motion.button>
+                  ))}
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    onClick={() => {
+                      setRequireSelection(false);
+                      setTenants([]);
+                      setTempToken('');
+                    }}
+                    disabled={loading}
+                    className="text-sm text-slate-400 hover:text-white transition-colors duration-300 py-2 border-b border-transparent hover:border-white/20"
+                  >
+                    Quay lại màn hình đăng nhập
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>

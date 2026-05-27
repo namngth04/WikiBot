@@ -169,9 +169,18 @@ def list_faqs(
     limit: int = 100,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     query = db.query(FAQ)
+    
+    # Phân quyền cách ly Multi-tenancy cho FAQ
+    if current_admin.tenant_id is not None:
+        # Admin doanh nghiệp: chỉ xem FAQ của doanh nghiệp mình hoặc FAQ toàn cầu (None)
+        query = query.filter((FAQ.tenant_id == current_admin.tenant_id) | (FAQ.tenant_id.is_(None)))
+    else:
+        # Superadmin xem toàn bộ
+        pass
+        
     if search:
         search_term = f"%{search}%"
         query = query.filter(
@@ -184,9 +193,12 @@ def list_faqs(
 def create_faq(
     faq_data: FAQCreate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     new_faq = FAQ(**faq_data.dict())
+    # Tự động gán tenant_id theo doanh nghiệp của quản trị viên tạo
+    new_faq.tenant_id = current_admin.tenant_id
+    
     db.add(new_faq)
     db.commit()
     db.refresh(new_faq)
@@ -197,11 +209,18 @@ def update_faq(
     faq_id: int,
     faq_data: FAQUpdate,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
     if not faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
+        
+    # Kiểm tra quyền sửa Multi-tenancy
+    if current_admin.tenant_id is not None and faq.tenant_id != current_admin.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền chỉnh sửa câu hỏi FAQ thuộc doanh nghiệp khác."
+        )
     
     for key, value in faq_data.dict(exclude_unset=True).items():
         setattr(faq, key, value)
@@ -214,11 +233,18 @@ def update_faq(
 def delete_faq(
     faq_id: int,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
     if not faq:
         raise HTTPException(status_code=404, detail="FAQ not found")
+        
+    # Kiểm tra quyền xóa Multi-tenancy
+    if current_admin.tenant_id is not None and faq.tenant_id != current_admin.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xóa câu hỏi FAQ thuộc doanh nghiệp khác."
+        )
     
     db.delete(faq)
     db.commit()
@@ -229,7 +255,7 @@ def get_suggested_faqs(
     limit: int = 10,
     force_refresh: bool = False,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     global _suggested_faqs_cache
     current_time = datetime.utcnow().timestamp()
@@ -286,7 +312,7 @@ def get_suggested_faqs(
 def refresh_suggested_faqs(
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     """Force refresh suggested FAQs by calling AI clustering again"""
     return get_suggested_faqs(limit=limit, force_refresh=True, db=db, current_admin=current_admin)
@@ -295,14 +321,14 @@ def refresh_suggested_faqs(
 def generate_faq_draft(
     question: str,
     db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_admin)
+    current_admin: User = Depends(get_current_company_admin)
 ):
     response_generator = ResponseGenerator(db=db)
     # Use RAG to get context and generate a professional answer
     # This is a simplified version of the logic
     try:
         # Get context from documents
-        chunks = response_generator.hybrid_retriever.search(question, accessible_role_ids=[0], top_k=3)
+        chunks = response_generator.hybrid_retriever.search(question, accessible_role_ids=[0], top_k=3, db=db)
         if not chunks:
             return SuggestedFAQ(question=question, occurrence=1, suggested_answer="Không tìm thấy tài liệu liên quan để soạn câu trả lời.")
         
@@ -685,16 +711,9 @@ def delete_tenant(
     company_name = tenant_exists.company_name if tenant_exists else f"Doanh nghiệp #{tenant_id}"
     
     try:
-        # 1. Delete vectors in ChromaDB for this tenant
-        from app.services.document_processor import DocumentProcessor
-        processor = DocumentProcessor(db)
-        if processor.collection is not None:
-            try:
-                processor.collection.delete(where={"tenant_id": tenant_id})
-                from app.services.retriever import invalidate_bm25_cache
-                invalidate_bm25_cache()
-            except Exception as chroma_err:
-                print(f"Lỗi khi xóa vector ChromaDB cho tenant {tenant_id}: {chroma_err}")
+        # 1. Invalidate BM25 cache
+        from app.services.retriever import invalidate_bm25_cache
+        invalidate_bm25_cache()
                 
         # 2. Get all documents and delete physical files
         documents = db.query(Document).filter(Document.tenant_id == tenant_id).all()
@@ -709,7 +728,10 @@ def delete_tenant(
         tenant_users = db.query(User).filter(User.tenant_id == tenant_id).all()
         tenant_user_ids = [u.id for u in tenant_users]
         
-        # 4. Delete Messages of these users
+        # 4. Delete TenantAISettings first to remove foreign key references from updated_by to users
+        db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).delete(synchronize_session=False)
+        
+        # 5. Delete Messages of these users
         if tenant_user_ids:
             conv_ids = [c.id for c in db.query(Conversation).filter(Conversation.user_id.in_(tenant_user_ids)).all()]
             if conv_ids:
@@ -719,8 +741,12 @@ def delete_tenant(
             db.query(Document).filter(Document.tenant_id == tenant_id).delete(synchronize_session=False)
             db.query(User).filter(User.tenant_id == tenant_id).delete(synchronize_session=False)
             
-        # 5. Delete TenantAISettings
-        db.query(TenantAISettings).filter(TenantAISettings.tenant_id == tenant_id).delete(synchronize_session=False)
+            # 6. Delete Roles belonging to this tenant after users are deleted
+            from app.models.models import Role
+            db.query(Role).filter(Role.tenant_id == tenant_id).delete(synchronize_session=False)
+            
+        # 7. Delete FAQs belonging to this tenant
+        db.query(FAQ).filter(FAQ.tenant_id == tenant_id).delete(synchronize_session=False)
         
         db.commit()
         return {
@@ -776,16 +802,9 @@ def delete_personal_user(
         )
         
     try:
-        # 1. Delete vectors in ChromaDB for this user
-        from app.services.document_processor import DocumentProcessor
-        processor = DocumentProcessor(db)
-        if processor.collection is not None:
-            try:
-                processor.collection.delete(where={"uploaded_by": user_id})
-                from app.services.retriever import invalidate_bm25_cache
-                invalidate_bm25_cache()
-            except Exception as chroma_err:
-                print(f"Lỗi khi xóa vector ChromaDB cho user {user_id}: {chroma_err}")
+        # 1. Invalidate BM25 cache
+        from app.services.retriever import invalidate_bm25_cache
+        invalidate_bm25_cache()
                 
         # 2. Get all documents and delete physical files
         documents = db.query(Document).filter(Document.uploaded_by == user_id).all()
@@ -818,6 +837,67 @@ def delete_personal_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi xóa người dùng: {str(e)}"
         )
-
-
-
+@router.get("/feedback")
+def list_feedback_logs(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_company_admin)
+):
+    """List all assistant messages with negative ratings (Dislikes) and their context (Superadmin or Company Admin)"""
+    tenant_id = current_admin.tenant_id
+    
+    # Query negative rated messages (Dislikes)
+    query = db.query(Message).filter(Message.role == "assistant", Message.rating == -1)
+    
+    # Filter by tenant if company admin
+    if tenant_id is not None:
+        query = query.join(Conversation).join(User).filter(User.tenant_id == tenant_id)
+        
+    disliked_messages = query.order_by(Message.created_at.desc()).offset(skip).limit(limit).all()
+    
+    logs = []
+    for msg in disliked_messages:
+        # Find user's question immediately preceding this message
+        user_msg = db.query(Message).filter(
+            Message.conversation_id == msg.conversation_id,
+            Message.role == "user",
+            Message.created_at < msg.created_at
+        ).order_by(Message.created_at.desc()).first()
+        
+        user_question = user_msg.content if user_msg else "Không tìm thấy câu hỏi"
+        
+        # Get username of conversation owner
+        conversation = db.query(Conversation).filter(Conversation.id == msg.conversation_id).first()
+        username = conversation.user.username if conversation and conversation.user else "N/A"
+        
+        # Retrieve original document chunks used
+        chunks_info = []
+        if msg.used_chunks:
+            from app.models.models import DocumentChunk, Document
+            db_chunks = db.query(DocumentChunk, Document).join(
+                Document, DocumentChunk.document_id == Document.id
+            ).filter(DocumentChunk.id.in_(msg.used_chunks)).all()
+            
+            for chunk, doc in db_chunks:
+                chunks_info.append({
+                    "chunk_id": chunk.id,
+                    "document_id": doc.id,
+                    "source": doc.original_name,
+                    "content": chunk.content,
+                    "page_number": chunk.page_number
+                })
+                
+        logs.append({
+            "message_id": msg.id,
+            "conversation_id": msg.conversation_id,
+            "username": username,
+            "user_question": user_question,
+            "assistant_answer": msg.content,
+            "feedback_category": msg.feedback_category,
+            "feedback_text": msg.feedback_text,
+            "created_at": msg.created_at,
+            "used_chunks": chunks_info
+        })
+        
+    return logs

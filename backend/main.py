@@ -18,6 +18,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Bộ lọc giảm tải log thừa: Ẩn log truy cập của endpoint /health khi hoạt động bình thường (status 200)
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Nếu không phải log liên quan đến /health thì cho qua bình thường
+        if "/health" not in record.getMessage():
+            return True
+            
+        # Nếu là log /health, kiểm tra status code
+        # Định dạng record.args của uvicorn.access thường là: (host, port, method, path, http_version, status_code)
+        if record.args and len(record.args) >= 5:
+            status_code = record.args[4]
+            if status_code == 200:
+                return False  # Status 200 (OK) -> Ẩn log này đi ("ăn log")
+        else:
+            # Phòng trường hợp cấu trúc args thay đổi, kiểm tra qua chuỗi message
+            if " 200 " in record.getMessage() or record.getMessage().endswith(" 200"):
+                return False  # Status 200 -> Ẩn log
+                
+        return True  # Các trường hợp lỗi (500, 400...) hoặc bất thường -> Giữ lại log để hiển thị
+
+# Áp dụng bộ lọc cho uvicorn logger
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
@@ -27,7 +51,6 @@ async def lifespan(app: FastAPI):
     # Create data directory
     settings = get_settings()
     os.makedirs(settings.data_dir, exist_ok=True)
-    os.makedirs(settings.chroma_db_path, exist_ok=True)
     
     # Create database tables
     Base.metadata.create_all(bind=engine)
@@ -79,7 +102,25 @@ def root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    health_status = {"status": "healthy", "postgres": "up"}
+    
+    # 1. Kiểm tra kết nối Postgres
+    try:
+        from sqlalchemy import text
+        from app.core.database import SessionLocal
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        logger.error(f"Database healthcheck failed: {e}")
+        health_status["postgres"] = "down"
+        health_status["status"] = "unhealthy"
+
+    if health_status["status"] == "unhealthy":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content=health_status)
+        
+    return health_status
 
 
 if __name__ == "__main__":

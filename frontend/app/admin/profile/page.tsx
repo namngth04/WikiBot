@@ -96,8 +96,8 @@ export default function ProfilePage() {
       {/* Header & Status Messages */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-be-vietnam font-bold text-slate-900">Hồ sơ cá nhân</h1>
-          <p className="text-slate-500 font-medium">Quản lý thông tin tài khoản và bảo mật</p>
+          <h1 className="text-3xl font-be-vietnam font-bold text-ink">Hồ sơ cá nhân</h1>
+          <p className="text-ink-subtle font-medium">Quản lý thông tin tài khoản và bảo mật</p>
         </div>
         
         <div className="flex flex-col gap-2 min-w-[300px]">
@@ -105,7 +105,7 @@ export default function ProfilePage() {
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+              className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/25 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
             >
               <CheckCircle2 size={16} />
               {success}
@@ -115,7 +115,7 @@ export default function ProfilePage() {
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+              className="bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border border-rose-200/25 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
             >
               <AlertCircle size={16} />
               {error}
@@ -127,51 +127,51 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Avatar & Quick Info */}
         <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-soft text-center relative overflow-hidden group">
+          <div className="bg-surface-1 rounded-[2.5rem] p-8 border border-hairline shadow-sm text-center relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-primary-600 to-violet-600 opacity-10 group-hover:opacity-20 transition-opacity" />
             
             <div className="relative z-10">
               <div className="relative inline-block mb-6">
-                <div className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center mx-auto ring-4 ring-primary-50">
-                  <User size={64} className="text-slate-300" />
+                <div className="w-32 h-32 rounded-full bg-surface-2 border-4 border-surface-1 shadow-lg overflow-hidden flex items-center justify-center mx-auto ring-4 ring-primary-50/20">
+                  <User size={64} className="text-ink-subtle" />
                 </div>
-                <button className="absolute bottom-0 right-0 p-2.5 bg-white rounded-full shadow-md text-primary-600 hover:text-primary-700 hover:scale-110 transition-all border border-slate-100">
+                <button className="absolute bottom-0 right-0 p-2.5 bg-surface-2 rounded-full shadow-md text-ink hover:scale-110 transition-all border border-hairline">
                   <Camera size={18} />
                 </button>
               </div>
               
-              <h2 className="text-2xl font-be-vietnam font-bold text-slate-900 mb-1">{user?.full_name || user?.username}</h2>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">{user?.role?.name === 'Admin' ? 'Quản trị viên' : 'Người dùng'}</p>
+              <h2 className="text-2xl font-be-vietnam font-bold text-ink mb-1">{user?.full_name || user?.username}</h2>
+              <p className="text-ink-subtle font-bold text-xs uppercase tracking-widest mb-4">{user?.role?.name === 'Admin' ? 'Quản trị viên' : 'Người dùng'}</p>
               
               <div className="flex flex-wrap justify-center gap-2">
-                <span className="px-3 py-1 bg-primary-50 text-primary-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-primary-100">
+                <span className="px-3 py-1 bg-primary-50 dark:bg-primary-950/20 text-primary-600 dark:text-primary-400 text-[10px] font-bold rounded-full uppercase tracking-wider border border-primary-200/20">
                   Active
                 </span>
-                <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[10px] font-bold rounded-full uppercase tracking-wider border border-slate-100">
+                <span className="px-3 py-1 bg-surface-2 text-ink-muted text-[10px] font-bold rounded-full uppercase tracking-wider border border-hairline">
                   ID: {user?.id}
                 </span>
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-50 text-left space-y-4">
-              <div className="flex items-center gap-3 text-slate-600">
-                <Mail size={16} className="text-slate-400" />
+            <div className="mt-8 pt-8 border-t border-hairline text-left space-y-4">
+              <div className="flex items-center gap-3 text-ink-muted">
+                <Mail size={16} className="text-ink-subtle" />
                 <span className="text-sm font-medium truncate">{user?.email || 'Chưa cập nhật'}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
-            <ShieldCheck className="absolute -right-8 -bottom-8 w-48 h-48 text-white/5" />
+          <div className="bg-surface-1 border border-hairline rounded-[2.5rem] p-8 text-ink relative overflow-hidden shadow-sm">
+            <ShieldCheck className="absolute -right-8 -bottom-8 w-48 h-48 text-ink/5" />
             <h3 className="text-lg font-be-vietnam font-bold mb-4 flex items-center gap-2">
-              <Lock size={20} className="text-primary-400" />
+              <Lock size={20} className="text-brand-lavender" />
               Bảo mật tài khoản
             </h3>
-            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+            <p className="text-ink-subtle text-sm mb-6 leading-relaxed">
               Mật khẩu của bạn được mã hóa an toàn. Chúng tôi khuyên bạn nên đổi mật khẩu định kỳ 3 tháng một lần.
             </p>
-            <div className="flex items-center gap-2 text-xs font-bold text-primary-400">
-              <div className="w-2 h-2 rounded-full bg-primary-400 animate-pulse" />
+            <div className="flex items-center gap-2 text-xs font-bold text-brand-lavender">
+              <div className="w-2 h-2 rounded-full bg-brand-lavender animate-pulse" />
               Hệ thống đã được bảo vệ
             </div>
           </div>
@@ -180,63 +180,63 @@ export default function ProfilePage() {
         {/* Right Column: Forms */}
         <motion.div variants={itemVariants} className="lg:col-span-2 space-y-8">
           {/* Update Profile Form */}
-          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-soft">
-            <h3 className="text-xl font-be-vietnam font-bold text-slate-900 mb-8 flex items-center gap-3">
-              <User className="text-primary-600" size={24} />
+          <div className="bg-surface-1 rounded-[2.5rem] p-10 border border-hairline shadow-sm">
+            <h3 className="text-xl font-be-vietnam font-bold text-ink mb-8 flex items-center gap-3">
+              <User className="text-brand-lavender" size={24} />
               Cập nhật thông tin
             </h3>
             
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Tên đăng nhập</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Tên đăng nhập</label>
                   <div className="relative">
-                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="text" 
                       value={profileForm.username} 
                       onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                       required 
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Họ tên</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Họ tên</label>
                   <div className="relative">
-                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="text" 
                       value={profileForm.full_name} 
                       onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Email</label>
                   <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="email" 
                       value={profileForm.email} 
                       onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Số điện thoại</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Số điện thoại</label>
                   <div className="relative">
-                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="text" 
                       value={profileForm.phone} 
                       onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                     />
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default function ProfilePage() {
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="bg-primary-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                  className="btn-primary bg-brand-lavender hover:bg-brand-lavender-hover shadow-lg shadow-brand-lavender/20 flex items-center gap-2 disabled:opacity-50 px-8 py-4 rounded-2xl font-bold"
                 >
                   <Save size={20} />
                   {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -257,8 +257,8 @@ export default function ProfilePage() {
           </div>
 
           {/* Change Password Form */}
-          <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-soft">
-            <h3 className="text-xl font-be-vietnam font-bold text-slate-900 mb-8 flex items-center gap-3">
+          <div className="bg-surface-1 rounded-[2.5rem] p-10 border border-hairline shadow-sm">
+            <h3 className="text-xl font-be-vietnam font-bold text-ink mb-8 flex items-center gap-3">
               <Lock className="text-amber-500" size={24} />
               Đổi mật khẩu
             </h3>
@@ -266,14 +266,14 @@ export default function ProfilePage() {
             <form onSubmit={handleChangePassword} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Mật khẩu mới</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Mật khẩu mới</label>
                   <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="password" 
                       value={profileForm.new_password} 
                       onChange={(e) => setProfileForm({ ...profileForm, new_password: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                       required 
                       minLength={6} 
                     />
@@ -281,14 +281,14 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Xác nhận mật khẩu mới</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest ml-1">Xác nhận mật khẩu mới</label>
                   <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
                     <input 
                       type="password" 
                       value={profileForm.confirm_password} 
                       onChange={(e) => setProfileForm({ ...profileForm, confirm_password: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700" 
+                      className="linear-input bg-surface-2 w-full pl-12 font-medium" 
                       required 
                     />
                   </div>
@@ -299,7 +299,7 @@ export default function ProfilePage() {
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                  className="btn-secondary px-8 py-4 rounded-2xl font-bold flex items-center gap-2 disabled:opacity-50"
                 >
                   <ShieldCheck size={20} />
                   {loading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}

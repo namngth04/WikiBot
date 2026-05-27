@@ -31,6 +31,12 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [inputMessage, setInputMessage] = useState('');
   const [quota, setQuota] = useState<any>(null);
+  
+  // Feedback states
+  const [feedbackMessageId, setFeedbackMessageId] = useState<number | null>(null);
+  const [feedbackCategory, setFeedbackCategory] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   const fetchQuota = async () => {
     try {
@@ -97,16 +103,22 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   }, [user, messages]);
 
   useEffect(() => {
-    // Handle suggested questions from MessageList
-    const handleSuggestedQuestion = (e: CustomEvent) => {
-      setInputMessage(e.detail);
+    // Handle suggested questions from MessageList and MessageItem
+    const handleSuggestedQuestion = async (e: CustomEvent) => {
+      const question = e.detail;
+      setInputMessage('');
+      try {
+        await sendMessage(question);
+      } catch (error) {
+        console.error('Failed to send suggested question:', error);
+      }
     };
 
     window.addEventListener('suggestedQuestion', handleSuggestedQuestion as EventListener);
     return () => {
       window.removeEventListener('suggestedQuestion', handleSuggestedQuestion as EventListener);
     };
-  }, []);
+  }, [sendMessage]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,6 +215,30 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       alert('Không thể xuất cuộc hội thoại. Vui lòng thử lại sau.');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleRateMessage = (messageId: number, rating: number) => {
+    if (rating === -1) {
+      setFeedbackMessageId(messageId);
+      setFeedbackCategory('');
+      setFeedbackText('');
+      setShowFeedbackModal(true);
+    } else {
+      rateMessage(messageId, rating);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackMessageId === null) return;
+    try {
+      await rateMessage(feedbackMessageId, -1, feedbackText, feedbackCategory);
+      setShowFeedbackModal(false);
+      setFeedbackMessageId(null);
+      setFeedbackCategory('');
+      setFeedbackText('');
+    } catch (err) {
+      console.error('Failed to submit feedback text:', err);
     }
   };
 
@@ -638,7 +674,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               loading={loading}
               showSources={showSources}
               onRetryMessage={retryMessage}
-              onRateMessage={rateMessage}
+              onRateMessage={handleRateMessage}
               onSetFeedback={setFeedback}
               messagesEndRef={messagesEndRef}
               ratingMessageId={ratingMessageId}
@@ -713,6 +749,117 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 >
                   Xem lại lịch sử chat
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium Feedback Modal */}
+      <AnimatePresence>
+        {showFeedbackModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-slate-900/90 text-white rounded-3xl p-6 border border-white/10 shadow-2xl max-w-md w-full relative overflow-hidden backdrop-blur-xl"
+            >
+              {/* Radial gradient background decoration */}
+              <div className="absolute -right-20 -top-20 w-44 h-44 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -left-20 -bottom-20 w-44 h-44 bg-brand-lavender/10 rounded-full blur-3xl pointer-events-none" />
+
+              <button
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackMessageId(null);
+                  setFeedbackCategory('');
+                }}
+                className="absolute right-4 top-4 p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-full transition-all"
+              >
+                <X size={16} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-rose-500/20 border border-rose-500/30 rounded-xl flex items-center justify-center text-rose-400 shrink-0">
+                  <ThumbsDown size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-be-vietnam font-bold text-white">Góp ý câu trả lời lỗi</h3>
+                  <p className="text-xs text-slate-400">Giúp chúng tôi cải thiện chất lượng tri thức hệ thống</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Error Classification / Category */}
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-2">1. Phân loại lỗi (Bắt buộc)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      "Thông tin sai lệch",
+                      "Thiếu thông tin quan trọng",
+                      "Nguồn trích dẫn sai",
+                      "Dịch thuật / Từ ngữ",
+                      "Lặp lại / Lan man",
+                      "Lý do khác"
+                    ].map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setFeedbackCategory(cat)}
+                        className={cn(
+                          "text-left text-[11px] px-3 py-2 border rounded-xl transition-all duration-150 active:scale-95 flex items-center justify-between",
+                          feedbackCategory === cat
+                            ? "bg-brand-lavender/20 border-brand-lavender text-brand-lavender font-semibold"
+                            : "bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10"
+                        )}
+                      >
+                        <span>{cat}</span>
+                        {feedbackCategory === cat && <Check size={12} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Description Textarea */}
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">2. Mô tả chi tiết lỗi</label>
+                  <textarea
+                    rows={4}
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="Nhập chi tiết lỗi (ví dụ: thông tin bị sai ở dòng nào, hoặc câu trả lời đúng nên là gì...)"
+                    className="w-full bg-slate-950/50 border border-white/10 hover:border-white/20 focus:border-brand-lavender rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-brand-lavender/30 placeholder-slate-500 transition-all resize-none custom-scrollbar"
+                  />
+                </div>
+
+                <div className="flex gap-2.5 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFeedbackModal(false);
+                      setFeedbackMessageId(null);
+                      setFeedbackCategory('');
+                    }}
+                    className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-all duration-150 text-center"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!feedbackCategory}
+                    onClick={handleSubmitFeedback}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-[0.98] text-center",
+                      feedbackCategory 
+                        ? "bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-500/90 hover:to-rose-600/90 text-white shadow-lg shadow-rose-500/10 cursor-pointer"
+                        : "bg-slate-800 text-slate-500 border border-slate-700/50 cursor-not-allowed"
+                    )}
+                  >
+                    Gửi góp ý
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

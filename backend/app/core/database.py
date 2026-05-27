@@ -34,6 +34,13 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE messages ADD COLUMN feedback_category VARCHAR(100)"))
+        conn.commit()
+except Exception:
+    pass
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Define database naming conventions for SQLAlchemy constraints to support SQLite batch mode migrations

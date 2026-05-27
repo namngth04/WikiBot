@@ -166,6 +166,22 @@ export default function SuperadminPage() {
       // Fetch tenants list
       const tenantsRes = await api.get('/admin/tenants');
       setTenants(tenantsRes.data);
+
+      // Fetch AI configs for dashboard widget
+      try {
+        const [configsRes, safetyRes] = await Promise.all([
+          api.get('/admin/ai-config'),
+          api.get('/admin/ai-config/safety')
+        ]);
+        setAiConfigs(configsRes.data);
+        setSafetyConfig(safetyRes.data);
+        setEditingSafety(safetyRes.data);
+        const initialEditing: Record<string, Partial<AIProviderConfigData>> = {};
+        configsRes.data.forEach((c: AIProviderConfigData) => { initialEditing[c.ai_type] = {...c}; });
+        setEditingConfigs(initialEditing);
+      } catch (aiErr) {
+        console.error('Error fetching AI configurations on load:', aiErr);
+      }
     } catch (err) {
       console.error('Error fetching admin data:', err);
     } finally {
@@ -664,6 +680,149 @@ export default function SuperadminPage() {
                 <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/20">
                   <span className="text-[10px] font-bold text-[#8a8f98] uppercase block mb-1">Tỷ lệ hài lòng</span>
                   <span className="text-xl font-bold text-white">{stats?.satisfaction_rate ?? 0}%</span>
+                </div>
+              </div>
+
+              {/* Active AI Models Map */}
+              <div className="p-6 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#23252a]/60 pb-4 mb-5">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Sparkles size={16} className="text-[#5e6ad2]" /> Bản Đồ Phân Phối Mô Hình AI (Active AI Engine Map)
+                    </h3>
+                    <p className="text-[11px] text-[#8a8f98] mt-0.5">Giám sát các mô hình AI đang được sử dụng thực tế cho các tác vụ trong hệ thống</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Chat AI Card */}
+                  {(() => {
+                    const chatConfig = aiConfigs.find(c => c.ai_type === 'chat');
+                    return (
+                      <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">🗣️ Chat AI / RAG</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#5e6ad2] group-hover:text-white transition-colors">ACTIVE</span>
+                        </div>
+                        {loadingStats || aiConfigs.length === 0 ? (
+                          <div className="space-y-2 py-2">
+                            <div className="h-4 bg-[#1e2024] rounded w-3/4 animate-pulse" />
+                            <div className="h-3 bg-[#1e2024] rounded w-1/2 animate-pulse" />
+                          </div>
+                        ) : chatConfig ? (
+                          <div className="space-y-3">
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Provider</span>
+                              <span className="text-xs font-extrabold text-white capitalize">{chatConfig.provider}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Model Active</span>
+                              <code className="text-xs text-[#a5b4fc] font-mono break-all bg-[#010102]/60 px-1.5 py-0.5 rounded border border-[#23252a]">
+                                {chatConfig.api_model || chatConfig.local_model_path || 'N/A'}
+                              </code>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#23252a]/40 text-[10px]">
+                              <div>
+                                <span className="text-[#565860]">Temp:</span> <span className="text-white font-semibold">{chatConfig.default_temperature ?? 0.2}</span>
+                              </div>
+                              <div>
+                                <span className="text-[#565860]">Max Tokens:</span> <span className="text-white font-semibold">{chatConfig.default_max_tokens ?? 512}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#8a8f98] italic">Chưa được cấu hình</span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Embedding AI Card */}
+                  {(() => {
+                    const embedConfig = aiConfigs.find(c => c.ai_type === 'embedding');
+                    return (
+                      <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">📐 Embedding Vector</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:text-white transition-colors">ACTIVE</span>
+                        </div>
+                        {loadingStats || aiConfigs.length === 0 ? (
+                          <div className="space-y-2 py-2">
+                            <div className="h-4 bg-[#1e2024] rounded w-3/4 animate-pulse" />
+                            <div className="h-3 bg-[#1e2024] rounded w-1/2 animate-pulse" />
+                          </div>
+                        ) : embedConfig ? (
+                          <div className="space-y-3">
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Provider</span>
+                              <span className="text-xs font-extrabold text-white capitalize">{embedConfig.provider}</span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Model Active</span>
+                              <code className="text-xs text-[#a5b4fc] font-mono break-all bg-[#010102]/60 px-1.5 py-0.5 rounded border border-[#23252a]">
+                                {embedConfig.provider === 'local' 
+                                  ? (embedConfig.embedding_model_name || 'paraphrase-multilingual-MiniLM-L12-v2')
+                                  : (embedConfig.api_model || 'text-embedding-3-small')}
+                              </code>
+                            </div>
+                            <div className="pt-1 border-t border-[#23252a]/40 text-[10px]">
+                              <span className="text-[#565860]">Dùng cho:</span> <span className="text-white font-semibold">Tách và số hóa tài liệu RAG</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#8a8f98] italic">Chưa được cấu hình</span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* FAQ AI Card */}
+                  {(() => {
+                    const faqConfig = aiConfigs.find(c => c.ai_type === 'faq');
+                    const chatConfig = aiConfigs.find(c => c.ai_type === 'chat');
+                    const isFaqWithRag = faqConfig ? (faqConfig.use_rag_provider ?? true) : true;
+                    return (
+                      <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">❓ FAQ Classification</span>
+                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 group-hover:text-white transition-colors">ACTIVE</span>
+                        </div>
+                        {loadingStats || aiConfigs.length === 0 ? (
+                          <div className="space-y-2 py-2">
+                            <div className="h-4 bg-[#1e2024] rounded w-3/4 animate-pulse" />
+                            <div className="h-3 bg-[#1e2024] rounded w-1/2 animate-pulse" />
+                          </div>
+                        ) : faqConfig ? (
+                          <div className="space-y-3">
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Chế độ hoạt động</span>
+                              <span className="text-xs font-extrabold text-white">
+                                {isFaqWithRag ? 'Dùng chung với Chat AI (RAG)' : `Độc lập - ${faqConfig.provider}`}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-[#565860] block">Model Active</span>
+                              <code className="text-xs text-[#a5b4fc] font-mono break-all bg-[#010102]/60 px-1.5 py-0.5 rounded border border-[#23252a]">
+                                {isFaqWithRag 
+                                  ? (chatConfig?.api_model || chatConfig?.local_model_path || 'N/A')
+                                  : (faqConfig.api_model || 'N/A')}
+                              </code>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#23252a]/40 text-[10px]">
+                              <div>
+                                <span className="text-[#565860]">Temp:</span> <span className="text-white font-semibold">{isFaqWithRag ? (chatConfig?.default_temperature ?? 0.2) : (faqConfig.default_temperature ?? 0.2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[#565860]">Auto-FAQ:</span> <span className="text-white font-semibold">Enabled</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#8a8f98] italic">Chưa được cấu hình</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </motion.div>

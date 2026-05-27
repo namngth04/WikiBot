@@ -61,29 +61,100 @@ def get_current_company_admin(current_user: User = Depends(get_current_user)) ->
 
 
 
-@router.post("/login", response_model=TokenResponse)
+from pydantic import BaseModel
+import datetime
+
+class SelectTenantRequest(BaseModel):
+    temp_token: str
+    tenant_id: Optional[int] = None
+
+@router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Tìm kiếm tài khoản theo username hoặc email
+    users = db.query(User).filter(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ).all()
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # Lọc ra danh sách tài khoản khớp mật khẩu và đang hoạt động
+    valid_users = [u for u in users if verify_password(form_data.password, u.hashed_password) and u.is_active]
+    
+    if not valid_users:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Tên đăng nhập hoặc mật khẩu không đúng",
+            detail="Tên đăng nhập, email hoặc mật khẩu không đúng",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tài khoản đã bị vô hiệu hóa"
+    # Nếu có nhiều Workspace kết nối với email này
+    if len(valid_users) > 1:
+        # Tạo temp_token chứa danh sách user_id hợp lệ
+        temp_token = create_access_token(
+            data={"temp_user_ids": [u.id for u in valid_users]},
+            expires_delta=datetime.timedelta(minutes=10)
         )
+        
+        # Lấy danh sách Workspace
+        tenants_list = []
+        for u in valid_users:
+            if u.tenant_id is None:
+                company_name = "Cá nhân (Tài liệu riêng)"
+            else:
+                tenant_settings = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == u.tenant_id).first()
+                company_name = tenant_settings.company_name if tenant_settings and tenant_settings.company_name else f"Công ty #{u.tenant_id}"
+            
+            tenants_list.append({
+                "tenant_id": u.tenant_id,
+                "company_name": company_name,
+                "username": u.username
+            })
+            
+        return {
+            "require_tenant_selection": True,
+            "temp_token": temp_token,
+            "tenants": tenants_list
+        }
     
+    # Đăng nhập trực tiếp nếu chỉ có 1 Workspace
+    user = valid_users[0]
     access_token = create_access_token(data={"sub": str(user.id)})
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user
+        "user": UserResponse.from_orm(user)
+    }
+
+
+@router.post("/login/select-tenant")
+def select_tenant(request_data: SelectTenantRequest, db: Session = Depends(get_db)):
+    payload = decode_token(request_data.temp_token)
+    if payload is None or "temp_user_ids" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mã xác thực tạm thời không hợp lệ hoặc đã hết hạn"
+        )
+        
+    temp_user_ids = payload["temp_user_ids"]
+    
+    # Tìm user có id trong temp_user_ids và khớp với tenant_id được chọn
+    user = db.query(User).filter(
+        User.id.in_(temp_user_ids),
+        User.tenant_id == request_data.tenant_id,
+        User.is_active == True
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lựa chọn Workspace không hợp lệ hoặc tài khoản đã bị khóa"
+        )
+        
+    access_token = create_access_token(data={"sub": str(user.id)})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(user)
     }
 
 
@@ -102,16 +173,7 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
             detail="Tên đăng nhập đã tồn tại trên hệ thống"
         )
     
-    # 2. Kiểm tra email nếu được cung cấp
-    if user_data.email:
-        existing_email = db.query(User).filter(User.email == user_data.email).first()
-        if existing_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email này đã được sử dụng đăng ký tài khoản khác"
-            )
-
-    # 3. Phân luồng đăng ký SaaS tự phục vụ
+    # 2. Phân luồng đăng ký SaaS tự phục vụ để xác định tenant_id trước
     role_id = None  # Mặc định cá nhân không cần chức vụ ở bảng roles
     user_type = "personal"
     subscription_tier = "free"
@@ -127,8 +189,8 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
         
         # Tự động tạo bộ chức vụ mặc định cho doanh nghiệp này
         admin_role = Role(
-            name="Trưởng phòng",
-            description="Trưởng phòng / Quản trị viên doanh nghiệp",
+            name="Admin",
+            description="Quản trị viên doanh nghiệp",
             level=1,
             tenant_id=tenant_id
         )
@@ -169,6 +231,19 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
         ).first()
         if emp_role:
             role_id = emp_role.id
+
+    # 3. Kiểm tra email nếu được cung cấp (chỉ cấm nếu email đã đăng ký cho cùng tenant_id)
+    if user_data.email:
+        existing_email = db.query(User).filter(
+            User.email == user_data.email,
+            User.tenant_id == tenant_id
+        ).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email này đã được sử dụng đăng ký tài khoản khác trong tổ chức này"
+            )
+        pass
  
     # Tạo User mới
     new_user = User(

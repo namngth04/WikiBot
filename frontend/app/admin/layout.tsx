@@ -53,6 +53,7 @@ export default function AdminLayout({
     { id: 'roles', name: 'Chức vụ', icon: Shield, path: '/admin/roles' },
     { id: 'documents', name: 'Tài liệu', icon: FileText, path: '/admin/documents' },
     { id: 'faqs', name: 'Hệ thống FAQ', icon: HelpCircle, path: '/admin/faqs' },
+    { id: 'feedback', name: 'Ý kiến phản hồi', icon: MessageSquare, path: '/admin/feedback' },
     { id: 'ai-config', name: 'Cấu hình AI', icon: Brain, path: '/admin/ai-config' },
   ];
 

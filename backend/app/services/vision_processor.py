@@ -37,12 +37,21 @@ class VisionProcessor:
             # Tesseract - need to install binary
             try:
                 import pytesseract
+                import shutil
                 self.pytesseract = pytesseract
-                tesseract_path = os.getenv('TESSERACT_PATH', r'C:\Program Files\Tesseract-OCR\tesseract.exe')
-                if os.path.exists(tesseract_path):
-                    self.pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                
+                # 1. Kiểm tra xem lệnh tesseract có sẵn trong hệ thống (PATH) không (Dành cho Linux/Docker)
+                tesseract_in_path = shutil.which("tesseract")
+                if tesseract_in_path:
+                    # Đã tìm thấy tesseract toàn cục, pytesseract tự động nhận dạng được
+                    pass
                 else:
-                    print(f"Warning: Tesseract not found at {tesseract_path}")
+                    # 2. Nếu không có toàn cục, thử tìm theo đường dẫn mặc định trên Windows
+                    tesseract_path = os.getenv('TESSERACT_PATH', r'C:\Program Files\Tesseract-OCR\tesseract.exe')
+                    if os.path.exists(tesseract_path):
+                        self.pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                    else:
+                        print(f"Warning: Tesseract not found globally in system PATH or at {tesseract_path}")
             except ImportError:
                 print("Warning: pytesseract library is not installed. Tesseract OCR will be disabled.")
                 self.pytesseract = None

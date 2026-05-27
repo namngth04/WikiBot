@@ -10,11 +10,15 @@ from alembic import context
 # 1. Thêm đường dẫn thư mục backend vào Python Path để Alembic có thể tìm thấy thư mục "app"
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 2. Import Base từ models để Alembic đọc được cấu trúc các bảng của dự án
+# 2. Import Base và db_url từ core database để Alembic đồng bộ động cấu hình
 from app.models.models import Base
+from app.core.database import db_url
 
 # Đây là đối tượng Config của Alembic đọc cấu hình từ alembic.ini
 config = context.config
+
+# Ghi đè URL cấu hình từ app config (luôn sử dụng DB PostgreSQL thực tế, không tạo SQLite)
+config.set_main_option("sqlalchemy.url", db_url)
 
 # Thiết lập hệ thống Logging (in ra các dòng nhật ký khi chạy lệnh)
 if config.config_file_name is not None:

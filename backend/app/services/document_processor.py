@@ -3,7 +3,6 @@ import re
 import time
 import logging
 from typing import List, Optional
-import chromadb
 from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.models import Document
@@ -25,16 +24,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Singleton pattern for embedding model
-_embedding_model = None
-
 def get_embedding_model(db_session=None):
     """Get embedding model from DB config or fallback to settings"""
-    global _embedding_model
-    if _embedding_model is None:
-        from app.services.llm_providers import get_embedding_provider
-        _embedding_model = get_embedding_provider(db_session)
-    return _embedding_model
+    from app.services.llm_providers import get_embedding_provider
+    return get_embedding_provider(db_session)
 
 
 class DocumentProcessor:
@@ -46,49 +39,13 @@ class DocumentProcessor:
         # Use cached embedding model (pass db_session for DB config lookup)
         self.embedding_model = get_embedding_model(db_session)
         
-        # Initialize ChromaDB
-        if settings.chroma_type == "http":
-            logger.info(f"Connecting to ChromaDB Server at {settings.chroma_host}:{settings.chroma_port}...")
-            # Retry loop for ChromaDB startup delay in docker env
-            max_retries = 5
-            retry_delay = 3
-            self.chroma_client = None
-            for attempt in range(1, max_retries + 1):
-                try:
-                    self.chroma_client = chromadb.HttpClient(host=settings.chroma_host, port=int(settings.chroma_port))
-                    # Test heartbeat to verify connection
-                    self.chroma_client.heartbeat()
-                    logger.info("Successfully connected to ChromaDB Server!")
-                    break
-                except Exception as e:
-                    if attempt == max_retries:
-                        logger.error(f"Failed to connect to ChromaDB Server after {max_retries} attempts: {e}")
-                        # Fallback warning, avoid crash
-                        self.chroma_client = None
-                    else:
-                        logger.warning(f"ChromaDB Server connection failed (attempt {attempt}/{max_retries}). Retrying in {retry_delay}s...")
-                        time.sleep(retry_delay)
-        else:
-            logger.info(f"Initializing Local Persistent ChromaDB at {settings.chroma_db_path}")
-            os.makedirs(settings.chroma_db_path, exist_ok=True)
-            self.chroma_client = chromadb.PersistentClient(path=settings.chroma_db_path)
-            
-        # Get or create collection
-        if self.chroma_client is not None:
-            self.collection = self.chroma_client.get_or_create_collection(
-                name="documents",
-                metadata={"hnsw:space": "cosine"}
-            )
-        else:
-            self.collection = None
-            logger.error("ChromaDB Client is not initialized. Collection operations will be disabled.")
-        
         # Initialize text splitter for LangChain
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap,
             separators=["\n\n", "\n", ". ", " ", ""]
         )
+
     
     def get_loader(self, file_path: str, file_type: str):
         """Get appropriate LangChain loader based on file type"""
@@ -447,11 +404,10 @@ class DocumentProcessor:
         return chunks
     
     async def process_document(self, document: Document, db: Session) -> int:
-        """Process document with LangChain + Unstructured"""
+        """Process document with LangChain + Unstructured and store chunks in PostgreSQL pgvector"""
         # Extract structured elements
         elements = self.extract_elements(document.file_path, document.file_type, document.id)
 
-        
         if not elements:
             raise ValueError("Không thể trích xuất nội dung từ tài liệu")
         
@@ -502,55 +458,18 @@ class DocumentProcessor:
             if not isinstance(embeddings, list):
                 embeddings = embeddings.tolist()
         
-        # Store in ChromaDB with enhanced metadata
-        documents_data = []
-        metadatas = []
-        ids = []
+        # Store in PostgreSQL using SQLAlchemy pgvector
+        from app.models.models import DocumentChunk
         
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            chunk_id = f"doc_{document.id}_chunk_{i}"
-            ids.append(chunk_id)
-            documents_data.append(chunk["content"])
-            
-            chroma_role_id = document.role_id if document.role_id is not None else 0
-            
-            # Build enhanced metadata
-            base_metadata = {
-                "source": document.original_name,
-                "document_id": document.id,
-                "chunk_index": i,
-                "role_id": chroma_role_id,
-                "file_type": document.file_type,
-                "element_type": chunk["metadata"].get("element_type", "narrative")
-            }
-            
-            # Add commercial & security metadata
-            base_metadata["privacy_mode"] = document.privacy_mode if (hasattr(document, 'privacy_mode') and document.privacy_mode is not None) else False
-            base_metadata["is_public_community"] = document.is_public_community if (hasattr(document, 'is_public_community') and document.is_public_community is not None) else False
-            base_metadata["tenant_id"] = document.tenant_id if (hasattr(document, 'tenant_id') and document.tenant_id is not None) else 0
-            base_metadata["uploaded_by"] = document.uploaded_by if (hasattr(document, 'uploaded_by') and document.uploaded_by is not None) else 0
-            
-            # Add optional metadata if available
-            if "page_number" in chunk["metadata"]:
-                base_metadata["page_number"] = chunk["metadata"]["page_number"]
-            if "image_path" in chunk["metadata"]:
-                base_metadata["has_image"] = True
-                base_metadata["image_path"] = chunk["metadata"]["image_path"]
-            
-            # Add embedding type metadata
-            if is_multimodal and chunk["type"] in ["table", "image"] and "image_path" in chunk["metadata"]:
-                base_metadata["embedding_type"] = "multimodal"
-            else:
-                base_metadata["embedding_type"] = "text"
-            
-            metadatas.append(base_metadata)
-        
-        self.collection.add(
-            documents=documents_data,
-            metadatas=metadatas,
-            ids=ids,
-            embeddings=embeddings
-        )
+            db_chunk = DocumentChunk(
+                document_id=document.id,
+                content=chunk["content"],
+                embedding=embedding,
+                page_number=chunk["metadata"].get("page_number"),
+                element_type=chunk["metadata"].get("element_type", "narrative")
+            )
+            db.add(db_chunk)
         
         # Update document metadata
         document.has_images = len(image_chunks) > 0
@@ -572,39 +491,17 @@ class DocumentProcessor:
         new_role_id: Optional[int], 
         old_role_id: Optional[int]
     ):
-        """Update role_id in ChromaDB metadata for all chunks of a document"""
-        # Find all chunks for this document
-        results = self.collection.get(
-            where={"document_id": document_id}
-        )
+        """No-op as metadata is stored in the documents table and resolved via joins in pgvector"""
+        from app.services.retriever import invalidate_bm25_cache
+        invalidate_bm25_cache()
         
-        if not results or not results['ids']:
-            return
-        
-        # Update metadata for each chunk
-        # Use 0 for public documents (role_id is None)
-        chroma_new_role_id = new_role_id if new_role_id is not None else 0
-        for i, chunk_id in enumerate(results['ids']):
-            metadata = results['metadatas'][i]
-            metadata['role_id'] = chroma_new_role_id
-            
-            self.collection.update(
-                ids=[chunk_id],
-                metadatas=[metadata]
-            )
-            
-        # Invalidate BM25 cache since metadata (role_id) changed
+    def update_document_community_share_in_vector_db(self, document_id: int, is_public: bool):
+        """No-op as metadata is stored in the documents table and resolved via joins in pgvector"""
         from app.services.retriever import invalidate_bm25_cache
         invalidate_bm25_cache()
     
     def delete_document_from_vector_db(self, document_id: int):
-        """Delete all chunks of a document from ChromaDB"""
-        # Find and delete all chunks for this document
-        self.collection.delete(
-            where={"document_id": document_id}
-        )
-        
-        # Invalidate BM25 cache since documents were deleted
+        """No-op because of CASCADE delete on the SQL table relationship"""
         from app.services.retriever import invalidate_bm25_cache
         invalidate_bm25_cache()
     
@@ -614,51 +511,12 @@ class DocumentProcessor:
         accessible_role_ids: List[Optional[int]], 
         top_k: int = 5,
         max_distance: float = 0.3,
-        receive_community: bool = False
+        receive_community: bool = False,
+        current_user_id: Optional[int] = None,
+        current_user_type: Optional[str] = "personal",
+        current_user_tenant_id: Optional[int] = None
     ) -> List[dict]:
-        """Search for similar chunks with RBAC filtering and optional community cross-tenant lookup"""
-        # Generate query embedding
-        raw_embedding = self.embedding_model.encode([query])
-        query_embedding = raw_embedding if isinstance(raw_embedding, list) else raw_embedding.tolist()
-        
-        # Build filter for RBAC
-        where_filter = None
-        clean_role_ids = [r if r is not None else 0 for r in accessible_role_ids] if accessible_role_ids else [0]
-        
-        if receive_community:
-            # Lọc: (role_id IN accessible_role_ids) OR (is_public_community == True)
-            conditions = []
-            conditions.append({"role_id": {"$in": clean_role_ids}})
-            conditions.append({"is_public_community": True})
-            where_filter = {"$or": conditions}
-        else:
-            if clean_role_ids:
-                where_filter = {
-                    "$and": [
-                        {"role_id": {"$in": clean_role_ids}},
-                        {"is_public_community": False}
-                    ]
-                }
-        
-        # Query ChromaDB
-        results = self.collection.query(
-            query_embeddings=query_embedding,
-            n_results=top_k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"]
-        )
-        
-        # Filter by distance and format results
-        similar_chunks = []
-        if results and results['ids'] and len(results['ids']) > 0:
-            for i in range(len(results['ids'][0])):
-                distance = results['distances'][0][i]
-                if distance <= max_distance:
-                    similar_chunks.append({
-                        "content": results['documents'][0][i],
-                        "metadata": results['metadatas'][0][i],
-                        "distance": distance
-                    })
-        
-        # Return top_k results
-        return similar_chunks[:top_k]
+        """Search is now handled directly by retriever.py using SQL pgvector. 
+        This is a legacy compatibility placeholder."""
+        logger.warning("search_similar in DocumentProcessor is deprecated. Use retriever.py instead.")
+        return []

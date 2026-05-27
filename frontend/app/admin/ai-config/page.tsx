@@ -279,16 +279,16 @@ export default function AdminAIConfigPage() {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <Brain className="text-violet-600 w-8 h-8" />
+          <h1 className="text-3xl font-bold text-ink flex items-center gap-3">
+            <Brain className="text-brand-lavender w-8 h-8" />
             Cấu hình AI Doanh nghiệp
           </h1>
-          <p className="text-slate-500">Cấu hình các tham số và mô hình AI mặc định dùng chung cho toàn bộ nhân viên trong công ty.</p>
+          <p className="text-ink-subtle">Cấu hình các tham số và mô hình AI mặc định dùng chung cho toàn bộ nhân viên trong công ty.</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm space-y-6">
-          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-4">
-            <Settings className="text-violet-600" />
+        <div className="bg-surface-1 rounded-2xl p-8 border border-hairline shadow-sm space-y-6">
+          <h2 className="text-xl font-semibold text-ink flex items-center gap-2 border-b border-hairline pb-4">
+            <Settings className="text-brand-lavender" />
             Tham số AI & Trợ lý RAG
           </h2>
 
@@ -296,8 +296,8 @@ export default function AdminAIConfigPage() {
             {/* Temperature */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-medium text-slate-600">Độ sáng tạo (Temperature)</label>
-                <span className="text-xs font-mono font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded">{tenantSettings.temperature}</span>
+                <label className="text-sm font-medium text-ink-muted">Độ sáng tạo (Temperature)</label>
+                <span className="text-xs font-mono font-bold text-brand-lavender bg-brand-lavender/10 border border-brand-lavender/25 px-2 py-0.5 rounded">{tenantSettings.temperature}</span>
               </div>
               <input 
                 type="range" 
@@ -306,18 +306,18 @@ export default function AdminAIConfigPage() {
                 step="0.1"
                 value={tenantSettings.temperature} 
                 onChange={(e) => setTenantSettings({ ...tenantSettings, temperature: parseFloat(e.target.value) })} 
-                className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-violet-600" 
+                className="w-full h-1.5 bg-surface-3 rounded-lg appearance-none cursor-pointer accent-brand-lavender" 
               />
-              <p className="text-xs text-slate-400">Giá trị càng thấp, câu trả lời RAG càng chính xác và nhất quán. Giá trị cao giúp bot đa dạng hóa câu trả lời.</p>
+              <p className="text-xs text-ink-subtle">Giá trị càng thấp, câu trả lời RAG càng chính xác và nhất quán. Giá trị cao giúp bot đa dạng hóa câu trả lời.</p>
             </div>
 
             {/* Max Tokens */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Độ dài câu trả lời mặc định (Max Tokens)</label>
+              <label className="text-sm font-medium text-ink-muted">Độ dài câu trả lời mặc định (Max Tokens)</label>
               <select
                 value={tenantSettings.preferred_max_tokens}
                 onChange={(e) => setTenantSettings({ ...tenantSettings, preferred_max_tokens: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500/10 outline-none"
+                className="linear-input bg-surface-2 w-full"
               >
                 <option value="256">Ngắn gọn (256 tokens)</option>
                 <option value="512">Trung bình (512 tokens)</option>
@@ -328,11 +328,11 @@ export default function AdminAIConfigPage() {
 
             {/* Response Style */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Phong cách phản hồi mặc định</label>
+              <label className="text-sm font-medium text-ink-muted">Phong cách phản hồi mặc định</label>
               <select
                 value={tenantSettings.response_style}
                 onChange={(e) => setTenantSettings({ ...tenantSettings, response_style: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-violet-500/10 outline-none"
+                className="linear-input bg-surface-2 w-full"
               >
                 <option value="concise">Tóm tắt ngắn gọn</option>
                 <option value="normal">Bình thường đầy đủ</option>
@@ -342,31 +342,31 @@ export default function AdminAIConfigPage() {
 
             {/* Show Sources */}
             <div className="space-y-2 flex flex-col justify-center">
-              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center justify-between p-3.5 bg-surface-2 border border-hairline rounded-xl">
                 <div>
-                  <span className="text-sm font-medium text-slate-700 block">Hiển thị nguồn trích dẫn</span>
-                  <span className="text-xs text-slate-400">Trích dẫn tài liệu nội bộ gốc dưới mỗi câu trả lời</span>
+                  <span className="text-sm font-medium text-ink block">Hiển thị nguồn trích dẫn</span>
+                  <span className="text-xs text-ink-subtle">Trích dẫn tài liệu nội bộ gốc dưới mỗi câu trả lời</span>
                 </div>
                 <input 
                   type="checkbox" 
                   checked={tenantSettings.show_sources} 
                   onChange={(e) => setTenantSettings({ ...tenantSettings, show_sources: e.target.checked })}
-                  className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500 cursor-pointer"
+                  className="w-4 h-4 rounded text-brand-lavender focus:ring-brand-lavender cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Ollama Endpoint */}
-            <div className="space-y-2 col-span-1 md:col-span-2 border-t border-slate-100 pt-4">
-              <label className="text-sm font-medium text-slate-600 block">Máy chủ Ollama Local của Công ty (Company Ollama Server)</label>
+            <div className="space-y-2 col-span-1 md:col-span-2 border-t border-hairline pt-4">
+              <label className="text-sm font-medium text-ink-muted block">Máy chủ Ollama Local của Công ty (Company Ollama Server)</label>
               <input 
                 type="text" 
                 value={tenantSettings.ollama_endpoint} 
                 onChange={(e) => setTenantSettings({ ...tenantSettings, ollama_endpoint: e.target.value })} 
-                className="w-full px-3 py-2 border rounded-lg font-mono focus:ring-2 focus:ring-violet-500/10 outline-none"
+                className="linear-input bg-surface-2 w-full font-mono"
                 placeholder="http://192.168.1.100:11434"
               />
-              <p className="text-xs text-slate-400">Cấu hình địa chỉ IP máy chủ Ollama chạy cục bộ trong mạng nội bộ của công ty để đảm bảo dữ liệu không rời khỏi hạ tầng doanh nghiệp.</p>
+              <p className="text-xs text-ink-subtle">Cấu hình địa chỉ IP máy chủ Ollama chạy cục bộ trong mạng nội bộ của công ty để đảm bảo dữ liệu không rời khỏi hạ tầng doanh nghiệp.</p>
             </div>
 
           </div>
@@ -375,7 +375,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={handleSaveTenantSettings}
               disabled={loading}
-              className="flex items-center gap-2 bg-violet-600 text-white px-6 py-2.5 rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-all font-bold shadow-md shadow-violet-500/10"
+              className="flex items-center gap-2 bg-brand-lavender text-white px-6 py-2.5 rounded-xl hover:bg-brand-lavender-hover disabled:opacity-50 transition-all font-bold shadow-md shadow-brand-lavender/10"
             >
               <Save size={18} />
               {loading ? 'Đang lưu...' : 'Lưu cấu hình AI'}
@@ -405,13 +405,13 @@ export default function AdminAIConfigPage() {
 
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Cấu hình AI Hệ thống</h1>
-          <p className="text-slate-500">Quản lý model, provider và giới hạn cho Chat, Embedding</p>
+          <h1 className="text-3xl font-bold text-ink">Cấu hình AI Hệ thống</h1>
+          <p className="text-ink-subtle">Quản lý model, provider và giới hạn cho Chat, Embedding</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 border-b border-hairline">
         {[
           { id: 'overview', label: 'Tổng quan', icon: Eye },
           { id: 'safety', label: 'Giới hạn an toàn', icon: Shield },
@@ -422,8 +422,8 @@ export default function AdminAIConfigPage() {
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-2 px-4 py-3 font-medium transition-colors ${activeTab === tab.id
-              ? 'text-primary-600 border-b-2 border-primary-600'
-              : 'text-slate-500 hover:text-slate-700'
+              ? 'text-brand-lavender border-b-2 border-brand-lavender'
+              : 'text-ink-subtle hover:text-ink'
               }`}
           >
             <tab.icon size={18} />
@@ -448,53 +448,53 @@ export default function AdminAIConfigPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200"
+          className="bg-surface-1 rounded-2xl p-6 border border-hairline shadow-sm"
         >
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Shield className="text-primary-600" />
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-ink">
+            <Shield className="text-brand-lavender" />
             Giới hạn an toàn toàn hệ thống
           </h2>
 
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Max Temperature Limit</label>
+              <label className="text-sm font-medium text-ink-muted">Max Temperature Limit</label>
               <input
                 type="number"
                 step="0.1"
                 value={safetyConfig.max_temperature_limit || 1.0}
                 onChange={(e) => setSafetyConfig({ ...safetyConfig, max_temperature_limit: parseFloat(e.target.value) || 1.0 })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="linear-input bg-surface-2 w-full"
               />
-              <p className="text-xs text-slate-400">Giới hạn trên cho temperature (0.1 - 2.0)</p>
+              <p className="text-xs text-ink-subtle">Giới hạn trên cho temperature (0.1 - 2.0)</p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Max Context Length</label>
+              <label className="text-sm font-medium text-ink-muted">Max Context Length</label>
               <input
                 type="number"
                 step="1024"
                 value={safetyConfig.max_context_length || 8192}
                 onChange={(e) => setSafetyConfig({ ...safetyConfig, max_context_length: parseInt(e.target.value) || 8192 })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="linear-input bg-surface-2 w-full"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Max Tokens Limit</label>
+              <label className="text-sm font-medium text-ink-muted">Max Tokens Limit</label>
               <input
                 type="number"
                 value={safetyConfig.max_tokens_limit || 2048}
                 onChange={(e) => setSafetyConfig({ ...safetyConfig, max_tokens_limit: parseInt(e.target.value) || 2048 })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="linear-input bg-surface-2 w-full"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Default Response Style</label>
+              <label className="text-sm font-medium text-ink-muted">Default Response Style</label>
               <select
                 value={safetyConfig.default_response_style}
                 onChange={(e) => setSafetyConfig({ ...safetyConfig, default_response_style: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="linear-input bg-surface-2 w-full"
               >
                 <option value="concise">Ngắn gọn</option>
                 <option value="normal">Bình thường</option>
@@ -507,7 +507,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={handleSaveSafety}
               disabled={loading}
-              className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              className="btn-primary bg-brand-lavender hover:bg-brand-lavender-hover"
             >
               <Save size={18} />
               {loading ? 'Đang lưu...' : 'Lưu cấu hình'}
@@ -521,16 +521,16 @@ export default function AdminAIConfigPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200"
+          className="bg-surface-1 rounded-2xl p-6 border border-hairline shadow-sm"
         >
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Brain className="text-primary-600" />
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-ink">
+            <Brain className="text-brand-lavender" />
             Cấu hình Chat AI
           </h2>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Provider</label>
+              <label className="text-sm font-medium text-ink-muted">Provider</label>
               <div className="flex gap-2">
                 {['openrouter', 'openai', 'ollama'].map((p) => (
                   <button
@@ -549,8 +549,8 @@ export default function AdminAIConfigPage() {
                       loadModels(p);
                     }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${chatConfig.provider === p
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-brand-lavender text-white'
+                      : 'bg-surface-2 text-ink-muted border border-hairline hover:bg-surface-3'
                       }`}
                   >
                     {p}
@@ -561,45 +561,45 @@ export default function AdminAIConfigPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Base URL</label>
+                <label className="text-sm font-medium text-ink-muted">Base URL</label>
                 <input
                   type="text"
                   value={chatConfig.api_base_url || ''}
                   onChange={(e) => setChatConfig({ ...chatConfig, api_base_url: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="linear-input bg-surface-2 w-full"
                   placeholder="https://openrouter.ai/api/v1"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">API Key</label>
+                <label className="text-sm font-medium text-ink-muted">API Key</label>
                 <input
                   type="password"
                   value={chatConfig.api_key || ''}
                   onChange={(e) => setChatConfig({ ...chatConfig, api_key: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="linear-input bg-surface-2 w-full"
                   placeholder="sk-..."
                 />
               </div>
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-600">Model Selection</label>
+                <label className="text-sm font-medium text-ink-muted">Model Selection</label>
                 <div className="flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer text-ink-muted">
                     <input
                       type="radio"
                       name="chatModelType"
                       checked={!chatConfig.use_custom_model}
                       onChange={() => setChatConfig({ ...chatConfig, use_custom_model: false })}
-                      className="w-4 h-4"
+                      className="w-4 h-4 text-brand-lavender focus:ring-brand-lavender"
                     />
                     <span className="text-sm">Chọn từ danh sách</span>
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="flex items-center gap-2 cursor-pointer text-ink-muted">
                     <input
                       type="radio"
                       name="chatModelType"
                       checked={chatConfig.use_custom_model}
                       onChange={() => setChatConfig({ ...chatConfig, use_custom_model: true })}
-                      className="w-4 h-4"
+                      className="w-4 h-4 text-brand-lavender focus:ring-brand-lavender"
                     />
                     <span className="text-sm">Nhập model ID tùy chỉnh</span>
                   </label>
@@ -609,7 +609,7 @@ export default function AdminAIConfigPage() {
                   <select
                     value={chatConfig.api_model || ''}
                     onChange={(e) => setChatConfig({ ...chatConfig, api_model: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="linear-input bg-surface-2 w-full"
                   >
                     <option value="">Chọn model...</option>
                     {availableModels.map((m) => (
@@ -621,7 +621,7 @@ export default function AdminAIConfigPage() {
                     type="text"
                     value={chatConfig.custom_api_model || ''}
                     onChange={(e) => setChatConfig({ ...chatConfig, custom_api_model: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="linear-input bg-surface-2 w-full font-mono"
                     placeholder="Nhập model ID (vd: google/gemini-1.5-flash, anthropic/claude-3-haiku-20240307)"
                   />
                 )}
@@ -633,7 +633,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={() => handleTestConnection('chat', chatConfig)}
               disabled={testingConnection}
-              className="flex items-center gap-2 bg-slate-100 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-200 disabled:opacity-50"
+              className="btn-secondary py-2 px-6"
             >
               <TestTube size={18} />
               {testingConnection ? 'Testing...' : 'Test Connection'}
@@ -641,7 +641,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={() => handleSaveProvider('chat', chatConfig)}
               disabled={loading}
-              className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              className="btn-primary bg-brand-lavender hover:bg-brand-lavender-hover px-6"
             >
               <Save size={18} />
               {loading ? 'Đang lưu...' : 'Lưu cấu hình'}
@@ -655,16 +655,16 @@ export default function AdminAIConfigPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl p-6 border border-slate-200"
+          className="bg-surface-1 rounded-2xl p-6 border border-hairline shadow-sm"
         >
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-            <Layers className="text-primary-600" />
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-ink">
+            <Layers className="text-brand-lavender" />
             Cấu hình Embedding AI
           </h2>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-600">Provider</label>
+              <label className="text-sm font-medium text-ink-muted">Provider</label>
               <div className="flex gap-2">
                 {['local', 'openrouter', 'openai'].map((p) => (
                   <button
@@ -685,8 +685,8 @@ export default function AdminAIConfigPage() {
                       }
                     }}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${embeddingConfig.provider === p
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-brand-lavender text-white'
+                      : 'bg-surface-2 text-ink-muted border border-hairline hover:bg-surface-3'
                       }`}
                   >
                     {p === 'local' ? 'SentenceTransformer' : p === 'openrouter' ? 'OpenRouter' : 'OpenAI'}
@@ -697,43 +697,43 @@ export default function AdminAIConfigPage() {
 
             {embeddingConfig.provider === 'local' ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Model Name</label>
+                <label className="text-sm font-medium text-ink-muted">Model Name</label>
                 <input
                   type="text"
                   value={embeddingConfig.embedding_model_name || ''}
                   onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, embedding_model_name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="linear-input bg-surface-2 w-full"
                 />
-                <p className="text-xs text-slate-400">Mặc định: paraphrase-multilingual-MiniLM-L12-v2</p>
+                <p className="text-xs text-ink-subtle">Mặc định: paraphrase-multilingual-MiniLM-L12-v2</p>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Base URL</label>
+                  <label className="text-sm font-medium text-ink-muted">Base URL</label>
                   <input
                     type="text"
                     value={embeddingConfig.api_base_url || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_base_url: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="linear-input bg-surface-2 w-full"
                     placeholder="https://api.openai.com/v1"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">API Key</label>
+                  <label className="text-sm font-medium text-ink-muted">API Key</label>
                   <input
                     type="password"
                     value={embeddingConfig.api_key || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_key: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="linear-input bg-surface-2 w-full"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-600">Embedding Model</label>
+                  <label className="text-sm font-medium text-ink-muted">Embedding Model</label>
                   <input
                     type="text"
                     value={embeddingConfig.api_model || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_model: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="linear-input bg-surface-2 w-full"
                     placeholder="text-embedding-3-small"
                   />
                 </div>
@@ -745,7 +745,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={() => handleTestConnection('embedding', embeddingConfig)}
               disabled={testingConnection}
-              className="flex items-center gap-2 bg-slate-100 text-slate-700 px-6 py-2 rounded-lg hover:bg-slate-200 disabled:opacity-50"
+              className="btn-secondary py-2 px-6"
             >
               <TestTube size={18} />
               {testingConnection ? 'Testing...' : 'Test Connection'}
@@ -753,7 +753,7 @@ export default function AdminAIConfigPage() {
             <button
               onClick={() => handleSaveProvider('embedding', embeddingConfig)}
               disabled={loading}
-              className="flex items-center gap-2 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              className="btn-primary bg-brand-lavender hover:bg-brand-lavender-hover px-6"
             >
               <Save size={18} />
               {loading ? 'Đang lưu...' : 'Lưu cấu hình'}

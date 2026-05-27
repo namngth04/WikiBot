@@ -299,6 +299,16 @@ HƯỚNG DẪN TRẢ LỜI:
         
         # 3. Hybrid search với multiple query variations
         try:
+            # Get current user details to pass multi-tenant and personal isolation details
+            user_type = "personal"
+            tenant_id = None
+            if current_user_id:
+                from app.models.models import User
+                user = self.db.query(User).filter(User.id == current_user_id).first()
+                if user:
+                    user_type = user.user_type
+                    tenant_id = user.tenant_id
+                    
             all_chunks = []
             for query_var in enhanced['all_queries']:
                 chunks = self.hybrid_retriever.search(
@@ -306,7 +316,11 @@ HƯỚNG DẪN TRẢ LỜI:
                     accessible_role_ids=accessible_role_ids,
                     top_k=3,  # Giảm vì có nhiều variations
                     max_distance=self.settings.rag_max_distance,
-                    receive_community=receive_community
+                    receive_community=receive_community,
+                    current_user_id=current_user_id,
+                    current_user_type=user_type,
+                    current_user_tenant_id=tenant_id,
+                    db=self.db
                 )
                 all_chunks.extend(chunks)
             
@@ -372,6 +386,14 @@ HƯỚNG DẪN TRẢ LỜI:
             # Post-process response
             response_text = self._trim_redundant_sentences(response_text)
             response_text = self._remove_assistant_prefix(response_text)
+            
+            # Robust Output Guardrails: Ngăn chặn tuyệt đối phản hồi trống rỗng
+            if not response_text or not response_text.strip():
+                logger.warning("LLM generated an empty response. Applying fallback safety guardrails.")
+                if not chunks:
+                    response_text = "Xin lỗi, tôi không tìm thấy tài liệu hay thông tin liên quan nào trong kho tri thức của hệ thống để trả lời câu hỏi này."
+                else:
+                    response_text = "Xin lỗi, tôi gặp sự cố tạm thời khi kết nối với mô hình ngôn ngữ lớn để trả lời câu hỏi này. Bạn vui lòng thử lại sau nhé."
             
             # 7. Score confidence
             confidence_scores = self.confidence_scorer.score_answer(
@@ -452,3 +474,45 @@ HƯỚNG DẪN TRẢ LỜI:
         for i, source in enumerate(sources[:3], 1):
             citation_text += f"\n{i}. {source['source']} (Đoạn {source['chunk_index']})"
         return response_text + citation_text
+
+    def generate_suggested_questions(self, query: str, answer: str) -> List[str]:
+        """Generate 3 relevant suggested follow-up questions using LLM"""
+        try:
+            prompt = f"""Bạn là một trợ lý AI thông minh chuyên hỗ trợ người dùng tìm kiếm thông tin.
+Dựa trên câu hỏi của người dùng và câu trả lời của trợ lý AI dưới đây, hãy gợi ý chính xác 3 câu hỏi tiếp theo có liên quan nhất, hữu ích nhất mà người dùng có thể muốn hỏi tiếp để làm rõ hoặc mở rộng vấn đề.
+
+Câu hỏi của người dùng: {query}
+Câu trả lời của trợ lý AI: {answer}
+
+Yêu cầu:
+1. Gợi ý đúng 3 câu hỏi ngắn gọn, tự nhiên, thực tế và trực tiếp (bằng tiếng Việt).
+2. Trả về dưới dạng một danh sách JSON của mảng các chuỗi, ví dụ: ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2", "Câu hỏi gợi ý 3"]. Không thêm bất kỳ giải thích, đánh dấu markdown hay văn bản dẫn dắt nào ngoài định dạng JSON này.
+
+Đầu ra JSON:"""
+            
+            response = self.llm_provider.generate(
+                prompt,
+                max_tokens=250,
+                temperature=0.3,
+                system_prompt="Bạn chỉ trả về một mảng JSON thuần túy gồm 3 chuỗi câu hỏi gợi ý tiếp theo."
+            ).strip()
+            
+            # Clean JSON markdown blocks if any
+            if response.startswith("```"):
+                response = re.sub(r"^```(?:json)?\n", "", response)
+                response = re.sub(r"\n```$", "", response)
+            response = response.strip()
+            
+            questions = json.loads(response)
+            if isinstance(questions, list) and len(questions) > 0:
+                # Trả về tối đa 3 câu hỏi, loại bỏ khoảng trắng dư thừa
+                return [str(q).strip() for q in questions[:3]]
+        except Exception as e:
+            logger.error(f"Error generating suggested questions: {e}")
+            
+        # Fallback default questions if error occurs or empty result
+        return [
+            "Bạn có thể giải thích chi tiết hơn được không?",
+            "Có tài liệu hoặc quy định nào cụ thể về việc này không?",
+            "Tôi cần làm các bước tiếp theo như thế nào?"
+        ]

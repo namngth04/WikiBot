@@ -230,6 +230,29 @@ export default function MessageItem({
           </div>
         )}
       </div>
+
+      {/* Suggested Questions */}
+      {message.role === 'assistant' && message.suggested_questions && message.suggested_questions.length > 0 && (
+        <div className="flex flex-col gap-2 mt-3 ml-2 max-w-[85%] md:max-w-[75%]">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-ink-subtle flex items-center gap-1.5">
+            <Brain size={12} className="text-brand-lavender animate-pulse" /> Câu hỏi gợi ý tiếp theo:
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {message.suggested_questions.map((q, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  const event = new CustomEvent('suggestedQuestion', { detail: q });
+                  window.dispatchEvent(event);
+                }}
+                className="text-left text-xs bg-surface-2 hover:bg-surface-3 text-ink-muted hover:text-ink font-medium px-3.5 py-2.5 rounded-xl border border-hairline hover:border-hairline-strong transition-all duration-200 active:scale-[0.99] shadow-soft"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Action buttons for assistant messages */}
       {message.role === 'assistant' && (

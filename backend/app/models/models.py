@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Float, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
+from pgvector.sqlalchemy import Vector
 
 
 class Role(Base):
@@ -80,6 +81,7 @@ class Document(Base):
     # Relationships
     role = relationship("Role", back_populates="documents")
     uploaded_by_user = relationship("User", back_populates="documents")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
 
 
 class Conversation(Base):
@@ -106,6 +108,10 @@ class Message(Base):
     rating = Column(Integer, nullable=True)  # 1 for Like, -1 for Dislike, None for no rating
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    feedback_category = Column(String(100), nullable=True)
+    feedback_text = Column(Text, nullable=True)
+    used_chunks = Column(JSON, nullable=True)  # List of dicts/IDs of chunks used as context
+    
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
 
@@ -119,6 +125,7 @@ class FAQ(Base):
     category = Column(String(100), nullable=True)
     hits = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
+    tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -246,3 +253,19 @@ class UpgradeRequest(Base):
     
     # Relationship
     user = relationship("User", back_populates="upgrade_requests")
+
+
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(2048), nullable=False)
+    page_number = Column(Integer, nullable=True)
+    element_type = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    document = relationship("Document", back_populates="chunks")
+

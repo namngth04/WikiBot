@@ -146,14 +146,14 @@ export default function RolesPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-soft">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-1 p-6 rounded-[2rem] border border-hairline shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="bg-primary-50 p-3 rounded-2xl text-primary-600">
+          <div className="bg-primary-50 dark:bg-primary-950/30 p-3 rounded-2xl text-primary-600">
             <Shield size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Quản lý Chức vụ</h2>
-            <p className="text-xs text-slate-400 font-medium">Thiết lập cấp độ truy cập cho nhân sự</p>
+            <h2 className="text-xl font-be-vietnam font-bold text-ink">Quản lý Chức vụ</h2>
+            <p className="text-xs text-ink-subtle font-medium">Thiết lập cấp độ truy cập cho nhân sự</p>
           </div>
         </div>
         <button
@@ -171,29 +171,29 @@ export default function RolesPage() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng chức vụ</p>
-          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">{roles.length}</h3>
+        <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
+          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Tổng chức vụ</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-ink">{roles.length}</h3>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cấp độ cao nhất</p>
-          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600">
+        <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
+          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Cấp độ cao nhất</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600 dark:text-emerald-500">
             {roles.length > 0 ? Math.max(...roles.map(r => r.level)) : 0}
           </h3>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-[2rem] shadow-soft border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline overflow-hidden">
+        <div className="p-6 border-b border-hairline flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" size={18} />
             <input
               type="text"
               placeholder="Tìm kiếm chức vụ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+              className="w-full pl-12 pr-4 py-3 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
           <FilterDropdown
@@ -209,14 +209,14 @@ export default function RolesPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chức vụ</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mô tả</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cấp độ</th>
-                <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
+              <tr className="bg-surface-2/50">
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Chức vụ</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Mô tả</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Cấp độ</th>
+                <th className="px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-hairline">
               {loading ? (
                 [1, 2, 3].map(i => (
                   <tr key={i} className="animate-pulse">
@@ -228,21 +228,21 @@ export default function RolesPage() {
                   key={role.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="group hover:bg-slate-50/50 transition-colors"
+                  className="group hover:bg-surface-2/50 transition-colors"
                 >
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/20 text-primary-600 flex items-center justify-center">
                         <Award size={20} />
                       </div>
-                      <span className="font-bold text-slate-900">{role.name}</span>
+                      <span className="font-bold text-ink">{role.name}</span>
                     </div>
                   </td>
-                  <td className="px-8 py-5 text-sm text-slate-600 max-w-xs">
+                  <td className="px-8 py-5 text-sm text-ink-muted max-w-xs">
                     <p className="truncate">{role.description || 'Chưa có mô tả'}</p>
                   </td>
                   <td className="px-8 py-5">
-                    <span className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                    <span className="bg-slate-900 dark:bg-slate-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
                       Level {role.level}
                     </span>
                   </td>
@@ -254,13 +254,13 @@ export default function RolesPage() {
                           setRoleForm({ name: role.name, description: role.description || '', level: role.level }); 
                           setShowRoleModal(true); 
                         }}
-                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-all"
+                        className="p-2 text-ink-subtle hover:text-primary-600 hover:bg-surface-2 dark:hover:bg-surface-3 rounded-xl transition-all"
                       >
                         <Edit2 size={16} />
                       </button>
                       <button 
                         onClick={() => handleDeleteRole(role.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        className="p-2 text-ink-subtle hover:text-rose-600 hover:bg-rose-950/20 rounded-xl transition-all"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -292,43 +292,43 @@ export default function RolesPage() {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="modal-content"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white rounded-t-3xl">
+              <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
                 <div>
-                  <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
+                  <h3 className="text-2xl font-be-vietnam font-bold text-ink">
                     {editingRole ? 'Sửa Chức vụ' : 'Thêm Chức vụ'}
                   </h3>
-                  <p className="text-sm text-slate-400 font-medium">Thiết lập định danh và cấp độ bảo mật</p>
+                  <p className="text-sm text-ink-subtle font-medium">Thiết lập định danh và cấp độ bảo mật</p>
                 </div>
-                <button onClick={() => setShowRoleModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                <button onClick={() => setShowRoleModal(false)} className="p-2 text-ink-subtle hover:text-ink hover:bg-surface-2 rounded-xl transition-all">
                   <X size={24} />
                 </button>
               </div>
 
-              <form onSubmit={editingRole ? handleUpdateRole : handleCreateRole} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
+              <form onSubmit={editingRole ? handleUpdateRole : handleCreateRole} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar bg-surface-1">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên chức vụ *</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Tên chức vụ *</label>
                   <input
                     type="text"
                     required
                     value={roleForm.name}
                     onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     placeholder="VD: Trưởng phòng"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mô tả chi tiết</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Mô tả chi tiết</label>
                   <textarea
                     value={roleForm.description}
                     onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none min-h-[120px]"
+                    className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none min-h-[120px]"
                     placeholder="Mô tả về quyền hạn và trách nhiệm của chức vụ..."
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cấp độ bảo mật (1-10)</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Cấp độ bảo mật (1-10)</label>
                   <input
                     type="number"
                     min="1"
@@ -336,18 +336,18 @@ export default function RolesPage() {
                     required
                     value={roleForm.level || 1}
                     onChange={(e) => setRoleForm({ ...roleForm, level: parseInt(e.target.value) || 1 })}
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
-                  <div className="flex items-start gap-2 p-4 bg-amber-50 rounded-2xl mt-2">
-                    <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                  <div className="flex items-start gap-2 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/20 dark:border-amber-900/30 rounded-2xl mt-2">
+                    <Info size={16} className="text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
                       Cấp độ càng thấp (gần 1) quyền hạn càng cao. Level 1 thường dành cho lãnh đạo, Level 2-5 dành cho quản lý, và 6-10 cho nhân viên.
                     </p>
                   </div>
                 </div>
               </form>
 
-              <div className="p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
+              <div className="p-4 border-t border-hairline flex items-center gap-3 shrink-0 bg-surface-1 rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowRoleModal(false)}
@@ -357,7 +357,7 @@ export default function RolesPage() {
                 </button>
                 <button
                   onClick={editingRole ? handleUpdateRole : handleCreateRole}
-                  className="btn-primary flex-1 justify-center py-4 shadow-lg shadow-primary-200"
+                  className="btn-primary flex-1 justify-center py-4 shadow-lg shadow-primary-200/30"
                 >
                   <Save size={20} />
                   {editingRole ? 'Cập nhật' : 'Tạo chức vụ'}

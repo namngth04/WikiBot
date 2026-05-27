@@ -162,7 +162,8 @@ export const useChat = (options: UseChatOptions = {}) => {
         query_processing: queryProcessing,
         retrieval_stats: retrievalStats,
         user_message_id,
-        assistant_message_id
+        assistant_message_id,
+        suggested_questions
       } = response.data as ChatResponse;
 
       // Validate response data
@@ -188,7 +189,8 @@ export const useChat = (options: UseChatOptions = {}) => {
         citations,
         confidence,
         queryProcessing,
-        retrievalStats
+        retrievalStats,
+        suggested_questions
       };
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -286,24 +288,41 @@ export const useChat = (options: UseChatOptions = {}) => {
   }, [sendMessage]);
 
   // Rate message
-  const rateMessage = useCallback(async (messageId: number, rating: number) => {
+  const rateMessage = useCallback(async (messageId: number, rating: number, feedbackText?: string, feedbackCategory?: string) => {
     // Set loading state
     setRatingMessageId(messageId);
     
     // Optimistic update - cập nhật UI ngay lập tức
     const previousMessages = messages;
     setMessages(prev => prev.map(msg => 
-      msg.id === messageId ? { ...msg, rating } : msg
+      msg.id === messageId ? { ...msg, rating, feedback_text: feedbackText, feedback_category: feedbackCategory } : msg
     ));
 
     try {
-      const response = await chatAPI.rateMessage(messageId, rating);
-      const updatedMessage = response.data;
+      let responseData;
+      if (feedbackText !== undefined || feedbackCategory !== undefined) {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8000/api/chat/messages/${messageId}/feedback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ rating, feedback_text: feedbackText, feedback_category: feedbackCategory })
+        });
+        if (!response.ok) {
+          throw new Error('Failed to submit feedback text');
+        }
+        responseData = await response.json();
+      } else {
+        const response = await chatAPI.rateMessage(messageId, rating);
+        responseData = response.data;
+      }
       
       // Xác nhận với server data - force re-render với new array reference
       setMessages(prev => {
         const newMessages = prev.map(msg => 
-          msg.id === messageId ? { ...msg, rating: updatedMessage.rating } : msg
+          msg.id === messageId ? { ...msg, rating: responseData.rating, feedback_text: responseData.feedback_text, feedback_category: responseData.feedback_category } : msg
         );
         return [...newMessages]; // Force new reference
       });

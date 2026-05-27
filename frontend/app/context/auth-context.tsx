@@ -7,7 +7,8 @@ import { authAPI } from '@/app/lib/api';
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (username: string, password: string) => Promise<User>;
+  login: (username: string, password: string) => Promise<any>;
+  selectTenant: (tempToken: string, tenantId: number | null) => Promise<User>;
   logout: () => void;
   loading: boolean;
   isAdmin: boolean;
@@ -51,6 +52,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json();
     
+    if (data.require_tenant_selection) {
+      return data;
+    }
+    
+    localStorage.setItem('token', data.access_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    
+    setToken(data.access_token);
+    setUser(data.user);
+
+    return data.user;
+  };
+
+  const selectTenant = async (tempToken: string, tenantId: number | null) => {
+    const response = await fetch('http://127.0.0.1:8000/api/auth/login/select-tenant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ temp_token: tempToken, tenant_id: tenantId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Lựa chọn Workspace thất bại');
+    }
+
+    const data = await response.json();
+    
     localStorage.setItem('token', data.access_token);
     localStorage.setItem('user', JSON.stringify(data.user));
     
@@ -78,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                          && user?.tenant_id !== undefined;
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading, isAdmin, isCompanyAdmin, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, login, selectTenant, logout, loading, isAdmin, isCompanyAdmin, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

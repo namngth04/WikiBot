@@ -249,7 +249,7 @@ export default function ModelStatusCard({ className = '' }: ModelStatusCardProps
 
   return (
     <motion.div 
-      className={`bg-primary-600 rounded-[2rem] p-8 text-white relative overflow-hidden group ${className}`}
+      className={`bg-brand-lavender rounded-[2rem] p-8 text-white relative overflow-hidden group ${className}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}

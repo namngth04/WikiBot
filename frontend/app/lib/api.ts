@@ -76,6 +76,7 @@ export const documentsAPI = {
   updateDocument: (id: number, data: { role_id?: number | null; original_name?: string }) =>
     api.put(`/documents/${id}`, data),
   delete: (id: number) => api.delete(`/documents/${id}`),
+  toggleShare: (id: number) => api.post(`/documents/${id}/toggle-share`),
 };
 
 // Chat API
@@ -125,4 +126,8 @@ export const adminAPI = {
   getSuggestedFAQs: () => api.get('/admin/faqs/suggested'),
   refreshSuggestedFAQs: () => api.post('/admin/faqs/suggested/refresh'),
   generateDraft: (question: string) => api.post(`/admin/faqs/generate-draft?question=${encodeURIComponent(question)}`),
+  
+  // Feedback Management
+  listFeedback: (skip: number = 0, limit: number = 50) =>
+    api.get('/admin/feedback', { params: { skip, limit } }),
 };

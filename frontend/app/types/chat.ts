@@ -41,6 +41,7 @@ export interface ChatMessage {
   status?: 'sending' | 'sent' | 'failed';
   error?: string;
   retryable?: boolean;
+  suggested_questions?: string[];
 }
 
 export interface ChatResponse {
@@ -87,6 +88,7 @@ export interface ChatResponse {
   };
   user_message_id?: number;
   assistant_message_id?: number;
+  suggested_questions?: string[];
 }
 
 export type ResponseStyle = 'concise' | 'normal' | 'detailed' | 'creative';

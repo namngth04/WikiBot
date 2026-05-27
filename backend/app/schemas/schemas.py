@@ -138,6 +138,9 @@ class MessageResponse(MessageBase):
     id: int
     conversation_id: int
     rating: Optional[int] = None
+    feedback_category: Optional[str] = None
+    feedback_text: Optional[str] = None
+    used_chunks: Optional[List[int]] = None
     created_at: datetime
     
     class Config:
@@ -146,6 +149,13 @@ class MessageResponse(MessageBase):
 
 class MessageRatingUpdate(BaseModel):
     rating: int = Field(..., ge=-1, le=1)
+
+
+class FeedbackCreate(BaseModel):
+    rating: int = Field(..., ge=-1, le=1)
+    feedback_category: Optional[str] = Field(None, max_length=100)
+    feedback_text: Optional[str] = Field(None, max_length=1000)
+
 
 
 # ============== Conversation Schemas ==============
@@ -206,6 +216,7 @@ class ChatResponse(BaseModel):
     citations: List[dict] = []
     user_message_id: Optional[int] = None
     assistant_message_id: Optional[int] = None
+    suggested_questions: Optional[List[str]] = []
 
 
 # ============== Generic ==============
@@ -220,6 +231,7 @@ class FAQBase(BaseModel):
     answer: str = Field(..., min_length=1)
     category: Optional[str] = Field(None, max_length=100)
     is_active: bool = True
+    tenant_id: Optional[int] = None
 
 
 class FAQCreate(FAQBase):
@@ -289,8 +301,8 @@ class AISafetyConfigSchema(BaseModel):
 
 class AIProviderConfigSchema(BaseModel):
     """Provider config for each AI type"""
-    ai_type: str = Field(..., pattern="^(chat|embedding|faq)$")
-    provider: str = Field(default="local", pattern="^(local|openrouter|ollama)$")
+    ai_type: Optional[str] = Field(None, pattern="^(chat|embedding|faq)$")
+    provider: str = Field(default="local", pattern="^(local|openrouter|ollama|openai)$")
     
     # Local settings
     local_model_path: Optional[str] = None
@@ -390,7 +402,7 @@ class TenantAISettingsResponse(BaseModel):
 
 class TestConnectionRequest(BaseModel):
     """Test connection request"""
-    provider: str = Field(..., pattern="^(local|openrouter|ollama)$")
+    provider: str = Field(..., pattern="^(local|openrouter|ollama|openai)$")
     api_base_url: Optional[str] = None
     api_key: Optional[str] = None
     api_model: Optional[str] = None

@@ -35,18 +35,41 @@ interface UsageTrendChartProps {
 
 export const UsageTrendChart = ({ data }: UsageTrendChartProps) => {
   const [mounted, setMounted] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(false);
   
   React.useEffect(() => {
     setMounted(true);
+    
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   if (!mounted) {
-    return <div className="h-[250px] w-full flex items-center justify-center text-gray-400">Đang khởi tạo biểu đồ...</div>;
+    return <div className="h-[250px] w-full flex items-center justify-center text-ink-tertiary">Đang khởi tạo biểu đồ...</div>;
   }
 
   if (!data?.length) {
-    return <div className="h-[250px] w-full flex items-center justify-center text-gray-400">Không có dữ liệu hiển thị</div>;
+    return <div className="h-[250px] w-full flex items-center justify-center text-ink-tertiary">Không có dữ liệu hiển thị</div>;
   }
+
+  const brandColor = isDark ? '#5e6ad2' : '#533afd';
+  const brandBg = isDark ? 'rgba(94, 106, 210, 0.1)' : 'rgba(83, 58, 253, 0.08)';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9';
+  const textColor = isDark ? '#8a8f98' : '#94a3b8';
+  const tooltipBg = isDark ? '#141516' : '#ffffff';
+  const tooltipBorder = isDark ? '#23252a' : '#e2e8f0';
+  const tooltipText = isDark ? '#f7f8f8' : '#0d253d';
+  const tooltipSubtext = isDark ? '#8a8f98' : '#475569';
 
   const chartData = {
     labels: data.map(item => item.date),
@@ -55,15 +78,15 @@ export const UsageTrendChart = ({ data }: UsageTrendChartProps) => {
         label: 'Số lượt tra cứu',
         data: data.map(item => item.count),
         fill: true,
-        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-        borderColor: '#2563eb',
-        borderWidth: 3,
-        pointBackgroundColor: '#2563eb',
-        pointBorderColor: '#fff',
+        backgroundColor: brandBg,
+        borderColor: brandColor,
+        borderWidth: 2.5,
+        pointBackgroundColor: brandColor,
+        pointBorderColor: isDark ? '#0f1011' : '#fff',
         pointBorderWidth: 2,
         pointRadius: 4,
         pointHoverRadius: 6,
-        tension: 0.4, // Tạo độ cong cho đường
+        tension: 0.35,
       },
     ],
   };
@@ -76,10 +99,10 @@ export const UsageTrendChart = ({ data }: UsageTrendChartProps) => {
         display: false,
       },
       tooltip: {
-        backgroundColor: '#fff',
-        titleColor: '#1f2937',
-        bodyColor: '#4b5563',
-        borderColor: '#e5e7eb',
+        backgroundColor: tooltipBg,
+        titleColor: tooltipText,
+        bodyColor: tooltipSubtext,
+        borderColor: tooltipBorder,
         borderWidth: 1,
         padding: 12,
         boxPadding: 4,
@@ -92,11 +115,11 @@ export const UsageTrendChart = ({ data }: UsageTrendChartProps) => {
         grid: {
           display: true,
           drawBorder: false,
-          color: '#f3f4f6',
+          color: gridColor,
         },
         ticks: {
-          color: '#9ca3af',
-          font: { size: 11 },
+          color: textColor,
+          font: { size: 10, family: 'var(--font-be-vietnam)' },
         },
       },
       x: {
@@ -104,8 +127,8 @@ export const UsageTrendChart = ({ data }: UsageTrendChartProps) => {
           display: false,
         },
         ticks: {
-          color: '#9ca3af',
-          font: { size: 11 },
+          color: textColor,
+          font: { size: 10, family: 'var(--font-be-vietnam)' },
         },
       },
     },
@@ -125,28 +148,46 @@ interface FeedbackPieChartProps {
 
 export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
   const [mounted, setMounted] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(false);
   
   React.useEffect(() => {
     setMounted(true);
+    
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   if (!mounted) {
-    return <div className="h-[250px] w-full flex items-center justify-center text-gray-400">Đang khởi tạo biểu đồ...</div>;
+    return <div className="h-[250px] w-full flex items-center justify-center text-ink-tertiary">Đang khởi tạo biểu đồ...</div>;
   }
 
-  // Lọc dữ liệu > 0 và đồng bộ màu sắc
   const activeIndices = data.map((item, index) => item.value > 0 ? index : -1).filter(index => index !== -1);
   const filteredData = activeIndices.map(index => data[index]);
   const filteredColors = activeIndices.map(index => colors[index]);
 
   if (filteredData.length === 0) {
     return (
-      <div className="h-[250px] w-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
-        <div className="w-20 h-20 rounded-full border-4 border-gray-200 border-dashed mb-2" />
-        <p>Chưa có dữ liệu phản hồi</p>
+      <div className="h-[250px] w-full flex flex-col items-center justify-center text-ink-tertiary bg-surface-2/40 border border-hairline rounded-3xl">
+        <div className="w-16 h-16 rounded-full border-2 border-hairline border-dashed mb-3 animate-pulse" />
+        <p className="text-xs font-medium">Chưa có dữ liệu phản hồi</p>
       </div>
     );
   }
+
+  const tooltipBg = isDark ? '#141516' : '#ffffff';
+  const tooltipBorder = isDark ? '#23252a' : '#e2e8f0';
+  const tooltipText = isDark ? '#f7f8f8' : '#0d253d';
+  const tooltipSubtext = isDark ? '#8a8f98' : '#475569';
 
   const chartData = {
     labels: filteredData.map(item => item.name),
@@ -154,7 +195,7 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
       {
         data: filteredData.map(item => item.value),
         backgroundColor: filteredColors,
-        borderColor: '#fff',
+        borderColor: isDark ? '#0f1011' : '#fff',
         borderWidth: 2,
         hoverOffset: 10,
       },
@@ -166,18 +207,18 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false, // Ẩn legend mặc định vì đã có phần thống kê tùy chỉnh bên dưới
+        display: false,
       },
       tooltip: {
-        backgroundColor: '#fff',
-        titleColor: '#1f2937',
-        bodyColor: '#4b5563',
-        borderColor: '#e5e7eb',
+        backgroundColor: tooltipBg,
+        titleColor: tooltipText,
+        bodyColor: tooltipSubtext,
+        borderColor: tooltipBorder,
         borderWidth: 1,
         padding: 12,
       },
     },
-    cutout: '60%', // Tạo biểu đồ Doughnut
+    cutout: '70%',
   };
 
   return (

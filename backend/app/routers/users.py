@@ -65,7 +65,7 @@ def create_user(
             )
     
     tenant_id = current_user.tenant_id if current_user.tenant_id is not None else user_data.tenant_id
-    user_type = "employee" if current_user.tenant_id is not None else "personal"
+    user_type = "employee" if tenant_id is not None else "personal"
     
     new_user = User(
         username=user_data.username,
@@ -182,8 +182,32 @@ def get_my_stats(
 
     # Xác định quota_limit
     is_superadmin = current_user.role and current_user.role.level == 0
-    is_free = current_user.subscription_tier == "free"
+    if current_user.user_type == "employee" and current_user.tenant_id is not None:
+        # Tìm Company Admin (chủ doanh nghiệp) để kiểm tra gói cước của công ty
+        company_admin = db.query(User).filter(
+            User.tenant_id == current_user.tenant_id,
+            User.role.has(level=1)
+        ).first()
+        is_free = (company_admin.subscription_tier == "free") if company_admin else True
+    else:
+        is_free = current_user.subscription_tier == "free"
     quota_limit = 999999 if (not is_free or is_superadmin) else 10
+
+    # Tính tỷ lệ hài lòng (satisfaction_rate)
+    likes = db.query(Message).join(Conversation).filter(
+        Conversation.user_id == current_user.id,
+        Message.role == "assistant",
+        Message.rating == 1
+    ).count()
+
+    dislikes = db.query(Message).join(Conversation).filter(
+        Conversation.user_id == current_user.id,
+        Message.role == "assistant",
+        Message.rating == -1
+    ).count()
+
+    total_rated = likes + dislikes
+    satisfaction_rate = round((likes / total_rated * 100), 1) if total_rated > 0 else 100.0
 
     return {
         "conv_count": conv_count,
@@ -191,7 +215,8 @@ def get_my_stats(
         "doc_count": doc_count,
         "questions_used_today": questions_used_today,
         "quota_limit": quota_limit,
-        "subscription_tier": current_user.subscription_tier or "free"
+        "subscription_tier": current_user.subscription_tier or "free",
+        "satisfaction_rate": satisfaction_rate
     }
 
 

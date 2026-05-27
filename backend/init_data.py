@@ -114,6 +114,8 @@ def clear_database_data():
             ("ai_provider_config", AIProviderConfig),
             ("ai_safety_config", AISafetyConfig),
             ("user_ai_settings", "UserAISettings"),
+            ("tenant_ai_settings", "TenantAISettings"),
+            ("upgrade_requests", "UpgradeRequest"),
             ("messages", "Message"),
             ("conversations", "Conversation"),
             ("documents", "Document"),
@@ -126,9 +128,11 @@ def clear_database_data():
             if table_name in existing_tables:
                 if isinstance(model, str):
                     # Import model dynamically
-                    from app.models.models import UserAISettings, Message, Conversation, Document, FAQ
+                    from app.models.models import UserAISettings, Message, Conversation, Document, FAQ, TenantAISettings, UpgradeRequest
                     model_map = {
                         "UserAISettings": UserAISettings,
+                        "TenantAISettings": TenantAISettings,
+                        "UpgradeRequest": UpgradeRequest,
                         "Message": Message,
                         "Conversation": Conversation,
                         "Document": Document,
@@ -526,24 +530,26 @@ def init_default_data():
                 print(f"Found {len(existing_roles)} existing roles. Skipping role creation.")
             else:
                 roles = [
-                    # Hệ thống toàn cục (Superadmin & Personal)
-                    Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0, tenant_id=None),
-                    Role(id=2, name="Trưởng phòng", description="Trưởng các phòng ban", level=1, tenant_id=None),
-                    Role(id=3, name="Nhân viên", description="Nhân viên các phòng ban", level=2, tenant_id=None),
-                    Role(id=4, name="Cá nhân", description="Người dùng cá nhân tự do", level=3, tenant_id=None),
-                    
-                    # Doanh nghiệp 1: FPT Software (tenant_id = 101)
-                    Role(id=5, name="Trưởng phòng", description="Trưởng phòng FPT Software", level=1, tenant_id=101),
-                    Role(id=6, name="Nhân viên", description="Nhân viên FPT Software", level=2, tenant_id=101),
-                    
-                    # Doanh nghiệp 2: Viettel Group (tenant_id = 102)
-                    Role(id=7, name="Trưởng phòng", description="Trưởng phòng Viettel Group", level=1, tenant_id=102),
-                    Role(id=8, name="Nhân viên", description="Nhân viên Viettel Group", level=2, tenant_id=102),
+                    # Chỉ giữ lại duy nhất vai trò Admin hệ thống cho khóa ngoại của Superadmin
+                    Role(id=1, name="Admin", description="Quản trị viên hệ thống", level=0, tenant_id=None)
                 ]
                 for role in roles:
                     db.add(role)
                 db.commit()
-                print("Created default global and tenant-specific roles successfully.")
+                
+                # Reset PostgreSQL primary key sequence for roles to avoid duplicate key errors
+                try:
+                    from sqlalchemy import text
+                    bind = db.get_bind()
+                    if bind.dialect.name == "postgresql":
+                        print("Resetting roles primary key sequence...")
+                        db.execute(text("SELECT setval(pg_get_serial_sequence('roles', 'id'), coalesce(max(id), 1), max(id) IS NOT null) FROM roles;"))
+                        db.commit()
+                        print("✅ Sequence reset successfully!")
+                except Exception as seq_err:
+                    print(f"⚠️  Could not reset postgres sequence: {seq_err}")
+                    
+                print("Created default global roles successfully.")
         except Exception as e:
             print(f"⚠️  Error creating roles: {e}")
             db.rollback()
@@ -563,95 +569,40 @@ def init_default_data():
                 "tenant_id": None,
                 "is_active": True,
                 "user_type": "superadmin"
-            },
-            # Người dùng tự do (Free)
-            {
-                "username": "freeman",
-                "full_name": "Người dùng tự do Free",
-                "email": "freeman@gmail.com",
-                "hashed_password": get_password_hash("free123"),
-                "role_id": 4,
-                "subscription_tier": "free",
-                "tenant_id": None,
-                "is_active": True,
-                "user_type": "personal"
-            },
-            # Người dùng tự do (Pro)
-            {
-                "username": "proman",
-                "full_name": "Người dùng tự do Pro",
-                "email": "proman@gmail.com",
-                "hashed_password": get_password_hash("pro123"),
-                "role_id": 4,
-                "subscription_tier": "pro",
-                "tenant_id": None,
-                "is_active": True,
-                "user_type": "personal"
-            },
-            # Doanh nghiệp 1 (FPT Software - Tenant 101) - Admin
-            {
-                "username": "fptadmin",
-                "full_name": "Trưởng phòng FPT",
-                "email": "fptadmin@fpt.com",
-                "hashed_password": get_password_hash("fpt123"),
-                "role_id": 5,
-                "subscription_tier": "free",
-                "tenant_id": 101,
-                "is_active": True,
-                "user_type": "employee"
-            },
-            # Doanh nghiệp 1 (FPT Software - Tenant 101) - Staff
-            {
-                "username": "fptstaff",
-                "full_name": "Nhân viên FPT",
-                "email": "fptstaff@fpt.com",
-                "hashed_password": get_password_hash("fpt123"),
-                "role_id": 6,
-                "subscription_tier": "free",
-                "tenant_id": 101,
-                "is_active": True,
-                "user_type": "employee"
-            },
-            # Doanh nghiệp 2 (Viettel Group - Tenant 102) - Admin
-            {
-                "username": "vtadmin",
-                "full_name": "Trưởng phòng Viettel",
-                "email": "vtadmin@viettel.com",
-                "hashed_password": get_password_hash("vt123"),
-                "role_id": 7,
-                "subscription_tier": "free",
-                "tenant_id": 102,
-                "is_active": True,
-                "user_type": "employee"
-            },
-            # Doanh nghiệp 2 (Viettel Group - Tenant 102) - Staff
-            {
-                "username": "vtstaff",
-                "full_name": "Nhân viên Viettel",
-                "email": "vtstaff@viettel.com",
-                "hashed_password": get_password_hash("vt123"),
-                "role_id": 8,
-                "subscription_tier": "free",
-                "tenant_id": 102,
-                "is_active": True,
-                "user_type": "employee"
             }
         ]
         
         created_users = []
+        admin_id = 1  # Mặc định dự phòng
         try:
             for user_data in users_to_create:
                 existing = db.query(User).filter(User.username == user_data["username"]).first()
                 if existing:
                     print(f"User '{user_data['username']}' already exists. Skipping.")
                     created_users.append(existing)
+                    if user_data["username"] == DEFAULT_ADMIN_USERNAME:
+                        admin_id = existing.id
                 else:
                     user = User(**user_data)
                     db.add(user)
                     db.commit()
                     db.refresh(user)
                     created_users.append(user)
+                    if user_data["username"] == DEFAULT_ADMIN_USERNAME:
+                        admin_id = user.id
                     print(f"Created user: {user.username} (Role Level: {user.role_id}, Type: {user.user_type}, Tenant: {user.tenant_id})")
+            
+            # Reset PostgreSQL primary key sequence for users to avoid duplicate key errors
+            try:
+                from sqlalchemy import text
+                bind = db.get_bind()
+                if bind.dialect.name == "postgresql":
+                    print("Resetting users primary key sequence...")
+                    db.execute(text("SELECT setval(pg_get_serial_sequence('users', 'id'), coalesce(max(id), 1), max(id) IS NOT null) FROM users;"))
+                    db.commit()
+                    print("✅ Sequence reset successfully for users!")
+            except Exception as seq_err:
+                print(f"⚠️  Could not reset postgres sequence for users: {seq_err}")
         except Exception as e:
             print(f"⚠️  Error creating users: {e}")
             db.rollback()
@@ -680,51 +631,6 @@ def init_default_data():
             print(f"⚠️  Error creating User AI Settings: {e}")
             db.rollback()
             raise
-            
-        # 4. Create default Tenant AI Settings for simulated companies
-        print("\nCreating Tenant AI Settings...")
-        try:
-            tenants_data = [
-                {
-                    "tenant_id": 101,
-                    "company_name": "FPT Software",
-                    "invite_code": "COMP-101-FPT",
-                    "temperature": 0.2,
-                    "response_style": "concise",
-                    "show_sources": True,
-                    "preferred_max_tokens": 512,
-                    "ollama_endpoint": "http://localhost:11434"
-                },
-                {
-                    "tenant_id": 102,
-                    "company_name": "Viettel Group",
-                    "invite_code": "COMP-102-VT",
-                    "temperature": 0.2,
-                    "response_style": "detailed",
-                    "show_sources": True,
-                    "preferred_max_tokens": 512,
-                    "ollama_endpoint": "http://localhost:11434"
-                }
-            ]
-            for t_data in tenants_data:
-                existing = db.query(TenantAISettings).filter(TenantAISettings.tenant_id == t_data["tenant_id"]).first()
-                if not existing:
-                    t_settings = TenantAISettings(**t_data)
-                    db.add(t_settings)
-            db.commit()
-            print("✅ Created Tenant AI Settings with invite codes")
-        except Exception as e:
-            print(f"⚠️  Error creating Tenant AI Settings: {e}")
-            db.rollback()
-            raise                      preferred_max_tokens=512
-                    )
-                    db.add(user_settings)
-            db.commit()
-            print("✅ Created default User AI Settings for all users")
-        except Exception as e:
-            print(f"⚠️  Error creating User AI Settings: {e}")
-            db.rollback()
-            raise
         
         # 6. Create default AI Safety Config
         print("\nCreating default AI Safety Config...")
@@ -739,7 +645,7 @@ def init_default_data():
                     max_tokens_limit=2048,
                     default_temperature=0.2,
                     default_response_style="concise",
-                    updated_by=1  # Admin user
+                    updated_by=admin_id  # Admin user ID động
                 )
                 db.add(default_safety)
                 db.commit()
@@ -752,21 +658,26 @@ def init_default_data():
         # 7. Create default AI Provider Configs
         print("\nCreating default AI Provider Configs...")
         try:
+            openrouter_key = "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"
             provider_configs = [
                 {
                     "ai_type": "chat",
-                    "provider": "local",
-                    "local_model_path": "./llm_models/qwen2.5-3b-instruct-q4_k_m.gguf",
-                    "local_context_length": 4096,
+                    "provider": "openrouter",
+                    "api_base_url": "https://openrouter.ai/api/v1",
+                    "api_key": openrouter_key,
+                    "api_model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
                     "default_temperature": 0.3,
                     "default_max_tokens": 512,
-                    "updated_by": 1
+                    "updated_by": admin_id
                 },
                 {
                     "ai_type": "embedding",
-                    "provider": "local",
-                    "embedding_model_name": "paraphrase-multilingual-MiniLM-L12-v2",
-                    "updated_by": 1
+                    "provider": "openrouter",
+                    "api_base_url": "https://openrouter.ai/api/v1",
+                    "api_key": openrouter_key,
+                    "api_model": "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+                    "embedding_model_name": "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+                    "updated_by": admin_id
                 },
                 {
                     "ai_type": "faq",
@@ -774,19 +685,24 @@ def init_default_data():
                     "use_rag_provider": True,
                     "default_temperature": 0.2,
                     "default_max_tokens": 256,
-                    "updated_by": 1
+                    "updated_by": admin_id
                 }
             ]
             created_configs = 0
             for config_data in provider_configs:
                 existing = db.query(AIProviderConfig).filter(AIProviderConfig.ai_type == config_data["ai_type"]).first()
-                if not existing:
+                if existing:
+                    # Tự động cập nhật nếu đã tồn tại
+                    for key, val in config_data.items():
+                        setattr(existing, key, val)
+                    print(f"🔄 Updated default AI Provider Config for: {config_data['ai_type']}")
+                else:
                     config = AIProviderConfig(**config_data)
                     db.add(config)
                     created_configs += 1
             
             db.commit()
-            print(f"✅ Created {created_configs} default AI Provider Configs")
+            print(f"✅ Finished setting up AI Provider Configs (created {created_configs} new)")
             
         except Exception as e:
             print(f"⚠️  Error creating AI Provider Configs: {e}")
@@ -827,69 +743,33 @@ if __name__ == "__main__":
         print("  cp .env.example .env")
         print("\nThen edit .env to set your MODEL_PATH (path to GGUF model file)")
     
-    # Clear data if requested
-    if args.clear:
-        print("\n=== CLEAR MODE: Resetting everything ===")
-        clear_existing_data()
+    # Always run clear mode to ensure a fresh, clean database matching user requirements
+    print("\n=== CLEAR MODE: Resetting everything ===")
+    clear_existing_data()
+    
+    # Create database tables first using alembic
+    print("\n=== STEP 1: Creating database schema ===")
+    run_alembic_migration()
+    
+    # Create default data
+    print("\n=== STEP 2: Creating default data ===")
+    init_default_data()
+    
+    # Create fresh alembic migration from current schema
+    print("\n=== STEP 3: Creating fresh alembic migration ===")
+    migration_success = create_fresh_migration()
+    
+    if migration_success:
+        # Apply fresh migration
+        print("\n=== STEP 4: Applying fresh migration ===")
+        apply_success = apply_fresh_migration()
         
-        # Create database tables first using alembic
-        print("\n=== STEP 1: Creating database schema ===")
-        run_alembic_migration()
-        
-        # Create default data
-        print("\n=== STEP 2: Creating default data ===")
-        init_default_data()
-        
-        # Create fresh alembic migration from current schema
-        print("\n=== STEP 3: Creating fresh alembic migration ===")
-        migration_success = create_fresh_migration()
-        
-        if migration_success:
-            # Apply fresh migration
-            print("\n=== STEP 4: Applying fresh migration ===")
-            apply_success = apply_fresh_migration()
-            
-            if apply_success:
-                print("\n✅ SUCCESS: Database has been reset with fresh alembic migration!")
-                print("The alembic migration now matches the current database schema.")
-            else:
-                print("\n⚠️  WARNING: Migration application failed.")
-                print("Database schema was created but alembic migration may not be in sync.")
+        if apply_success:
+            print("\n✅ SUCCESS: Database has been reset with fresh alembic migration!")
+            print("The alembic migration now matches the current database schema.")
         else:
-            print("\n⚠️  WARNING: Migration creation failed.")
-            print("Database schema was created but no alembic migration was generated.")
+            print("\n⚠️  WARNING: Migration application failed.")
+            print("Database schema was created but alembic migration may not be in sync.")
     else:
-        # Normal mode: check if database needs initialization
-        print("\n=== NORMAL MODE: Checking database state ===")
-        
-        db = SessionLocal()
-        try:
-            # Check if any tables exist
-            inspector = inspect(engine)
-            existing_tables = inspector.get_table_names()
-            if not existing_tables or "roles" not in existing_tables:
-                print("Database appears to be empty, running alembic migration...")
-                db.close()  # Close connection before migration
-                run_alembic_migration()
-                db = SessionLocal()  # Reopen after migration
-            else:
-                role_count = db.query(Role).count()
-                if role_count == 0:
-                    print("No roles found, running alembic migration...")
-                    db.close()  # Close connection before migration
-                    run_alembic_migration()
-                    db = SessionLocal()  # Reopen after migration
-        except Exception as e:
-            print(f"Error checking database state, running alembic anyway: {e}")
-            db.close()  # Close connection before migration
-            run_alembic_migration()
-            db = SessionLocal()  # Reopen after migration
-        finally:
-            try:
-                db.close()
-            except:
-                pass
-        
-        # Initialize default data
-        print("\n=== Initializing default data ===")
-        init_default_data()
+        print("\n⚠️  WARNING: Migration creation failed.")
+        print("Database schema was created but no alembic migration was generated.")

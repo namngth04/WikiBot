@@ -10,13 +10,16 @@ from app.models.models import User, Conversation, Message
 from app.schemas.schemas import (
     ConversationCreate, ConversationUpdate, ConversationResponse,
     ConversationDetailResponse, MessageResponse, ChatRequest, ChatResponse,
-    MessageRatingUpdate
+    MessageRatingUpdate, FeedbackCreate
 )
 from app.routers.auth import get_current_user
 from app.routers.documents import get_accessible_role_ids
 from app.services.response_generator import ResponseGenerator
 from app.models.models import UserAISettings, AISafetyConfig
 from app.services.export_service import ExportService
+from app.services.agent.agent_graph import compile_agentic_rag_graph
+
+agentic_graph = compile_agentic_rag_graph()
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -189,6 +192,35 @@ def update_message_rating(
     return message
 
 
+@router.post("/messages/{message_id}/feedback", response_model=MessageResponse)
+def create_message_feedback(
+    message_id: int,
+    feedback_data: FeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Join with Conversation to ensure message belongs to the current user
+    message = db.query(Message).join(Conversation).filter(
+        Message.id == message_id,
+        Conversation.user_id == current_user.id
+    ).first()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy tin nhắn ID {message_id} hoặc bạn không có quyền truy cập"
+        )
+    
+    message.rating = feedback_data.rating
+    message.feedback_category = feedback_data.feedback_category
+    message.feedback_text = feedback_data.feedback_text
+    db.commit()
+    db.refresh(message)
+    
+    return message
+
+
+
 @router.post("/send", response_model=ChatResponse)
 def send_message(
     request: ChatRequest,
@@ -333,33 +365,56 @@ def send_message(
     else:
         final_max_tokens = min(requested_max, 2048)
     
-    # Generate RAG response
+    # Generate RAG response using Agentic RAG (LangGraph)
     try:
-        response_generator = ResponseGenerator(db=db)
-        
         # Get receive_community_knowledge from user settings
         receive_community = user_settings.receive_community_knowledge if user_settings else False
         
-        response_data = response_generator.generate_response(
-            query=request.message,
-            conversation_history=history,
-            accessible_role_ids=accessible_role_ids,
-            response_style=final_response_style,
-            requested_max_tokens=final_max_tokens,
-            show_sources=final_show_sources,
-            receive_community=receive_community,
-            current_user_id=current_user.id
-        )
+        # Prepare graph state
+        initial_state = {
+            "query": request.message,
+            "original_query": request.message,
+            "conversation_history": [{"role": m.role, "content": m.content} for m in history],
+            "accessible_role_ids": accessible_role_ids,
+            "current_user_id": current_user.id,
+            "current_user_type": current_user.user_type,
+            "current_user_tenant_id": current_user.tenant_id,
+            "receive_community": receive_community,
+            "response_style": final_response_style,
+            "max_tokens": final_max_tokens,
+            "db": db,
+            "documents": [],
+            "relevant_documents": [],
+            "generation": "",
+            "confidence": {"overall": 0.5, "level": "medium"},
+            "rewrite_count": 0,
+            "needs_rewrite": False,
+            "steps": [],
+            "suggested_questions": []
+        }
         
-        # Validate response data
-        if not response_data or "response" not in response_data:
-            raise ValueError("Invalid response data from RAG service")
+        # Invoke LangGraph
+        result_state = agentic_graph.invoke(initial_state)
+        
+        # Formulate response_data to match response schemas
+        sources_data = [
+            {
+                "chunk_index": c["metadata"].get("chunk_index"),
+                "source": c["metadata"].get("source"),
+                "page_number": c["metadata"].get("page_number"),
+                "content": c["content"]
+            }
+            for c in result_state.get("relevant_documents", [])
+        ]
         
         # Save assistant message
+        used_chunk_ids = [s.get("chunk_index") for s in sources_data if s.get("chunk_index")]
+            
         assistant_message = Message(
             conversation_id=conversation.id,
             role="assistant",
-            content=response_data.get("answer", response_data["response"])
+            content=result_state["generation"],
+            used_chunks=used_chunk_ids
         )
         db.add(assistant_message)
         db.commit()
@@ -375,18 +430,29 @@ def send_message(
         if not user_message_id or not assistant_message_id:
             raise ValueError("Failed to generate message IDs")
         
+        suggested_questions = result_state.get("suggested_questions", [])
+        
         return {
             "success": True,
-            "response": response_data["response"],
-            "answer": response_data.get("answer", response_data["response"]),
+            "response": result_state["generation"],
+            "answer": result_state["generation"],
             "conversation_id": conversation.id,
-            "sources": response_data.get("sources", []),
-            "citations": response_data.get("citations", response_data.get("sources", [])),
-            "confidence": response_data.get("confidence", {"overall": 0.5, "level": "medium"}),
-            "query_processing": response_data.get("query_processing", {}),
-            "retrieval_stats": response_data.get("retrieval_stats", {}),
+            "sources": sources_data,
+            "citations": sources_data,
+            "confidence": result_state.get("confidence", {"overall": 0.5, "level": "medium"}),
+            "query_processing": {
+                "original_query": request.message,
+                "refined_query": result_state["query"],
+                "rewrite_count": result_state.get("rewrite_count", 0),
+                "steps": result_state.get("steps", [])
+            },
+            "retrieval_stats": {
+                "total_retrieved": len(result_state.get("documents", [])),
+                "relevant_retrieved": len(result_state.get("relevant_documents", []))
+            },
             "user_message_id": user_message_id,
-            "assistant_message_id": assistant_message_id
+            "assistant_message_id": assistant_message_id,
+            "suggested_questions": suggested_questions
         }
         
     except Exception as e:

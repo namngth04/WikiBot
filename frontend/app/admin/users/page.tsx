@@ -188,14 +188,14 @@ export default function UsersPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-soft">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-1 p-6 rounded-[2rem] border border-hairline shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="bg-primary-50 p-3 rounded-2xl text-primary-600">
+          <div className="bg-primary-50 dark:bg-primary-950/30 p-3 rounded-2xl text-primary-600">
             <Users size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-be-vietnam font-bold text-slate-900">Nhân viên hệ thống</h2>
-            <p className="text-xs text-slate-400 font-medium">Quản lý tài khoản và phân quyền truy cập</p>
+            <h2 className="text-xl font-be-vietnam font-bold text-ink">Nhân viên hệ thống</h2>
+            <p className="text-xs text-ink-subtle font-medium">Quản lý tài khoản và phân quyền truy cập</p>
           </div>
         </div>
         <button
@@ -216,27 +216,27 @@ export default function UsersPage() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tổng nhân sự</p>
-          <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">{users.length}</h3>
+        <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
+          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Tổng nhân sự</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-ink">{users.length}</h3>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-soft">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Đang hoạt động</p>
-          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600">{users.length}</h3>
+        <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
+          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Đang hoạt động</p>
+          <h3 className="text-2xl font-be-vietnam font-bold text-emerald-600 dark:text-emerald-500">{users.length}</h3>
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-[2rem] shadow-soft border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline overflow-hidden">
+        <div className="p-6 border-b border-hairline flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" size={18} />
             <input
               type="text"
               placeholder="Tìm kiếm nhân viên..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+              className="w-full pl-12 pr-4 py-3 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
             />
           </div>
           <FilterDropdown
@@ -252,14 +252,14 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-50/50">
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nhân viên</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Liên hệ</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vai trò</th>
-                <th className="px-8 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">Thao tác</th>
+              <tr className="bg-surface-2/50">
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Nhân viên</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Liên hệ</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Vai trò</th>
+                <th className="px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-hairline">
               {loading ? (
                 [1, 2, 3].map(i => (
                   <tr key={i} className="animate-pulse">
@@ -267,30 +267,30 @@ export default function UsersPage() {
                   </tr>
                 ))
               ) : filteredUsers.map((user) => (
-                <tr key={user.id} className="group hover:bg-slate-50/50 transition-colors">
+                <tr key={user.id} className="group hover:bg-surface-2/50 transition-colors">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center font-bold text-sm shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-primary-50 dark:bg-primary-950/20 text-primary-600 flex items-center justify-center font-bold text-sm shadow-sm">
                         {user.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 text-sm">{user.full_name || user.username}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">@{user.username}</p>
+                        <p className="font-bold text-ink text-sm">{user.full_name || user.username}</p>
+                        <p className="text-[10px] text-ink-subtle font-bold uppercase tracking-wider">@{user.username}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-5">
                     <div className="space-y-1">
-                      <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                        <Mail size={12} className="text-slate-400" /> {user.email || '-'}
+                      <p className="text-xs text-ink-muted flex items-center gap-1.5">
+                        <Mail size={12} className="text-ink-subtle" /> {user.email || '-'}
                       </p>
-                      <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400" /> {user.phone || '-'}
+                      <p className="text-xs text-ink-muted flex items-center gap-1.5">
+                        <Phone size={12} className="text-ink-subtle" /> {user.phone || '-'}
                       </p>
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <div className="flex items-center gap-1.5 text-primary-600 bg-primary-50 px-3 py-1 rounded-full text-[10px] font-bold inline-flex">
+                    <div className="flex items-center gap-1.5 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/30 border border-primary-200/20 px-3 py-1 rounded-full text-[10px] font-bold inline-flex">
                       <ShieldCheck size={12} />
                       {user.role?.name || 'Thành viên'}
                     </div>
@@ -302,14 +302,14 @@ export default function UsersPage() {
                         disabled={user.role?.level === 0}
                         className={cn(
                           "p-2 rounded-xl shadow-sm transition-all",
-                          user.role?.level === 0 ? "text-slate-300 bg-slate-50 cursor-not-allowed" : "text-slate-400 hover:text-primary-600 hover:bg-white"
+                          user.role?.level === 0 ? "text-ink-tertiary bg-surface-2 cursor-not-allowed" : "text-ink-subtle hover:text-primary-600 hover:bg-surface-2 dark:hover:bg-surface-3"
                         )}
                       >
                         <Edit2 size={16} />
                       </button>
                       <button 
                         onClick={() => handleDeleteUser(user.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl shadow-sm transition-all"
+                        className="p-2 text-ink-subtle hover:text-rose-600 hover:bg-rose-950/20 rounded-xl shadow-sm transition-all"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -341,64 +341,64 @@ export default function UsersPage() {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="modal-content"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white rounded-t-3xl">
+              <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
                 <div>
-                  <h3 className="text-2xl font-be-vietnam font-bold text-slate-900">
+                  <h3 className="text-2xl font-be-vietnam font-bold text-ink">
                     {editingUser ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
                   </h3>
-                  <p className="text-sm text-slate-400 font-medium">Thiết lập thông tin tài khoản nhân sự</p>
+                  <p className="text-sm text-ink-subtle font-medium">Thiết lập thông tin tài khoản nhân sự</p>
                 </div>
-                <button onClick={() => setShowUserModal(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all">
+                <button onClick={() => setShowUserModal(false)} className="p-2 text-ink-subtle hover:text-ink hover:bg-surface-2 rounded-xl transition-all">
                   <X size={24} />
                 </button>
               </div>
 
-              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar">
+              <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar bg-surface-1">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tên đăng nhập *</label>
+                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Tên đăng nhập *</label>
                     <input
                       type="text"
                       required
                       value={userForm.username}
                       onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Họ tên</label>
+                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Họ tên</label>
                     <input
                       type="text"
                       value={userForm.full_name}
                       onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                      className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Email</label>
                   <input
                     type="email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                     placeholder="example@company.com"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Số điện thoại</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Số điện thoại</label>
                   <input
                     type="text"
                     value={userForm.phone}
                     onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">
                     Mật khẩu {editingUser && '(để trống nếu không đổi)'}
                   </label>
                   <input
@@ -406,16 +406,16 @@ export default function UsersPage() {
                     required={!editingUser}
                     value={userForm.password}
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
+                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chức vụ</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Chức vụ</label>
                   <select
                     value={userForm.role_id}
                     onChange={(e) => setUserForm({ ...userForm, role_id: e.target.value })}
-                    className="w-full px-5 py-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                    className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
                   >
                     <option value="">Không có</option>
                     {roles.filter(role => role.level !== 0).map((role) => (
@@ -425,7 +425,7 @@ export default function UsersPage() {
                 </div>
               </form>
 
-              <div className="p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 bg-white rounded-b-3xl">
+              <div className="p-4 border-t border-hairline flex items-center gap-3 shrink-0 bg-surface-1 rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => setShowUserModal(false)}

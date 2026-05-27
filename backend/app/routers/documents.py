@@ -73,24 +73,34 @@ def list_documents(
 ):
     query = db.query(Document).filter(Document.is_active == True)
     
-    # Apply RBAC filtering
-    if current_user.role and current_user.role.level == 0:
-        # Admin can see all
+    # 1. Phân quyền cách ly Multi-tenancy & cá nhân
+    if current_user.user_type == "superadmin":
+        # Superadmin xem toàn bộ tài liệu hệ thống
         pass
-    else:
-        # Filter by accessible roles
-        accessible_ids = get_accessible_role_ids(current_user)
-        # If accessible_ids contains 0 (public), we need to handle it specially
-        if 0 in accessible_ids:
-            other_ids = [x for x in accessible_ids if x is not None]
-            if other_ids:
-                query = query.filter((Document.role_id.in_(other_ids)) | (Document.role_id.is_(None)))
-            else:
-                query = query.filter(Document.role_id.is_(None))
+    elif current_user.tenant_id is not None:
+        # Người dùng doanh nghiệp: Chỉ xem tài liệu thuộc cùng tenant
+        query = query.filter(Document.tenant_id == current_user.tenant_id)
+        
+        # Áp dụng RBAC trong nội bộ doanh nghiệp
+        if current_user.role and current_user.role.level == 1:
+            # Admin doanh nghiệp (Trưởng phòng) xem được hết tài liệu của doanh nghiệp mình
+            pass
         else:
-            query = query.filter(Document.role_id.in_(accessible_ids))
+            # Nhân viên: Lọc theo các chức vụ có quyền xem trong cùng doanh nghiệp
+            accessible_ids = get_accessible_role_ids(current_user)
+            if 0 in accessible_ids:
+                other_ids = [x for x in accessible_ids if x is not None]
+                if other_ids:
+                    query = query.filter((Document.role_id.in_(other_ids)) | (Document.role_id.is_(None)))
+                else:
+                    query = query.filter(Document.role_id.is_(None))
+            else:
+                query = query.filter(Document.role_id.in_(accessible_ids))
+    else:
+        # Người dùng cá nhân: Chỉ xem tài liệu của chính mình tải lên
+        query = query.filter(Document.uploaded_by == current_user.id)
     
-    # Additional filter by role_id if specified
+    # 2. Lọc thêm theo role_id cụ thể nếu có yêu cầu từ frontend
     if role_id is not None:
         if not can_access_document(current_user, role_id):
             raise HTTPException(
@@ -352,3 +362,51 @@ def delete_document(
         success=True,
         message=f"Đã xóa tài liệu '{document.original_name}'"
     )
+
+
+@router.post("/{doc_id}/toggle-share", response_model=DocumentResponse)
+def toggle_document_share(
+    doc_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Toggle community sharing (is_public_community) for a personal document.
+    Enforces privacy boundary: Only accessible for personal users and owned documents.
+    """
+    document = db.query(Document).filter(Document.id == doc_id, Document.is_active == True).first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy tài liệu ID {doc_id}"
+        )
+        
+    # Enforce privacy boundary:
+    # 1. Must be a personal user (tenant_id is None)
+    # 2. Must be the owner of the document
+    if current_user.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tính năng chia sẻ tri thức cộng đồng chỉ khả dụng với tài khoản cá nhân (Personal)"
+        )
+        
+    if document.uploaded_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền chia sẻ tài liệu này"
+        )
+        
+    # Toggle share state
+    document.is_public_community = not document.is_public_community
+    
+    # Sync to ChromaDB vector store
+    try:
+        processor = DocumentProcessor()
+        processor.update_document_community_share_in_vector_db(document.id, document.is_public_community)
+    except Exception as e:
+        print(f"Warning: Failed to update community share in vector DB: {e}")
+        
+    db.commit()
+    db.refresh(document)
+    
+    return document
