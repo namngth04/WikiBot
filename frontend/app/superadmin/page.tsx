@@ -1235,8 +1235,8 @@ export default function SuperadminPage() {
                     const testResult = testResults[ai_type];
                     const typeLabels: Record<string, string> = { chat: '🗣️ Chat (Trả lời câu hỏi)', embedding: '📐 Embedding (Vector hoá tài liệu)', faq: '❓ FAQ (Phân loại câu hỏi)' };
                     const providers = ai_type === 'embedding' 
-                      ? ['local', 'openrouter', 'openai'] 
-                      : ['openrouter', 'openai', 'ollama'];
+                      ? ['local', 'openrouter', 'openai', 'gemini'] 
+                      : ['openrouter', 'openai', 'ollama', 'gemini'];
                     const isFaqWithRag = ai_type === 'faq' && (cfg.use_rag_provider ?? true);
                     return (
                       <div key={ai_type} className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6 space-y-4">
@@ -1270,7 +1270,22 @@ export default function SuperadminPage() {
                                 {providers.map(p => (
                                   <button
                                     key={p}
-                                    onClick={() => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], provider: p}}))}
+                                    onClick={() => {
+                                      const defaultUrls: Record<string, string> = {
+                                        openrouter: 'https://openrouter.ai/api/v1',
+                                        ollama: 'http://localhost:11434',
+                                        openai: 'https://api.openai.com/v1',
+                                        gemini: ''
+                                      };
+                                      setEditingConfigs(prev => ({
+                                        ...prev, 
+                                        [ai_type]: {
+                                          ...prev[ai_type], 
+                                          provider: p,
+                                          api_base_url: defaultUrls[p] || ''
+                                        }
+                                      }));
+                                    }}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                                       cfg.provider === p
                                         ? 'bg-[#5e6ad2] border-[#5e6ad2] text-white'
@@ -1289,23 +1304,27 @@ export default function SuperadminPage() {
                             {cfg.provider !== 'local' && (
                               <>
                                 <div>
-                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">API Base URL</label>
+                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
+                                    {cfg.provider === 'gemini' ? 'GCP Project ID (API Base URL)' : 'API Base URL'}
+                                  </label>
                                   <input
                                     type="text"
                                     value={cfg.api_base_url || ''}
                                     onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_base_url: e.target.value}}))}
                                     className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
-                                    placeholder="https://openrouter.ai/api/v1"
+                                    placeholder={cfg.provider === 'gemini' ? 'Nhập Project ID GCP của bạn (vd: my-gcp-project-123)' : 'https://openrouter.ai/api/v1'}
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">API Key</label>
+                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
+                                    {cfg.provider === 'gemini' ? 'JSON Key Service Account (API Key)' : 'API Key'}
+                                  </label>
                                   <input
                                     type="password"
                                     value={cfg.api_key || ''}
                                     onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_key: e.target.value}}))}
                                     className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
-                                    placeholder="••••••••"
+                                    placeholder={cfg.provider === 'gemini' ? 'Dán toàn bộ nội dung file JSON Service Account Key tại đây' : '••••••••'}
                                   />
                                 </div>
                                 <div>
@@ -1315,7 +1334,7 @@ export default function SuperadminPage() {
                                     value={cfg.api_model || ''}
                                     onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_model: e.target.value}}))}
                                     className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
-                                    placeholder="openai/gpt-4o-mini"
+                                    placeholder={cfg.provider === 'gemini' ? (ai_type === 'embedding' ? 'multimodalembedding@001' : 'gemini-2.5-flash') : 'openai/gpt-4o-mini'}
                                   />
                                 </div>
                               </>

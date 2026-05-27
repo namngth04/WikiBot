@@ -27,11 +27,11 @@ export default function AdminAIConfigPage() {
     ollama_endpoint: 'http://localhost:11434',
   });
 
-  // Default base URLs for providers
   const DEFAULT_BASE_URLS = {
     openrouter: 'https://openrouter.ai/api/v1',
     ollama: 'http://localhost:11434',
-    openai: 'https://api.openai.com/v1'
+    openai: 'https://api.openai.com/v1',
+    gemini: ''
   };
 
   // Safety Config
@@ -532,19 +532,15 @@ export default function AdminAIConfigPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-muted">Provider</label>
               <div className="flex gap-2">
-                {['openrouter', 'openai', 'ollama'].map((p) => (
+                {['openrouter', 'openai', 'ollama', 'gemini'].map((p) => (
                   <button
                     key={p}
                     onClick={() => {
-                      // Auto-fill base URL when switching providers
-                      const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS];
-                      const shouldAutoFill = !chatConfig.api_base_url || 
-                        chatConfig.api_base_url === DEFAULT_BASE_URLS[chatConfig.provider as keyof typeof DEFAULT_BASE_URLS];
-                      
+                      const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS] || '';
                       setChatConfig({ 
                         ...chatConfig, 
                         provider: p,
-                        ...(shouldAutoFill && newBaseUrl ? { api_base_url: newBaseUrl } : {})
+                        api_base_url: newBaseUrl
                       });
                       loadModels(p);
                     }}
@@ -561,24 +557,38 @@ export default function AdminAIConfigPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-ink-muted">Base URL</label>
+                <label className="text-sm font-medium text-ink-muted">
+                  {chatConfig.provider === 'gemini' ? 'GCP Project ID (Base URL)' : 'Base URL'}
+                </label>
                 <input
                   type="text"
                   value={chatConfig.api_base_url || ''}
                   onChange={(e) => setChatConfig({ ...chatConfig, api_base_url: e.target.value })}
                   className="linear-input bg-surface-2 w-full"
-                  placeholder="https://openrouter.ai/api/v1"
+                  placeholder={chatConfig.provider === 'gemini' ? 'Nhập Project ID GCP của bạn (vd: my-gcp-project-123)' : 'https://openrouter.ai/api/v1'}
                 />
+                {chatConfig.provider === 'gemini' && (
+                  <p className="text-xs text-brand-lavender font-medium">
+                    Đối với Vertex AI, vui lòng nhập GCP Project ID vào ô Base URL này.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-ink-muted">API Key</label>
+                <label className="text-sm font-medium text-ink-muted">
+                  {chatConfig.provider === 'gemini' ? 'JSON Key Service Account (API Key)' : 'API Key'}
+                </label>
                 <input
                   type="password"
                   value={chatConfig.api_key || ''}
                   onChange={(e) => setChatConfig({ ...chatConfig, api_key: e.target.value })}
-                  className="linear-input bg-surface-2 w-full"
-                  placeholder="sk-..."
+                  className="linear-input bg-surface-2 w-full font-mono text-xs"
+                  placeholder={chatConfig.provider === 'gemini' ? 'Dán toàn bộ nội dung file JSON Service Account Key tại đây' : 'sk-...'}
                 />
+                {chatConfig.provider === 'gemini' && (
+                  <p className="text-xs text-brand-lavender font-medium">
+                    Dán toàn bộ nội dung của tệp tin JSON Service Account được cấp quyền Vertex AI User.
+                  </p>
+                )}
               </div>
               <div className="space-y-3">
                 <label className="text-sm font-medium text-ink-muted">Model Selection</label>
@@ -666,19 +676,15 @@ export default function AdminAIConfigPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-muted">Provider</label>
               <div className="flex gap-2">
-                {['local', 'openrouter', 'openai'].map((p) => (
+                {['local', 'openrouter', 'openai', 'gemini'].map((p) => (
                   <button
                     key={p}
                     onClick={() => {
-                      // Auto-fill base URL when switching providers
-                      const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS];
-                      const shouldAutoFill = !embeddingConfig.api_base_url || 
-                        embeddingConfig.api_base_url === DEFAULT_BASE_URLS[embeddingConfig.provider as keyof typeof DEFAULT_BASE_URLS];
-                      
+                      const newBaseUrl = DEFAULT_BASE_URLS[p as keyof typeof DEFAULT_BASE_URLS] || '';
                       setEmbeddingConfig({ 
                         ...embeddingConfig, 
                         provider: p,
-                        ...(shouldAutoFill && newBaseUrl ? { api_base_url: newBaseUrl } : {})
+                        api_base_url: newBaseUrl
                       });
                       if (p !== 'local') {
                         loadModels(p, 'embedding');
@@ -689,7 +695,7 @@ export default function AdminAIConfigPage() {
                       : 'bg-surface-2 text-ink-muted border border-hairline hover:bg-surface-3'
                       }`}
                   >
-                    {p === 'local' ? 'SentenceTransformer' : p === 'openrouter' ? 'OpenRouter' : 'OpenAI'}
+                    {p === 'local' ? 'SentenceTransformer' : p === 'openrouter' ? 'OpenRouter' : p === 'openai' ? 'OpenAI' : 'Gemini'}
                   </button>
                 ))}
               </div>
@@ -709,23 +715,38 @@ export default function AdminAIConfigPage() {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-ink-muted">Base URL</label>
+                  <label className="text-sm font-medium text-ink-muted">
+                    {embeddingConfig.provider === 'gemini' ? 'GCP Project ID (Base URL)' : 'Base URL'}
+                  </label>
                   <input
                     type="text"
                     value={embeddingConfig.api_base_url || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_base_url: e.target.value })}
                     className="linear-input bg-surface-2 w-full"
-                    placeholder="https://api.openai.com/v1"
+                    placeholder={embeddingConfig.provider === 'gemini' ? 'Nhập Project ID GCP của bạn (vd: my-gcp-project-123)' : 'https://api.openai.com/v1'}
                   />
+                  {embeddingConfig.provider === 'gemini' && (
+                    <p className="text-xs text-brand-lavender font-medium">
+                      Đối với Vertex AI, vui lòng nhập GCP Project ID vào ô Base URL này.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-ink-muted">API Key</label>
+                  <label className="text-sm font-medium text-ink-muted">
+                    {embeddingConfig.provider === 'gemini' ? 'JSON Key Service Account (API Key)' : 'API Key'}
+                  </label>
                   <input
                     type="password"
                     value={embeddingConfig.api_key || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_key: e.target.value })}
-                    className="linear-input bg-surface-2 w-full"
+                    className="linear-input bg-surface-2 w-full font-mono text-xs"
+                    placeholder={embeddingConfig.provider === 'gemini' ? 'Dán toàn bộ nội dung file JSON Service Account Key tại đây' : 'sk-...'}
                   />
+                  {embeddingConfig.provider === 'gemini' && (
+                    <p className="text-xs text-brand-lavender font-medium">
+                      Dán toàn bộ nội dung của tệp tin JSON Service Account được cấp quyền Vertex AI User.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-ink-muted">Embedding Model</label>
@@ -734,7 +755,7 @@ export default function AdminAIConfigPage() {
                     value={embeddingConfig.api_model || ''}
                     onChange={(e) => setEmbeddingConfig({ ...embeddingConfig, api_model: e.target.value })}
                     className="linear-input bg-surface-2 w-full"
-                    placeholder="text-embedding-3-small"
+                    placeholder={embeddingConfig.provider === 'gemini' ? 'multimodalembedding@001' : 'text-embedding-3-small'}
                   />
                 </div>
               </div>

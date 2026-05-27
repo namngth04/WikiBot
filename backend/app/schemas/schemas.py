@@ -302,7 +302,7 @@ class AISafetyConfigSchema(BaseModel):
 class AIProviderConfigSchema(BaseModel):
     """Provider config for each AI type"""
     ai_type: Optional[str] = Field(None, pattern="^(chat|embedding|faq)$")
-    provider: str = Field(default="local", pattern="^(local|openrouter|ollama|openai)$")
+    provider: str = Field(default="local", pattern="^(local|openrouter|ollama|openai|gemini)$")
     
     # Local settings
     local_model_path: Optional[str] = None
@@ -397,12 +397,9 @@ class TenantAISettingsResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
-
-
 class TestConnectionRequest(BaseModel):
     """Test connection request"""
-    provider: str = Field(..., pattern="^(local|openrouter|ollama|openai)$")
+    provider: str = Field(..., pattern="^(local|openrouter|ollama|openai|gemini)$")
     api_base_url: Optional[str] = None
     api_key: Optional[str] = None
     api_model: Optional[str] = None

@@ -2,11 +2,13 @@
   "name": "wikibot-frontend",
   "version": "1.0.0",
   "private": true,
+  "main": "electron-main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "electron": "electron ."
   },
   "dependencies": {
     "autoprefixer": "^10.4.17",

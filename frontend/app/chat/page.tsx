@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
 import ChatContainer from '@/app/components/ChatContainer';
+import DesktopGuard from '@/components/DesktopGuard';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -28,5 +29,10 @@ export default function ChatPage() {
     );
   }
 
-  return <ChatContainer />;
+  return (
+    <DesktopGuard>
+      <ChatContainer />
+    </DesktopGuard>
+  );
 }
+

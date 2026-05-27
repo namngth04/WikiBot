@@ -369,6 +369,12 @@ def get_available_models(
             {"id": "text-embedding-3-large", "name": "Text Embedding 3 Large", "description": "High quality embeddings", "type": "embedding"},
             {"id": "text-embedding-ada-002", "name": "Text Embedding Ada 002", "description": "Legacy embedding model", "type": "embedding"},
         ],
+        "gemini": [
+            {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "Recommended for fast RAG chat (Free tier)", "type": "chat"},
+            {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "Highly capable reasoning model", "type": "chat"},
+            {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "description": "Legacy fast model", "type": "chat"},
+            {"id": "multimodalembedding@001", "name": "Multimodal Embedding v1", "description": "Vertex AI Text/Image/Video embedding", "type": "embedding"},
+        ],
         "ollama": [
             {"id": "llama3.2:3b", "name": "Llama 3.2 3B", "description": "Lightweight", "type": "chat"},
             {"id": "qwen2.5:3b", "name": "Qwen 2.5 3B", "description": "Good for Vietnamese", "type": "chat"},

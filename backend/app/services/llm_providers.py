@@ -685,6 +685,220 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 "base_url": self.base_url
             }
 
+class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
+    """Google Vertex AI Multimodal Embedding Provider supporting text, image, and video"""
+    
+    def __init__(self, project: str, location: str = "us-central1", model_name: str = "multimodalembedding@001", api_key: str = "", **kwargs):
+        self.project = project
+        self.location = location
+        self.model_name = model_name
+        self.api_key = api_key
+        self._model = None
+        self._credentials = None
+        
+        # Try to parse credentials from JSON API Key if provided
+        if api_key:
+            try:
+                import json
+                from google.oauth2 import service_account
+                if os.path.exists(api_key):
+                    self._credentials = service_account.Credentials.from_service_account_file(api_key)
+                else:
+                    # Try to parse as JSON string
+                    key_dict = json.loads(api_key)
+                    self._credentials = service_account.Credentials.from_service_account_info(key_dict)
+                print(f"[DEBUG VertexAI] Credentials loaded successfully")
+            except Exception as e:
+                print(f"[DEBUG VertexAI] Failed to parse credentials from api_key: {e}. Will rely on default environment credentials.")
+                
+    @property
+    def model(self):
+        """Lazy load Vertex AI Multimodal Model"""
+        if self._model is None:
+            import vertexai
+            from vertexai.vision_models import MultiModalEmbeddingModel
+            
+            print(f"[DEBUG VertexAI] Initializing vertexai with project={self.project}, location={self.location}")
+            vertexai.init(
+                project=self.project,
+                location=self.location,
+                credentials=self._credentials
+            )
+            self._model = MultiModalEmbeddingModel.from_pretrained(self.model_name)
+            print(f"[DEBUG VertexAI] Model {self.model_name} loaded successfully")
+        return self._model
+        
+    def encode(self, texts: List[str]) -> List[List[float]]:
+        """Encode texts to embeddings"""
+        results = []
+        for text in texts:
+            try:
+                embeddings = self.model.get_embeddings(
+                    contextual_text=text
+                )
+                vector = embeddings.text_embedding
+                # Pad to 2048 dimensions to match postgres column schema
+                if len(vector) < 2048:
+                    vector = vector + [0.0] * (2048 - len(vector))
+                results.append(vector)
+            except Exception as e:
+                print(f"[ERROR VertexAI] Failed to encode text: {e}")
+                # Return zero vector in case of failure to prevent breaking the flow
+                results.append([0.0] * 2048)
+        return results
+        
+    def encode_image(self, image_path: str, contextual_text: Optional[str] = None) -> List[float]:
+        """Encode image to embedding"""
+        try:
+            from vertexai.vision_models import MultiModalEmbeddingImage
+            image = MultiModalEmbeddingImage.load_from_file(image_path)
+            embeddings = self.model.get_embeddings(
+                image=image,
+                contextual_text=contextual_text
+            )
+            vector = embeddings.image_embedding
+            # Pad to 2048 dimensions
+            if len(vector) < 2048:
+                vector = vector + [0.0] * (2048 - len(vector))
+            return vector
+        except Exception as e:
+            print(f"[ERROR VertexAI] Failed to encode image: {e}")
+            return [0.0] * 2048
+            
+    def encode_video(self, video_path: str, contextual_text: Optional[str] = None) -> List[float]:
+        """Encode video to embedding"""
+        try:
+            from vertexai.vision_models import MultiModalEmbeddingVideo
+            video = MultiModalEmbeddingVideo.load_from_file(video_path)
+            embeddings = self.model.get_embeddings(
+                video=video,
+                contextual_text=contextual_text
+            )
+            vector = embeddings.video_embedding
+            # Pad to 2048 dimensions
+            if len(vector) < 2048:
+                vector = vector + [0.0] * (2048 - len(vector))
+            return vector
+        except Exception as e:
+            print(f"[ERROR VertexAI] Failed to encode video: {e}")
+            return [0.0] * 2048
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test API connection"""
+        import time
+        start = time.time()
+        try:
+            _ = self.model
+            # Encode a test text
+            test_vector = self.encode(["test"])
+            latency = (time.time() - start) * 1000
+            return {
+                "success": True,
+                "message": f"Vertex AI Multimodal API connection successful. Model: {self.model_name}",
+                "latency_ms": latency,
+                "model": self.model_name,
+                "project": self.project
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Vertex AI Multimodal API connection failed: {str(e)}",
+                "latency_ms": (time.time() - start) * 1000,
+                "project": self.project
+            }
+
+class VertexAIGeminiChatProvider(BaseLLMProvider):
+    """Google Vertex AI Gemini Chat Provider"""
+    
+    def __init__(self, project: str, location: str = "us-central1", model_name: str = "gemini-2.5-flash", api_key: str = "", **kwargs):
+        self.project = project
+        self.location = location
+        self.model_name = model_name
+        self.api_key = api_key
+        self._model = None
+        self._credentials = None
+        
+        # Try to parse credentials from JSON API Key if provided
+        if api_key:
+            try:
+                import json
+                from google.oauth2 import service_account
+                if os.path.exists(api_key):
+                    self._credentials = service_account.Credentials.from_service_account_file(api_key)
+                else:
+                    # Try to parse as JSON string
+                    key_dict = json.loads(api_key)
+                    self._credentials = service_account.Credentials.from_service_account_info(key_dict)
+                print(f"[DEBUG VertexAI Chat] Credentials loaded successfully")
+            except Exception as e:
+                print(f"[DEBUG VertexAI Chat] Failed to parse credentials from api_key: {e}. Will rely on default environment credentials.")
+                
+    @property
+    def model(self):
+        """Lazy load Vertex AI Generative Model"""
+        if self._model is None:
+            import vertexai
+            from vertexai.generative_models import GenerativeModel
+            
+            print(f"[DEBUG VertexAI Chat] Initializing vertexai with project={self.project}, location={self.location}")
+            vertexai.init(
+                project=self.project,
+                location=self.location,
+                credentials=self._credentials
+            )
+            self._model = GenerativeModel(self.model_name)
+            print(f"[DEBUG VertexAI Chat] Model {self.model_name} loaded successfully")
+        return self._model
+        
+    def generate(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
+                 system_prompt: Optional[str] = None, **kwargs) -> str:
+        """Generate text using Vertex AI Generative Model"""
+        try:
+            from vertexai.generative_models import GenerationConfig
+            
+            config = GenerationConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens
+            )
+            
+            # Combine system prompt with prompt if provided
+            full_prompt = prompt
+            if system_prompt:
+                full_prompt = f"{system_prompt}\n\n{prompt}"
+                
+            response = self.model.generate_content(
+                full_prompt,
+                generation_config=config
+            )
+            return response.text.strip()
+        except Exception as e:
+            print(f"[ERROR VertexAI Chat] Generation failed: {e}")
+            raise Exception(f"Vertex AI Generation failed: {str(e)}")
+            
+    def test_connection(self) -> Dict[str, Any]:
+        """Test connection to Vertex AI Chat API"""
+        import time
+        start = time.time()
+        try:
+            _ = self.model
+            # Generate a test text
+            test_output = self.generate("Say 'OK'", max_tokens=5, temperature=0)
+            latency = (time.time() - start) * 1000
+            return {
+                "success": True,
+                "message": f"Vertex AI Chat API connected successfully. Model: {self.model_name}. Test output: {test_output}",
+                "latency_ms": latency,
+                "model": self.model_name,
+                "project": self.project
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Vertex AI Chat API connection failed: {str(e)}",
+                "latency_ms": (time.time() - start) * 1000,
+                "project": self.project
+            }
+
 
 # ============================================
 # Provider Factory & Encryption
@@ -750,6 +964,27 @@ class ProviderFactory:
                 timeout=config.get("timeout", 30),
                 max_retries=1
             )
+        elif provider_type == "gemini":
+            # Google Vertex AI Gemini Chat
+            # api_base_url -> project_id
+            # api_key -> service_account_json (hoặc credentials key)
+            api_key = config.get("api_key", "")
+            if api_key and not (api_key.startswith("{") or api_key.startswith("[")):
+                try:
+                    encryption = APIKeyEncryption()
+                    api_key = encryption.decrypt(api_key)
+                except:
+                    pass
+            
+            project = config.get("api_base_url", "")
+            model = config.get("api_model") or "gemini-2.5-flash"
+            
+            return VertexAIGeminiChatProvider(
+                project=project,
+                location="us-central1",
+                model_name=model,
+                api_key=api_key
+            )
         elif provider_type == "ollama":
             # Use native Ollama API for reliable local connections
             return OllamaProvider(
@@ -789,8 +1024,28 @@ class ProviderFactory:
                 timeout=config.get("timeout", 30),
                 max_retries=1
             )
+        elif provider_type == "gemini":
+            # Decrypt GCP Service Account JSON key if needed
+            api_key = config.get("api_key", "")
+            if api_key and not (api_key.startswith("{") or api_key.startswith("[")):
+                try:
+                    encryption = APIKeyEncryption()
+                    api_key = encryption.decrypt(api_key)
+                except:
+                    pass
+            
+            project = config.get("api_base_url", "")
+            model = config.get("api_model") or config.get("embedding_model_name") or "multimodalembedding@001"
+            
+            return VertexAIMultimodalEmbeddingProvider(
+                project=project,
+                location="us-central1",
+                model_name=model,
+                api_key=api_key
+            )
         else:
             raise ValueError(f"Unknown provider type: {provider_type}")
+
     
     @staticmethod
     def test_provider_config(config: Dict[str, Any]) -> Dict[str, Any]:
