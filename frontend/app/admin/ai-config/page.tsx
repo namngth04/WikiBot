@@ -4,16 +4,17 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Settings, Server, Key, Brain, Layers, Shield,
-  CheckCircle, AlertCircle, Save, TestTube, Eye, MessageCircle
+  CheckCircle, AlertCircle, Save, TestTube, Eye, MessageCircle, Cpu
 } from 'lucide-react';
 import { adminAIAPI, tenantAIAPI } from '@/app/lib/ai-config-api';
 import { useAuth } from '@/app/context/auth-context';
+import ModelManagementTab from '@/components/admin/ModelManagementTab';
 
 export default function AdminAIConfigPage() {
   const { user } = useAuth();
   const isCompanyAdmin = user?.role?.level === 1;
   
-  const [activeTab, setActiveTab] = useState<'safety' | 'chat' | 'embedding' | 'overview'>('safety');
+  const [activeTab, setActiveTab] = useState<'safety' | 'chat' | 'embedding' | 'overview' | 'models'>('overview');
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -414,6 +415,7 @@ export default function AdminAIConfigPage() {
       <div className="flex gap-2 border-b border-hairline">
         {[
           { id: 'overview', label: 'Tổng quan', icon: Eye },
+          { id: 'models', label: 'Mô hình LLM', icon: Cpu },
           { id: 'safety', label: 'Giới hạn an toàn', icon: Shield },
           { id: 'chat', label: 'Chat AI', icon: Brain },
           { id: 'embedding', label: 'Embedding AI', icon: Layers },
@@ -440,6 +442,17 @@ export default function AdminAIConfigPage() {
           className="space-y-6"
         >
           <OverviewTab />
+        </motion.div>
+      )}
+
+      {/* Models Tab */}
+      {activeTab === 'models' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <ModelManagementTab />
         </motion.div>
       )}
 

@@ -13,7 +13,7 @@ except ImportError:
     psutil = None
 
 from app.core.database import get_db
-from app.models.models import User, Message, Document, FAQ, Conversation, TenantAISettings
+from app.models.models import User, Message, Document, FAQ, Conversation, TenantAISettings, UpgradeRequest
 from app.schemas.schemas import (
     DashboardStats, UsageStats, FAQResponse, FAQCreate, FAQUpdate, 
     SuggestedFAQ, SuccessResponse, TenantAISettingsSchema, TenantAISettingsResponse
@@ -419,6 +419,59 @@ def update_tenant_ai_settings(
     db.commit()
     db.refresh(settings)
     return settings
+
+
+@router.get("/stats/revenue")
+def get_revenue_stats(
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """Get billing and revenue stats for Superadmin (Superadmin only)"""
+    if not current_admin.role or current_admin.role.level != 0 or current_admin.tenant_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Yêu cầu quyền quản trị viên tối cao của hệ thống (Superadmin)."
+        )
+    
+    price_per_month = 200000  # VNĐ
+    approved_requests = db.query(UpgradeRequest).filter(UpgradeRequest.status == "approved").count()
+    total_revenue = approved_requests * price_per_month
+
+    total_personal_users = db.query(User).filter(User.tenant_id.is_(None)).count()
+    pro_users_count = db.query(User).filter(User.tenant_id.is_(None), User.subscription_tier == "pro").count()
+    free_users_count = db.query(User).filter(User.tenant_id.is_(None), User.subscription_tier == "free").count()
+    
+    conversion_rate = round((pro_users_count / total_personal_users * 100), 1) if total_personal_users > 0 else 0.0
+
+    all_approved = db.query(UpgradeRequest.created_at).filter(UpgradeRequest.status == "approved").all()
+    
+    month_data = {}
+    for req in all_approved:
+        if req.created_at:
+            month_str = req.created_at.strftime("%Y-%m")
+            month_data[month_str] = month_data.get(month_str, 0) + price_per_month
+
+    sorted_months = sorted(month_data.keys())
+    revenue_by_month = [{"month": m, "revenue": month_data[m]} for m in sorted_months]
+    
+    growth_rate = 0.0
+    if len(revenue_by_month) >= 2:
+        last_month = revenue_by_month[-1]["revenue"]
+        prev_month = revenue_by_month[-2]["revenue"]
+        if prev_month > 0:
+            growth_rate = round(((last_month - prev_month) / prev_month * 100), 1)
+    elif len(revenue_by_month) == 1:
+        growth_rate = 100.0
+
+    return {
+        "total_revenue": total_revenue,
+        "conversion_rate": conversion_rate,
+        "pro_users_count": pro_users_count,
+        "free_users_count": free_users_count,
+        "total_personal_users": total_personal_users,
+        "revenue_by_month": revenue_by_month[-6:],
+        "growth_rate": growth_rate
+    }
 
 
 @router.get("/stats/resources")
@@ -837,67 +890,5 @@ def delete_personal_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Lỗi hệ thống khi xóa người dùng: {str(e)}"
         )
-@router.get("/feedback")
-def list_feedback_logs(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_admin: User = Depends(get_current_company_admin)
-):
-    """List all assistant messages with negative ratings (Dislikes) and their context (Superadmin or Company Admin)"""
-    tenant_id = current_admin.tenant_id
-    
-    # Query negative rated messages (Dislikes)
-    query = db.query(Message).filter(Message.role == "assistant", Message.rating == -1)
-    
-    # Filter by tenant if company admin
-    if tenant_id is not None:
-        query = query.join(Conversation).join(User).filter(User.tenant_id == tenant_id)
-        
-    disliked_messages = query.order_by(Message.created_at.desc()).offset(skip).limit(limit).all()
-    
-    logs = []
-    for msg in disliked_messages:
-        # Find user's question immediately preceding this message
-        user_msg = db.query(Message).filter(
-            Message.conversation_id == msg.conversation_id,
-            Message.role == "user",
-            Message.created_at < msg.created_at
-        ).order_by(Message.created_at.desc()).first()
-        
-        user_question = user_msg.content if user_msg else "Không tìm thấy câu hỏi"
-        
-        # Get username of conversation owner
-        conversation = db.query(Conversation).filter(Conversation.id == msg.conversation_id).first()
-        username = conversation.user.username if conversation and conversation.user else "N/A"
-        
-        # Retrieve original document chunks used
-        chunks_info = []
-        if msg.used_chunks:
-            from app.models.models import DocumentChunk, Document
-            db_chunks = db.query(DocumentChunk, Document).join(
-                Document, DocumentChunk.document_id == Document.id
-            ).filter(DocumentChunk.id.in_(msg.used_chunks)).all()
-            
-            for chunk, doc in db_chunks:
-                chunks_info.append({
-                    "chunk_id": chunk.id,
-                    "document_id": doc.id,
-                    "source": doc.original_name,
-                    "content": chunk.content,
-                    "page_number": chunk.page_number
-                })
-                
-        logs.append({
-            "message_id": msg.id,
-            "conversation_id": msg.conversation_id,
-            "username": username,
-            "user_question": user_question,
-            "assistant_answer": msg.content,
-            "feedback_category": msg.feedback_category,
-            "feedback_text": msg.feedback_text,
-            "created_at": msg.created_at,
-            "used_chunks": chunks_info
-        })
-        
-    return logs
+
+

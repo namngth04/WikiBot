@@ -373,6 +373,8 @@ def get_available_models(
             {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "Recommended for fast RAG chat (Free tier)", "type": "chat"},
             {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "Highly capable reasoning model", "type": "chat"},
             {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "description": "Legacy fast model", "type": "chat"},
+            {"id": "gemini-embedding-2-preview", "name": "Gemini Embedding 2 Preview", "description": "Google Gemini Embedding v2 (Multimodal & Matryoshka 2048)", "type": "embedding"},
+            {"id": "text-embedding-004", "name": "Text Embedding 004", "description": "Google Vertex AI Text Embedding (Matryoshka 2048)", "type": "embedding"},
             {"id": "multimodalembedding@001", "name": "Multimodal Embedding v1", "description": "Vertex AI Text/Image/Video embedding", "type": "embedding"},
         ],
         "ollama": [

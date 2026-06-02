@@ -8,7 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.routers import auth, users, roles, documents, chat, admin, admin_ai, user_ai, upgrade
+from app.routers import auth, users, roles, documents, chat, admin, admin_ai, user_ai, upgrade, feedback, admin_analytics, chat_models
+
+
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +72,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Mount static files for extracted images
+settings = get_settings()
+extracted_images_path = os.path.join(settings.data_dir, "extracted_images")
+os.makedirs(extracted_images_path, exist_ok=True)
+app.mount("/api/documents/extracted-images", StaticFiles(directory=extracted_images_path), name="extracted_images")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -89,6 +97,11 @@ app.include_router(admin.router)
 app.include_router(admin_ai.router)  # AI Configuration (Admin)
 app.include_router(user_ai.router)   # AI Settings (User)
 app.include_router(upgrade.router)   # Upgrade & Quota System [NEW]
+app.include_router(feedback.router)  # User feedback logs & message feedback [NEW]
+app.include_router(admin_analytics.router)  # Topic Analytics for company admins [NEW]
+app.include_router(chat_models.router)
+
+
 
 
 @app.get("/")

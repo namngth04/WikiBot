@@ -1,14 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
 import AppLogo from '@/app/components/AppLogo';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#010102] text-[#f7f8f8] selection:bg-[#5e6ad2]/30 selection:text-white font-sans antialiased overflow-x-hidden">
@@ -29,6 +45,7 @@ export default function LandingPage() {
               <a href="#features" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Tính năng</a>
               <a href="#architecture" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Kiến trúc</a>
               <Link href="/pricing" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Bảng giá</Link>
+              <a href="#download" className="text-sm text-[#a5b4fc] hover:text-[#f7f8f8] transition-colors flex items-center gap-1 font-semibold">📥 Tải App</a>
             </nav>
           </div>
 
@@ -36,20 +53,59 @@ export default function LandingPage() {
             {loading ? (
               <div className="w-8 h-8 rounded-full border border-[#23252a] animate-pulse bg-[#0f1011]" />
             ) : user ? (
-              <>
-                <Link 
-                  href="/chat" 
-                  className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium"
+              <div className="relative" ref={dropdownRef}>
+                {/* User Avatar Circle */}
+                <button
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-2 p-1.5 rounded-xl border border-[#23252a] bg-[#0f1011]/80 hover:bg-[#141516] hover:border-[#34343a] transition-all duration-200 active:scale-[0.98] select-none"
                 >
-                  Phòng chat
-                </Link>
-                <Link 
-                  href="/chat" 
-                  className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20"
-                >
-                  Vào WikiBot ⚡
-                </Link>
-              </>
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#5e6ad2] to-[#8b5cf6] flex items-center justify-center font-bold text-white text-xs shadow-md shadow-[#5e6ad2]/20">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <ChevronDown size={14} className={`text-[#8a8f98] transition-transform duration-200 mr-1 ${showDropdown ? 'rotate-180 text-white' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                <AnimatePresence>
+                  {showDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                      className="absolute right-0 mt-2.5 w-64 rounded-xl border border-[#23252a] bg-[#0f1011]/95 backdrop-blur-xl p-2.5 shadow-2xl shadow-[#5e6ad2]/5 z-50 overflow-hidden text-left"
+                    >
+                      {/* Glow effect */}
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#5e6ad2]/5 blur-xl rounded-full pointer-events-none" />
+                      
+                      {/* User profile segment */}
+                      <div className="px-3 py-2.5 border-b border-[#23252a]/60 mb-2">
+                        <p className="text-xs font-semibold text-white truncate">{user.full_name || user.username}</p>
+                        <p className="text-[10px] text-[#8a8f98] truncate mt-0.5">@{user.username} · {user.email || 'Chưa có email'}</p>
+                      </div>
+
+                      {/* Action items */}
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => { setShowDropdown(false); router.push('/dashboard'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#8a8f98] hover:text-white rounded-lg hover:bg-[#141516] transition-colors text-left"
+                        >
+                          <LayoutDashboard size={14} className="text-[#5e6ad2]" />
+                          Đi tới Dashboard
+                        </button>
+                        
+                        <button
+                          onClick={() => { setShowDropdown(false); logout(); router.push('/'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-red-300 rounded-lg hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/10 text-left"
+                        >
+                          <LogOut size={14} />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : (
               <>
                 <Link 
@@ -62,7 +118,7 @@ export default function LandingPage() {
                   href="/register" 
                   className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20"
                 >
-                  Dùng thử miễn phí
+                  Đăng ký
                 </Link>
               </>
             )}
@@ -91,16 +147,22 @@ export default function LandingPage() {
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
           <Link 
-            href={user ? "/chat" : "/register"} 
+            href={user ? "/dashboard" : "/register"} 
             className="w-full sm:w-auto px-8 py-3 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-xl shadow-[#5e6ad2]/20 flex items-center justify-center gap-2"
           >
-            {user ? "Vào phòng chat ngay" : "Bắt đầu miễn phí ngay"} ⚡
+            {user ? "Vào Dashboard của bạn" : "Bắt đầu miễn phí ngay"} ⚡
           </Link>
+          <a 
+            href="#download" 
+            className="w-full sm:w-auto px-8 py-3 text-sm font-semibold border border-[#5e6ad2]/30 bg-[#5e6ad2]/10 hover:bg-[#5e6ad2]/20 text-[#a5b4fc] rounded-md transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+          >
+            📥 Tải App Desktop
+          </a>
           <Link 
             href="/pricing" 
             className="w-full sm:w-auto px-8 py-3 text-sm font-semibold border border-[#23252a] hover:border-[#34343a] bg-[#0f1011]/80 hover:bg-[#141516]/80 text-[#f7f8f8] rounded-md transition-all active:scale-[0.98] flex items-center justify-center"
           >
-            Xem bảng giá & Gói cước
+            Xem bảng giá
           </Link>
         </div>
 
@@ -283,6 +345,67 @@ export default function LandingPage() {
                 <span>Local Ollama / Cloud LLM</span>
                 <span className="text-emerald-500">RAG Response ✔</span>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Download Desktop App Section */}
+      <section id="download" className="py-24 px-6 border-t border-[#23252a]/40 bg-gradient-to-b from-transparent to-[#0f1011]/20 relative z-10">
+        <div className="max-w-4xl mx-auto text-center">
+          <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase mb-3 block">ỨNG DỤNG NGOẠI TUYẾN</span>
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mb-6 leading-tight">
+            Tải WikiBot cho Desktop
+          </h2>
+          <p className="text-sm md:text-base text-[#8a8f98] max-w-2xl mx-auto font-light leading-relaxed mb-12">
+            Trải nghiệm toàn vẹn sức mạnh của trợ lý tri thức doanh nghiệp: Xử lý OCR PDF & Word cực nhanh, kết nối Ollama Local bảo mật 100% offline, và trò chuyện không độ trễ.
+          </p>
+
+          {/* OS Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 max-w-3xl mx-auto">
+            {/* Windows */}
+            <div className="p-6 rounded-2xl border border-[#23252a] bg-[#0b0c0d]/60 backdrop-blur-sm flex flex-col items-center hover:border-[#5e6ad2]/30 transition-all hover:scale-[1.02] group">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
+                🪟
+              </div>
+              <h3 className="font-bold text-white mb-1">Windows</h3>
+              <span className="text-[10px] text-[#8a8f98] mb-6">Windows 10 / 11 (.exe)</span>
+              <a 
+                href="#" 
+                className="w-full py-2.5 bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shadow-md shadow-[#5e6ad2]/10"
+              >
+                📥 Tải Bản Win
+              </a>
+            </div>
+
+            {/* macOS */}
+            <div className="p-6 rounded-2xl border border-[#23252a] bg-[#0b0c0d]/60 backdrop-blur-sm flex flex-col items-center hover:border-[#5e6ad2]/30 transition-all hover:scale-[1.02] group">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
+                🍎
+              </div>
+              <h3 className="font-bold text-white mb-1">macOS</h3>
+              <span className="text-[10px] text-[#8a8f98] mb-6">Intel & Apple Silicon (.dmg)</span>
+              <a 
+                href="#" 
+                className="w-full py-2.5 bg-[#141516] hover:bg-[#1c1e22] text-[#f7f8f8] font-semibold border border-[#23252a] rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
+              >
+                📥 Tải Bản Mac
+              </a>
+            </div>
+
+            {/* Linux */}
+            <div className="p-6 rounded-2xl border border-[#23252a] bg-[#0b0c0d]/60 backdrop-blur-sm flex flex-col items-center hover:border-[#5e6ad2]/30 transition-all hover:scale-[1.02] group">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
+                🐧
+              </div>
+              <h3 className="font-bold text-white mb-1">Linux</h3>
+              <span className="text-[10px] text-[#8a8f98] mb-6">Ubuntu / Debian (.AppImage)</span>
+              <a 
+                href="#" 
+                className="w-full py-2.5 bg-[#141516] hover:bg-[#1c1e22] text-[#f7f8f8] font-semibold border border-[#23252a] rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
+              >
+                📥 Tải Bản Linux
+              </a>
             </div>
           </div>
         </div>

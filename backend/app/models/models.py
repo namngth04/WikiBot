@@ -173,7 +173,7 @@ class AIProviderConfig(Base):
     
     # API settings
     api_base_url = Column(String(500))
-    api_key = Column(String(500))  # encrypted
+    api_key = Column(Text)  # encrypted, upgraded to Text to support long keys like Vertex AI
     api_model = Column(String(100))
     use_custom_model = Column(Boolean, default=False)
     custom_api_model = Column(String(100))
@@ -269,3 +269,38 @@ class DocumentChunk(Base):
     # Relationships
     document = relationship("Document", back_populates="chunks")
 
+
+class SemanticCache(Base):
+    """Semantic Cache table for storing query vector similarities and responses"""
+    __tablename__ = "semantic_caches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    query_text = Column(Text, nullable=False)
+    response_text = Column(Text, nullable=False)
+    embedding = Column(Vector(2048), nullable=False)
+    associated_document_ids = Column(JSON, nullable=True)  # List of document IDs used to generate the answer
+    hits = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ChatModel(Base):
+    """Custom chat models for global, tenant, or personal use"""
+    __tablename__ = "chat_models"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)  # Display name
+    provider = Column(String(50), nullable=False, default="openrouter") # openrouter/openai/ollama/gemini
+    api_base_url = Column(String(500), nullable=True)
+    api_key = Column(Text, nullable=True) # upgraded to Text to support long keys like Vertex AI
+    api_model = Column(String(100), nullable=False) # e.g. gpt-4o
+    
+    is_global = Column(Boolean, default=False)
+    tenant_id = Column(Integer, nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    owner = relationship("User", foreign_keys=[user_id])

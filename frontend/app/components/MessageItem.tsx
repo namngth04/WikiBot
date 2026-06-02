@@ -24,6 +24,7 @@ interface MessageItemProps {
   onRetryMessage?: (content: string) => void;
   onRateMessage?: (messageId: number, rating: number) => void;
   onSetFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
+  onShowSource?: (docId: number, pageNum: number) => void;
   ratingMessageId?: number | null;
 }
 
@@ -34,6 +35,7 @@ export default function MessageItem({
   onRetryMessage,
   onRateMessage,
   onSetFeedback,
+  onShowSource,
   ratingMessageId
 }: MessageItemProps) {
   const getConfidenceColor = (level: string) => {
@@ -120,6 +122,12 @@ export default function MessageItem({
         )}>
           {message.role === 'user' ? (
             message.content
+          ) : message.content === '' && message.status === 'sending' ? (
+            <div className="flex items-center gap-2 py-1.5">
+              <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-75"></div>
+              <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-150"></div>
+            </div>
           ) : (
             <MarkdownRenderer content={message.content} />
           )}
@@ -168,42 +176,7 @@ export default function MessageItem({
           </div>
         )}
         
-        {/* Confidence score */}
-        {message.confidence && (
-          <div className="mt-3 pt-3 border-t border-hairline">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1 text-xs text-ink-subtle">
-                <TrendingUp size={12} className="text-brand-lavender" />
-                <span className="font-semibold uppercase tracking-wider text-[10px]">Độ tin cậy</span>
-              </div>
-              <div className={cn(
-                "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                getConfidenceColor(message.confidence.level)
-              )}>
-                {getConfidenceIcon(message.confidence.level)}
-                <span>{getConfidenceLabel(message.confidence.level)}</span>
-                <span>({Math.round(message.confidence.overall * 100)}%)</span>
-              </div>
-            </div>
-            
-            {/* Confidence breakdown */}
-            <div className="space-y-1 text-xs text-ink-muted">
-              <div className="flex justify-between">
-                <span className="text-ink-subtle">Độ phủ nguồn:</span>
-                <span className="font-semibold text-ink">{Math.round((message.confidence.source_coverage || 0) * 100)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-subtle">Tương đồng ngữ nghĩa:</span>
-                <span className="font-semibold text-ink">{Math.round((message.confidence.semantic_similarity || 0) * 100)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-subtle">Độ hoàn chỉnh:</span>
-                <span className="font-semibold text-ink">{Math.round((message.confidence.answer_completeness || 0) * 100)}%</span>
-              </div>
-            </div>
-          </div>
-        )}
-        
+
         {/* Citations */}
         {message.citations && message.citations.length > 0 && showSources && (
           <div className="mt-4 pt-4 border-t border-hairline">
@@ -212,10 +185,21 @@ export default function MessageItem({
               {message.citations.map((cite, i) => (
                 <div 
                   key={i} 
-                  className="flex items-center gap-1.5 text-[11px] bg-surface-2 text-ink-muted px-2.5 py-1.5 rounded-lg border border-hairline hover:bg-surface-3 transition-colors"
+                  onClick={() => {
+                    if (cite.document_id && cite.page_number) {
+                      onShowSource?.(Number(cite.document_id), Number(cite.page_number));
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 text-[11px] bg-surface-2 text-ink-muted px-2.5 py-1.5 rounded-lg border border-hairline transition-all duration-200 select-none",
+                    cite.document_id && cite.page_number 
+                      ? "cursor-pointer hover:border-brand-lavender/40 hover:bg-brand-lavender/5 hover:text-ink active:scale-[0.97]" 
+                      : "hover:bg-surface-3"
+                  )}
+                  title={cite.document_id && cite.page_number ? "Nhấp chuột trái để xem tài liệu gốc" : ""}
                 >
                   <span className="font-bold text-brand-lavender">[{i+1}]</span> 
-                  <span>{cite.source}</span>
+                  <span>{cite.source} (Trang {cite.page_number})</span>
                   {cite.is_public_community && (
                     <span 
                       className="text-[9px] font-bold uppercase bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20 px-1 rounded shrink-0" 
@@ -255,7 +239,7 @@ export default function MessageItem({
       )}
       
       {/* Action buttons for assistant messages */}
-      {message.role === 'assistant' && (
+      {message.role === 'assistant' && message.content !== '' && (
         <div className="flex items-center gap-1.5 mt-1.5 ml-2">
           {/* Retry button for failed messages */}
           {message.status === 'failed' && message.retryable && onRetryMessage && (

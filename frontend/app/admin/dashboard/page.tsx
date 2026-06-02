@@ -23,10 +23,16 @@ const FeedbackPieChart = dynamic(() => import('@/components/admin/Charts').then(
   loading: () => <div className="h-full w-full bg-surface-2 animate-pulse rounded-2xl" />
 });
 
+const TopicBarChart = dynamic(() => import('@/components/admin/Charts').then(mod => mod.TopicBarChart), { 
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-surface-2 animate-pulse rounded-2xl" />
+});
+
 export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [usage, setUsage] = useState<UsageStats[]>([]);
+  const [topics, setTopics] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -34,18 +40,28 @@ export default function DashboardPage() {
     setIsMounted(true);
     const fetchData = async () => {
       try {
-        const [statsRes, usageRes] = await Promise.all([
+        const token = localStorage.getItem('token');
+        const [statsRes, usageRes, topicsRes] = await Promise.all([
           adminAPI.getOverview(),
-          adminAPI.getUsage(30)
+          adminAPI.getUsage(30),
+          fetch('http://localhost:8000/api/admin/analytics/topics', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
         ]);
         
         setStats(statsRes.data);
+        
         const usageData = Array.isArray(usageRes.data) ? usageRes.data : [];
         const normalized = usageData.map((item: Partial<UsageStats>) => ({
           date: String(item?.date ?? ''),
           count: Number(item?.count ?? 0),
         }));
         setUsage(normalized);
+
+        if (topicsRes.ok) {
+          const topicsData = await topicsRes.json();
+          setTopics(topicsData);
+        }
       } catch (error) {
         console.error('Lỗi khi fetch dữ liệu Dashboard:', error);
       } finally {
@@ -215,6 +231,67 @@ export default function DashboardPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Topic Analytics Section [NEW] */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-surface-1/60 backdrop-blur-md p-8 rounded-[2rem] border border-hairline shadow-md relative overflow-hidden"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-violet-500/10 text-violet-500 border border-violet-500/20 rounded-xl">
+              <MessageSquare size={18} />
+            </div>
+            <div>
+              <h3 className="font-be-vietnam font-bold text-ink text-lg animate-pulse">Phân tích & Thống kê Chủ đề (Topic Analytics)</h3>
+              <p className="text-xs text-ink-subtle font-medium mt-0.5">Các chủ đề hội thoại nhân viên đang quan tâm nhiều nhất trong tuần</p>
+            </div>
+          </div>
+          <div className="text-xs font-semibold text-brand-lavender bg-brand-lavender/10 px-3 py-1.5 rounded-xl border border-brand-lavender/20 flex items-center gap-1 shadow-sm">
+            <span>Cập nhật tự động bằng AI ⚡</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          {/* Biểu đồ cột ngang (8/12) */}
+          <div className="lg:col-span-8 h-[280px]">
+            {topics.length > 0 ? (
+              <TopicBarChart data={topics} />
+            ) : (
+              <div className="h-full w-full flex flex-col items-center justify-center text-ink-tertiary bg-surface-2/40 border border-hairline border-dashed rounded-3xl p-6">
+                <AlertCircle size={44} strokeWidth={1.5} className="mb-3 opacity-25 animate-pulse" />
+                <p className="font-medium text-xs">Đang phân tích và gom cụm chủ đề bằng AI...</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Chú thích & Insight mô tả (4/12) */}
+          <div className="lg:col-span-4 space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-subtle">Tóm tắt các chủ đề nổi bật</h4>
+            <div className="space-y-2.5 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+              {topics.length > 0 ? (
+                topics.map((t, idx) => (
+                  <div key={idx} className="p-3 bg-surface-2 border border-hairline rounded-xl flex flex-col gap-1 hover:border-brand-lavender/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-ink">{t.topic}</span>
+                      <span className="text-[10px] font-bold text-brand-lavender bg-brand-lavender/10 px-2 py-0.5 rounded-full border border-brand-lavender/25">
+                        {t.count} câu hỏi ({t.percentage}%)
+                      </span>
+                    </div>
+                    {t.description && (
+                      <p className="text-[11px] text-ink-muted leading-relaxed mt-0.5">{t.description}</p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-ink-subtle italic">
+                  Chưa có đủ dữ liệu hội thoại tuần này để AI phân tích.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Recent Activity / Insights Section */}
       <motion.div 

@@ -3,10 +3,13 @@ Vision Processor for Image Understanding
 Supports: OCR, Image Description, Table Extraction from Images
 """
 
+import logging
 from typing import Optional, Dict, Any
 from PIL import Image
 import io
 import os
+
+logger = logging.getLogger(__name__)
 
 
 class VisionProcessor:
@@ -29,7 +32,7 @@ class VisionProcessor:
                     show_log=False
                 )
             except ImportError:
-                print("Warning: PaddleOCR not installed. Falling back to tesseract.")
+                logger.warning("PaddleOCR not installed. Falling back to tesseract.")
                 self.ocr_engine = "tesseract"
                 ocr_engine = "tesseract"
                 
@@ -51,9 +54,9 @@ class VisionProcessor:
                     if os.path.exists(tesseract_path):
                         self.pytesseract.pytesseract.tesseract_cmd = tesseract_path
                     else:
-                        print(f"Warning: Tesseract not found globally in system PATH or at {tesseract_path}")
+                        logger.warning(f"Tesseract not found globally in system PATH or at {tesseract_path}")
             except ImportError:
-                print("Warning: pytesseract library is not installed. Tesseract OCR will be disabled.")
+                logger.warning("pytesseract library is not installed. Tesseract OCR will be disabled.")
                 self.pytesseract = None
     
     def extract_text_from_image(self, image_path: str) -> str:
@@ -74,7 +77,7 @@ class VisionProcessor:
             
             elif self.ocr_engine == "tesseract":
                 if not self.pytesseract:
-                    print("Error: pytesseract library is not available. Please install it or use PaddleOCR.")
+                    logger.error("pytesseract library is not available. Please install it or use PaddleOCR.")
                     return ""
                 image = Image.open(image_path)
                 text = self.pytesseract.image_to_string(
@@ -84,7 +87,7 @@ class VisionProcessor:
                 )
                 return text
         except Exception as e:
-            print(f"Error extracting text from image: {e}")
+            logger.error(f"Error extracting text from image: {e}", exc_info=True)
             return ""
     
     def extract_table_from_image(self, image_path: str) -> Optional[str]:
@@ -111,4 +114,5 @@ class VisionProcessor:
         
         description = llm_provider.describe_image(image_data)
         return description
+
 

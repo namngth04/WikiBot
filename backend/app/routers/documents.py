@@ -4,10 +4,11 @@ from typing import List, Optional
 import os
 import uuid
 import aiofiles
+import glob
 
 from app.core.database import get_db
 from app.core.config import get_settings
-from app.models.models import User, Document, Role
+from app.models.models import User, Document, Role, DocumentChunk
 from app.schemas.schemas import DocumentUpdate, DocumentResponse, SuccessResponse
 from app.routers.auth import get_current_user, get_current_admin, get_current_company_admin
 from app.services.document_processor import DocumentProcessor
@@ -310,6 +311,14 @@ def update_document(
     if update_data.original_name is not None:
         document.original_name = update_data.original_name
     
+    # Invalidate associated semantic caches because document privileges have changed
+    try:
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        cache_service.invalidate_by_document(document.id)
+    except Exception as ce:
+        print(f"Warning: Failed to invalidate semantic cache on document update: {ce}")
+
     db.commit()
     db.refresh(document)
     return document
@@ -354,13 +363,22 @@ def delete_document(
     if os.path.exists(document.file_path):
         os.remove(document.file_path)
     
+    # Invalidate Semantic Cache related to this document
+    try:
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        cache_service.invalidate_by_document(document.id)
+    except Exception as ce:
+        print(f"Warning: Failed to invalidate semantic cache: {ce}")
+
     # Delete from database
+    original_name = document.original_name
     db.delete(document)
     db.commit()
     
     return SuccessResponse(
         success=True,
-        message=f"Đã xóa tài liệu '{document.original_name}'"
+        message=f"Đã xóa tài liệu '{original_name}'"
     )
 
 
@@ -410,3 +428,74 @@ def toggle_document_share(
     db.refresh(document)
     
     return document
+
+
+@router.get("/{doc_id}/pages/{page_number}")
+def get_document_page(
+    doc_id: int,
+    page_number: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all text chunks and extracted images of a specific page within a document.
+    Enforces tenant isolation and RBAC checks.
+    """
+    # 1. Fetch document and verify existence
+    document = db.query(Document).filter(Document.id == doc_id, Document.is_active == True).first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Không tìm thấy tài liệu ID {doc_id}"
+        )
+        
+    # 2. Enforce Security & Access Boundaries (Multi-tenancy & RBAC)
+    has_access = False
+    if current_user.user_type == "superadmin":
+        has_access = True
+    elif current_user.tenant_id is not None:
+        # Tenant User: Check if document belongs to the same tenant and respects RBAC
+        if document.tenant_id == current_user.tenant_id and can_access_document(current_user, document.role_id):
+            has_access = True
+    else:
+        # Personal User: Check if owned or shared with community
+        if document.uploaded_by == current_user.id or document.is_public_community:
+            has_access = True
+            
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập tài liệu này"
+        )
+        
+    # 3. Retrieve chunks for the specified page
+    chunks = db.query(DocumentChunk).filter(
+        DocumentChunk.document_id == doc_id,
+        DocumentChunk.page_number == page_number
+    ).order_by(DocumentChunk.id.asc()).all()
+    
+    # 4. Search for any extracted images belonging to this page on disk
+    settings = get_settings()
+    images_dir = os.path.join(settings.data_dir, "extracted_images")
+    pattern = os.path.join(images_dir, f"doc_{doc_id}_page_{page_number}_img_*")
+    img_files = glob.glob(pattern)
+    
+    img_urls = []
+    for img_file in img_files:
+        filename = os.path.basename(img_file)
+        img_urls.append(f"/api/documents/extracted-images/{filename}")
+        
+    return {
+        "document_id": doc_id,
+        "original_name": document.original_name,
+        "page_number": page_number,
+        "chunks": [
+            {
+                "id": chunk.id,
+                "content": chunk.content,
+                "element_type": chunk.element_type
+            } for chunk in chunks
+        ],
+        "images": img_urls
+    }
+

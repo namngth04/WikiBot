@@ -13,6 +13,7 @@ interface MessageListProps {
   onRetryMessage?: (content: string) => void;
   onRateMessage?: (messageId: number, rating: number) => void;
   onSetFeedback?: (messageIndex: number, type: 'up' | 'down') => void;
+  onShowSource?: (docId: number, pageNum: number) => void;
   messagesEndRef?: React.RefObject<HTMLDivElement>;
   ratingMessageId?: number | null;
 }
@@ -24,6 +25,7 @@ export default function MessageList({
   onRetryMessage,
   onRateMessage,
   onSetFeedback,
+  onShowSource,
   messagesEndRef,
   ratingMessageId
 }: MessageListProps) {
@@ -74,32 +76,11 @@ export default function MessageList({
             onRetryMessage={onRetryMessage}
             onRateMessage={onRateMessage}
             onSetFeedback={onSetFeedback}
+            onShowSource={onShowSource}
             ratingMessageId={ratingMessageId}
           />
         ))}
       </AnimatePresence>
-      
-      {/* Loading indicator */}
-      {loading && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-3"
-        >
-          <div className="w-8 h-8 bg-brand-lavender/10 rounded-full flex items-center justify-center border border-brand-lavender/20">
-            <MessageSquare size={16} className="text-brand-lavender" />
-          </div>
-          <div className="flex-1">
-            <div className="bg-surface-1 border border-hairline rounded-2xl rounded-tl-none p-4 shadow-soft">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-75"></div>
-                <div className="w-2 h-2 bg-brand-lavender rounded-full animate-pulse delay-150"></div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
       
       <div ref={messagesEndRef} />
     </div>

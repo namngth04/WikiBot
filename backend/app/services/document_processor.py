@@ -142,10 +142,10 @@ class DocumentProcessor:
         vision_processor = VisionProcessor()
         
         # Tạo thư mục lưu hình ảnh trích xuất
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(file_path))))
-        images_dir = os.path.join(backend_dir, "backend", "data", "extracted_images")
-        if not os.path.exists(images_dir):
-            images_dir = os.path.join(os.path.dirname(file_path), "extracted_images")
+        # file_path: .../backend/data/documents/some_uuid.pdf
+        # backend_data_dir: .../backend/data
+        backend_data_dir = os.path.dirname(os.path.dirname(os.path.abspath(file_path)))
+        images_dir = os.path.join(backend_data_dir, "extracted_images")
         os.makedirs(images_dir, exist_ok=True)
         
         # Mở PyMuPDF để trích xuất hình ảnh
@@ -202,6 +202,18 @@ class DocumentProcessor:
                         image_descriptions.append(f"[Hình ảnh {img_idx + 1} từ trang {page_num}: {ocr_text.strip()}]")
                     else:
                         image_descriptions.append(f"[Hình ảnh {img_idx + 1} từ trang {page_num}: Sơ đồ/hình vẽ nhúng]")
+                    
+                    # Lưu trữ phần tử ảnh riêng biệt để phục vụ RAG đa phương thức
+                    elements.append({
+                        "content": ocr_text.strip() or f"Hình ảnh {img_idx + 1} từ trang {page_num}",
+                        "metadata": {
+                            "page_number": page_num,
+                            "category": "image",
+                            "image_path": img_path,
+                            "element_type": "image"
+                        },
+                        "type": "image"
+                    })
                 
                 # Kết hợp text + table + image description cho trang này
                 combined_content = page_text
@@ -251,10 +263,10 @@ class DocumentProcessor:
         vision_processor = VisionProcessor()
         
         # Thư mục lưu ảnh trích xuất
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(file_path))))
-        images_dir = os.path.join(backend_dir, "backend", "data", "extracted_images")
-        if not os.path.exists(images_dir):
-            images_dir = os.path.join(os.path.dirname(file_path), "extracted_images")
+        # file_path: .../backend/data/documents/some_uuid.docx
+        # backend_data_dir: .../backend/data
+        backend_data_dir = os.path.dirname(os.path.dirname(os.path.abspath(file_path)))
+        images_dir = os.path.join(backend_data_dir, "extracted_images")
         os.makedirs(images_dir, exist_ok=True)
         
         # 1. Trích xuất tất cả ảnh nhúng từ tệp zip docx (word/media/)
@@ -277,6 +289,17 @@ class DocumentProcessor:
                         image_descriptions[media_file] = f"[Hình ảnh {idx + 1}: {ocr_text.strip()}]"
                     else:
                         image_descriptions[media_file] = f"[Hình ảnh {idx + 1}: Biểu đồ/hình vẽ nhúng]"
+                        
+                    # Lưu trữ phần tử ảnh riêng biệt để phục vụ RAG đa phương thức
+                    elements.append({
+                        "content": ocr_text.strip() or f"Hình ảnh {idx + 1} từ tài liệu Word",
+                        "metadata": {
+                            "category": "image",
+                            "image_path": img_path,
+                            "element_type": "image"
+                        },
+                        "type": "image"
+                    })
         except Exception as e:
             logger.warning(f"Không thể giải nén hình ảnh từ file Word: {e}")
         
@@ -369,11 +392,14 @@ class DocumentProcessor:
         # 1. Separate tables - preserve their structure entirely
         table_elements = [e for e in elements if e["type"].lower() == "table"]
         
-        # 2. Treat everything else as text if it has content
+        # 2. Separate images - preserve their metadata
+        image_elements = [e for e in elements if e["type"].lower() == "image"]
+        
+        # 3. Treat everything else as text if it has content
         # This fixes the "Cannot chunk document" error by including all categories
         text_elements = [
             e for e in elements 
-            if e["type"].lower() != "table" and e.get("content", "").strip()
+            if e["type"].lower() not in ["table", "image"] and e.get("content", "").strip()
         ]
         
         # Chunk text elements
@@ -400,7 +426,19 @@ class DocumentProcessor:
                     **table.get("metadata", {})
                 }
             })
-        
+            
+        # Add images as whole chunks
+        for image in image_elements:
+            chunks.append({
+                "content": image["content"],
+                "type": "image",
+                "metadata": {
+                    "chunk_index": len(chunks),
+                    "element_type": "image",
+                    **image.get("metadata", {})
+                }
+            })
+            
         return chunks
     
     async def process_document(self, document: Document, db: Session) -> int:

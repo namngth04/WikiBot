@@ -8,6 +8,7 @@ import { api } from '@/app/lib/api';
 import AppLogo from '@/app/components/AppLogo';
 import { Check, X, Sparkles, Shield, AlertCircle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isElectron } from '@/app/lib/platform';
 
 interface QuotaData {
   subscription_tier: string;
@@ -29,6 +30,11 @@ export default function PricingPage() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'success' | 'error'>('none');
   const [errorMessage, setErrorMessage] = useState('');
+  const [runningInDesktop, setRunningInDesktop] = useState(false);
+
+  useEffect(() => {
+    setRunningInDesktop(isElectron());
+  }, []);
 
   // Fetch current quota and subscription status
   const fetchQuota = async () => {
@@ -104,14 +110,22 @@ export default function PricingPage() {
       <header className="sticky top-0 z-40 border-b border-[#23252a]/60 bg-[#010102]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <AppLogo size="md" />
-            </Link>
-            <nav className="hidden md:flex items-center gap-6">
-              <Link href="/#features" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Tính năng</Link>
-              <Link href="/#architecture" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Kiến trúc</Link>
-              <Link href="/pricing" className="text-sm text-white font-medium">Bảng giá</Link>
-            </nav>
+            {runningInDesktop ? (
+              <div className="flex items-center gap-2.5">
+                <AppLogo size="md" />
+              </div>
+            ) : (
+              <Link href="/" className="flex items-center gap-2.5 group">
+                <AppLogo size="md" />
+              </Link>
+            )}
+            {!runningInDesktop && (
+              <nav className="hidden md:flex items-center gap-6">
+                <Link href="/#features" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Tính năng</Link>
+                <Link href="/#architecture" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Kiến trúc</Link>
+                <Link href="/pricing" className="text-sm text-white font-medium">Bảng giá</Link>
+              </nav>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -119,18 +133,26 @@ export default function PricingPage() {
               <div className="w-8 h-8 rounded-full border border-[#23252a] animate-pulse bg-[#0f1011]" />
             ) : user ? (
               <>
-                <Link href="/chat" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium">
-                  Phòng chat
-                </Link>
-                <Link href="/chat" className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98]">
-                  Vào WikiBot ⚡
-                </Link>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium"
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98]"
+                >
+                  Xem Dashboard ⚡
+                </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium">
-                  Đăng nhập
-                </Link>
+                {!runningInDesktop && (
+                  <Link href="/login" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium">
+                    Đăng nhập
+                  </Link>
+                )}
                 <Link href="/login" className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98]">
                   Dùng thử miễn phí
                 </Link>
@@ -145,15 +167,25 @@ export default function PricingPage() {
         
         {/* Header Title */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-[#8a8f98] hover:text-white transition-colors mb-6 group">
-            <ArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" /> Quay lại trang chủ
-          </Link>
+          {runningInDesktop ? (
+            <button 
+              onClick={() => router.push('/dashboard')} 
+              className="inline-flex items-center gap-1.5 text-xs text-[#8a8f98] hover:text-white transition-colors mb-6 group"
+            >
+              <ArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" /> Quay lại Dashboard
+            </button>
+          ) : (
+            <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-[#8a8f98] hover:text-white transition-colors mb-6 group">
+              <ArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" /> Quay lại trang chủ
+            </Link>
+          )}
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-4 leading-tight">
             Chọn gói cước phù hợp cho hiệu suất của bạn
           </h1>
-          <p className="text-[#8a8f98] text-base font-light">
+          <p className="text-[#8a8f98] text-base font-light mb-6">
             Giải pháp chatbot RAG bảo mật, chính xác và có khả năng mở rộng không giới hạn cho cá nhân và tổ chức.
           </p>
+
         </div>
 
         {/* Pricing Cards Grid */}
@@ -324,6 +356,25 @@ export default function PricingPage() {
 
         </div>
 
+        {/* Download Banner for Pricing page */}
+        {!runningInDesktop && (
+          <div className="max-w-4xl mx-auto mb-16 p-8 rounded-2xl border border-[#23252a] bg-[#0f1011]/80 backdrop-blur-md relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-[#5e6ad2]/5">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-[#5e6ad2]/5 blur-3xl rounded-full pointer-events-none" />
+            <div className="text-left">
+              <h3 className="text-lg font-bold text-white mb-2">Bạn chưa cài đặt ứng dụng Desktop?</h3>
+              <p className="text-xs text-[#8a8f98] max-w-xl leading-relaxed">
+                Hãy tải ngay WikiBot Desktop để kích hoạt toàn vẹn các tính năng trò chuyện, số hóa dữ liệu RAG và đồng bộ hóa Ollama offline.
+              </p>
+            </div>
+            <Link
+              href="/#download"
+              className="px-6 py-3 bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white font-bold rounded-xl text-xs transition-all active:scale-[0.98] shadow-md shadow-[#5e6ad2]/20 flex items-center gap-1.5 shrink-0"
+            >
+              📥 Tải Ứng Dụng Desktop
+            </Link>
+          </div>
+        )}
+
         {/* FAQ Section */}
         <div className="max-w-4xl mx-auto border-t border-[#23252a]/60 pt-16">
           <h2 className="text-2xl font-bold text-center text-white mb-10">Những câu hỏi thường gặp</h2>
@@ -358,19 +409,21 @@ export default function PricingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#23252a]/40 py-10 px-6 relative z-10 text-xs text-[#8a8f98] bg-[#010102]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <AppLogo size="sm" />
-            <span className="font-semibold text-white">WikiBot</span>
-            <span>© 2026. Tất cả quyền được bảo lưu.</span>
+      {!runningInDesktop && (
+        <footer className="border-t border-[#23252a]/40 py-10 px-6 relative z-10 text-xs text-[#8a8f98] bg-[#010102]">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <AppLogo size="sm" />
+              <span className="font-semibold text-white">WikiBot</span>
+              <span>© 2026. Tất cả quyền được bảo lưu.</span>
+            </div>
+            <div className="flex items-center gap-6">
+              <a href="#" className="hover:text-white transition-colors">Điều khoản dịch vụ</a>
+              <a href="#" className="hover:text-white transition-colors">Chính sách bảo mật</a>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-white transition-colors">Điều khoản dịch vụ</a>
-            <a href="#" className="hover:text-white transition-colors">Chính sách bảo mật</a>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       {/* VietQR Demo Modal */}
       <AnimatePresence>

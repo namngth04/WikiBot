@@ -30,6 +30,7 @@ export const useChat = (options: UseChatOptions = {}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [ratingMessageId, setRatingMessageId] = useState<number | null>(null);
   const [quotaReached, setQuotaReached] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -140,84 +141,154 @@ export const useChat = (options: UseChatOptions = {}) => {
       created_at: new Date().toISOString(),
       status: 'sending'
     };
-    setMessages(prev => [...prev, tempUserMessage]);
+
+    // Create temp empty assistant message with generating status
+    const tempAssistantId = generateTempId();
+    const tempAssistantMessage: ChatMessage = {
+      id: tempAssistantId,
+      conversation_id: conversationId || currentConversation?.id || 0,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      status: 'sending'
+    };
+
+    setMessages(prev => [...prev, tempUserMessage, tempAssistantMessage]);
 
     try {
-      const response = await chatAPI.sendMessage(
-        messageText,
-        conversationId || currentConversation?.id,
-        {
-          responseStyle,
-          showSources,
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/api/chat/send-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        abortControllerRef.current.signal
-      );
+        body: JSON.stringify({
+          message: messageText,
+          conversation_id: conversationId || currentConversation?.id,
+          response_style: responseStyle,
+          show_sources: showSources,
+          model_id: selectedModelId,
+        }),
+        signal: abortControllerRef.current.signal
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          setQuotaReached(true);
+          throw new Error('Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn.');
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Lỗi kết nối máy chủ (HTTP ${response.status})`);
+      }
+
+      if (!response.body) {
+        throw new Error('Trình duyệt của bạn không hỗ trợ Streaming phản hồi.');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
       
-      const {
-        answer,
-        response: assistantResponse,
-        conversation_id: newConversationId,
-        citations,
-        confidence,
-        query_processing: queryProcessing,
-        retrieval_stats: retrievalStats,
-        user_message_id,
-        assistant_message_id,
-        suggested_questions
-      } = response.data as ChatResponse;
+      let assistantContent = '';
+      let citations: any[] = [];
+      let confidence: any = null;
+      let suggestedQuestions: string[] = [];
+      let finalConversationId = currentConversation?.id;
 
-      // Validate response data
-      if (!user_message_id || !assistant_message_id) {
-        throw new Error('Missing message IDs from server response');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunkText = decoder.decode(value, { stream: true });
+        const lines = chunkText.split('\n\n');
+        
+        for (const line of lines) {
+          if (line.trim().startsWith('data:')) {
+            try {
+              const rawJson = line.replace('data:', '').trim();
+              const event = JSON.parse(rawJson);
+              
+              if (event.type === 'token') {
+                assistantContent += event.content;
+                setMessages(prev => prev.map(msg =>
+                  msg.id === tempAssistantId
+                    ? { ...msg, content: assistantContent }
+                    : msg
+                ));
+              } else if (event.type === 'metadata') {
+                citations = event.citations || [];
+                confidence = event.confidence;
+                suggestedQuestions = event.suggested_questions || [];
+                
+                setMessages(prev => prev.map(msg =>
+                  msg.id === tempAssistantId
+                    ? { 
+                        ...msg, 
+                        citations,
+                        confidence,
+                        suggested_questions: suggestedQuestions
+                      }
+                    : msg
+                ));
+              } else if (event.type === 'final_success') {
+                const { user_message_id, assistant_message_id, conversation_id: newConvId } = event;
+                finalConversationId = newConvId;
+
+                // Sync message IDs from database
+                setMessages(prev => prev.map(msg => {
+                  if (msg.id === tempUserMessage.id) {
+                    return { ...msg, id: user_message_id, status: 'sent' };
+                  }
+                  if (msg.id === tempAssistantId) {
+                    return { ...msg, id: assistant_message_id, status: 'sent' };
+                  }
+                  return msg;
+                }));
+
+                // Handle sidebar list updates
+                if (!currentConversation && newConvId) {
+                  const newConv: Conversation = {
+                    id: newConvId,
+                    user_id: 0,
+                    title: messageText.slice(0, 50) + (messageText.length > 50 ? '...' : ''),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  };
+                  setCurrentConversation(newConv);
+                  setConversations(prev => [newConv, ...prev]);
+                  options.onNewConversation?.(newConv);
+                } else if (currentConversation && currentConversation.title === "Cuộc trò chuyện mới") {
+                  const updatedTitle = messageText.slice(0, 50) + (messageText.length > 50 ? '...' : '');
+                  setConversations(prev =>
+                    prev.map(c => c.id === currentConversation.id ? { ...c, title: updatedTitle } : c)
+                  );
+                  setCurrentConversation(prev => prev ? { ...prev, title: updatedTitle } : null);
+                }
+              } else if (event.type === 'error') {
+                throw new Error(event.content);
+              }
+            } catch (jsonErr) {
+              console.warn('Failed to parse SSE JSON:', line, jsonErr);
+            }
+          }
+        }
       }
 
-      // Update user message with real ID
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempUserMessage.id
-          ? { ...msg, id: user_message_id, status: 'sent' }
-          : msg
-      ));
+      return { success: true };
 
-      // Create assistant message
-      const assistantMessage: ChatMessage = {
-        id: assistant_message_id,
-        conversation_id: newConversationId,
-        role: 'assistant',
-        content: answer || assistantResponse,
-        created_at: new Date().toISOString(),
-        status: 'sent',
-        citations,
-        confidence,
-        queryProcessing,
-        retrievalStats,
-        suggested_questions
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Handle new conversation if created
-      if (!currentConversation && newConversationId) {
-        const newConv: Conversation = {
-          id: newConversationId,
-          user_id: 0, // Will be set by API
-          title: messageText.slice(0, 50) + (messageText.length > 50 ? '...' : ''),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setCurrentConversation(newConv);
-        setConversations(prev => [newConv, ...prev]);
-        options.onNewConversation?.(newConv);
-      } else if (currentConversation && currentConversation.title === "Cuộc trò chuyện mới") {
-        const updatedTitle = messageText.slice(0, 50) + (messageText.length > 50 ? '...' : '');
-        setConversations(prev =>
-          prev.map(c => c.id === currentConversation.id ? { ...c, title: updatedTitle } : c)
-        );
-        setCurrentConversation(prev => prev ? { ...prev, title: updatedTitle } : null);
+    } catch (error: any) {
+      if (error.name === 'AbortError' || (error.message && error.message.includes('aborted'))) {
+        console.log('Stream stopped by user');
+        // Đổi trạng thái tin nhắn thành sent, không hiển thị lỗi
+        setMessages(prev => prev.map(msg => 
+          (msg.id === tempUserMessage.id || msg.id === tempAssistantId)
+            ? { ...msg, status: 'sent' as const }
+            : msg
+        ));
+        return;
       }
 
-      return response.data;
-
-    } catch (error) {
-      console.error('Failed to send message:', error);
+      console.error('Failed to send streaming message:', error);
       
       const is403 = (error as any)?.response?.status === 403 || 
                     (error as any)?.message?.includes('403') || 
@@ -227,33 +298,25 @@ export const useChat = (options: UseChatOptions = {}) => {
         setQuotaReached(true);
       }
 
-      let errorContent = 'Xin lỗi, đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại.';
-      if (error && (error as any).response) {
-        const responseData = (error as any).response.data;
-        if (responseData && responseData.detail) {
-          errorContent = typeof responseData.detail === 'string' 
-            ? responseData.detail 
-            : JSON.stringify(responseData.detail);
-        } else if (responseData && responseData.error) {
-          errorContent = responseData.error;
-        } else if (is403) {
-          errorContent = 'Bạn đã sử dụng hết hạn ngạch tin nhắn trong ngày. Vui lòng nâng cấp gói cước để tiếp tục.';
-        }
-      } else if (error instanceof Error) {
-        errorContent = `Lỗi: ${error.message}`;
+      let errorContent = 'Xin lỗi, đã xảy ra lỗi khi kết nối máy chủ để nhận câu trả lời. Vui lòng thử lại.';
+      if (error instanceof Error) {
+        errorContent = error.message;
       }
 
-      // Update user message to failed status
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempUserMessage.id
-          ? { 
-              ...msg, 
-              status: 'failed',
-              error: error instanceof Error ? error.message : 'Unknown error occurred',
-              retryable: true
-            }
-          : msg
-      ));
+      // Cleanup temp empty assistant message and turn user message to failed
+      setMessages(prev => {
+        const cleaned = prev.filter(msg => msg.id !== tempAssistantId);
+        return cleaned.map(msg =>
+          msg.id === tempUserMessage.id
+            ? { 
+                ...msg, 
+                status: 'failed' as const,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+                retryable: true
+              }
+            : msg
+        );
+      });
 
       // Create error message from assistant
       const errorMessage: ChatMessage = {
@@ -350,6 +413,13 @@ export const useChat = (options: UseChatOptions = {}) => {
     conv.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Stop generating response
+  const stopGenerating = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -372,6 +442,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     messagesEndRef,
     ratingMessageId,
     quotaReached,
+    selectedModelId,
     
     // Actions
     loadConversations,
@@ -390,5 +461,7 @@ export const useChat = (options: UseChatOptions = {}) => {
     setCurrentConversation,
     setMessages,
     setQuotaReached,
+    setSelectedModelId,
+    stopGenerating,
   };
 };

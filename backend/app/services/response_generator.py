@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.models import Message, FAQ, AIProviderConfig, AISafetyConfig, UserAISettings
 from app.services.document_processor import DocumentProcessor
-from app.services.llm_providers import get_llm_provider
+from app.services.llm_providers import get_llm_provider, get_custom_llm_provider
+
 from app.services.query_enhancer import QueryEnhancer
 from app.services.retriever import HybridRetriever
 from app.services.confidence_scorer import ConfidenceScorer
@@ -30,7 +31,7 @@ _FAQ_EMBEDDING_CACHE = {}
 class ResponseGenerator:
     """Main response generation orchestrator using modular components"""
     
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, model_id: Optional[int] = None):
         self.db = db
         self.settings = get_settings()
         
@@ -40,7 +41,11 @@ class ResponseGenerator:
         self.confidence_scorer = ConfidenceScorer(self.document_processor.embedding_model)
         
         # Load LLM provider
-        self.llm_provider = get_llm_provider("chat", db)
+        if model_id is not None:
+            self.llm_provider = get_custom_llm_provider(model_id, db)
+        else:
+            self.llm_provider = get_llm_provider("chat", db)
+
         
         # Initialize query enhancer (replaces QueryProcessor)
         self.query_enhancer = QueryEnhancer(self.llm_provider)

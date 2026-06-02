@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Square } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 
 interface ChatInputProps {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onStop?: () => void;
   loading?: boolean;
   placeholder?: string;
   disabled?: boolean;
@@ -17,6 +18,7 @@ export default function ChatInput({
   value,
   onChange,
   onSubmit,
+  onStop,
   loading = false,
   placeholder = "Nhập câu hỏi của bạn...",
   disabled = false
@@ -68,19 +70,30 @@ export default function ChatInput({
             )}
           </div>
           
-          <button
-            type="submit"
-            disabled={!value.trim() || loading || disabled}
-            className={cn(
-              "p-3 rounded-xl transition-all active:scale-[0.93] shrink-0 border",
-              value.trim() && !loading && !disabled
-                ? "bg-brand-lavender text-ink border-brand-lavender/30 hover:bg-brand-lavender/90 shadow-lg shadow-brand-lavender/10"
-                : "bg-surface-2 text-ink-tertiary border-hairline cursor-not-allowed"
-            )}
-            title={value.trim() ? "Gửi tin nhắn" : "Nhập câu hỏi trước"}
-          >
-            <Send size={20} className={cn(loading && "animate-pulse")} />
-          </button>
+          {loading ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="p-3 rounded-xl transition-all active:scale-[0.93] shrink-0 border bg-surface-2 text-ink border-ink-subtle hover:bg-surface-3 shadow-sm"
+              title="Dừng tạo câu trả lời"
+            >
+              <Square size={20} className="fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!value.trim() || disabled}
+              className={cn(
+                "p-3 rounded-xl transition-all active:scale-[0.93] shrink-0 border",
+                value.trim() && !disabled
+                  ? "bg-brand-lavender text-ink border-brand-lavender/30 hover:bg-brand-lavender/90 shadow-lg shadow-brand-lavender/10"
+                  : "bg-surface-2 text-ink-tertiary border-hairline cursor-not-allowed"
+              )}
+              title={value.trim() ? "Gửi tin nhắn" : "Nhập câu hỏi trước"}
+            >
+              <Send size={20} />
+            </button>
+          )}
         </form>
         
         {/* Help text */}

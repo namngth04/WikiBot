@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     max_file_size: int = 50  # MB
     
+    # Redis for Cache
+    redis_host: str = "127.0.0.1"
+    redis_port: int = 6379
+    
     # Logging
     log_level: str = "INFO"
     rag_log_level: str = "INFO"

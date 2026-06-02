@@ -12,6 +12,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import AppLogo from '@/app/components/AppLogo';
 import ThemeToggle from '@/app/components/ThemeToggle';
+import DesktopGuard from '@/components/DesktopGuard';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -58,8 +59,9 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-canvas flex font-be-vietnam overflow-hidden text-ink transition-colors duration-200">
-      {/* Sidebar */}
+    <DesktopGuard allowAdminWeb={true}>
+      <div className="min-h-screen bg-canvas flex font-be-vietnam overflow-hidden text-ink transition-colors duration-200">
+        {/* Sidebar */}
       <motion.aside
         initial={false}
         animate={{ width: sidebarOpen ? 320 : 80 }}
@@ -230,6 +232,7 @@ export default function AdminLayout({
           @apply bg-hairline rounded-full hover:bg-hairline-strong transition-colors;
         }
       `}</style>
-    </div>
+      </div>
+    </DesktopGuard>
   );
 }

@@ -34,6 +34,10 @@ class BaseLLMProvider(ABC):
         """Generate text from prompt"""
         pass
     
+    def generate_stream(self, prompt: str, **kwargs):
+        """Generate text stream from prompt. Default fallback to generate."""
+        yield self.generate(prompt, **kwargs)
+    
     @abstractmethod
     def test_connection(self) -> Dict[str, Any]:
         """Test provider connection"""
@@ -48,14 +52,14 @@ class LocalGGUFProvider(BaseLLMProvider):
     """Local GGUF model provider using llama-cpp"""
     
     def __init__(self, model_path: str, context_length: int = 4096, **kwargs):
-        print(f"[DEBUG LocalGGUF] __init__ called with model_path: {model_path}")
-        print(f"[DEBUG LocalGGUF] os.path.exists(model_path): {os.path.exists(model_path)}")
+        logger.debug(f"[LocalGGUF] __init__ called with model_path: {model_path}")
+        logger.debug(f"[LocalGGUF] os.path.exists(model_path): {os.path.exists(model_path)}")
         
         # Try absolute path if relative doesn't work
         if not os.path.exists(model_path):
             abs_path = os.path.abspath(model_path)
-            print(f"[DEBUG LocalGGUF] Trying absolute path: {abs_path}")
-            print(f"[DEBUG LocalGGUF] os.path.exists(abs_path): {os.path.exists(abs_path)}")
+            logger.debug(f"[LocalGGUF] Trying absolute path: {abs_path}")
+            logger.debug(f"[LocalGGUF] os.path.exists(abs_path): {os.path.exists(abs_path)}")
             if os.path.exists(abs_path):
                 model_path = abs_path
             else:
@@ -66,17 +70,17 @@ class LocalGGUFProvider(BaseLLMProvider):
         self._llm = None
         self._kwargs = kwargs
         
-        print(f"[DEBUG LocalGGUF] Final model_path: {self.model_path}")
-        print(f"[DEBUG LocalGGUF] File size: {os.path.getsize(self.model_path) if os.path.exists(self.model_path) else 'N/A'} bytes")
+        logger.debug(f"[LocalGGUF] Final model_path: {self.model_path}")
+        logger.debug(f"[LocalGGUF] File size: {os.path.getsize(self.model_path) if os.path.exists(self.model_path) else 'N/A'} bytes")
     
     @property
     def llm(self):
         """Lazy load LLM"""
         if self._llm is None:
-            print(f"[DEBUG LocalGGUF] Loading model from: {self.model_path}")
-            print(f"[DEBUG LocalGGUF] File exists: {os.path.exists(self.model_path)}")
+            logger.debug(f"[LocalGGUF] Loading model from: {self.model_path}")
+            logger.debug(f"[LocalGGUF] File exists: {os.path.exists(self.model_path)}")
             if os.path.exists(self.model_path):
-                print(f"[DEBUG LocalGGUF] File size: {os.path.getsize(self.model_path)} bytes")
+                logger.debug(f"[LocalGGUF] File size: {os.path.getsize(self.model_path)} bytes")
             else:
                 raise FileNotFoundError(f"Model file not found: {self.model_path}")
             
@@ -86,7 +90,7 @@ class LocalGGUFProvider(BaseLLMProvider):
                     "Please run GGUF models locally via Ollama (http://localhost:11434) and connect using the Ollama provider instead."
                 )
             except Exception as e:
-                print(f"[ERROR LocalGGUF] Local GGUF is disabled: {e}")
+                logger.error(f"[LocalGGUF] Local GGUF is disabled: {e}")
                 raise
         return self._llm
     
@@ -106,19 +110,19 @@ class LocalGGUFProvider(BaseLLMProvider):
         """Test local model"""
         import traceback
         start = time.time()
-        print(f"[DEBUG LocalGGUF] Testing model at: {self.model_path}")
-        print(f"[DEBUG LocalGGUF] Context length: {self.context_length}")
-        print(f"[DEBUG LocalGGUF] File exists check: {os.path.exists(self.model_path)}")
+        logger.debug(f"[LocalGGUF] Testing model at: {self.model_path}")
+        logger.debug(f"[LocalGGUF] Context length: {self.context_length}")
+        logger.debug(f"[LocalGGUF] File exists check: {os.path.exists(self.model_path)}")
         
         try:
             # Try to load and do a simple inference
-            print(f"[DEBUG LocalGGUF] Triggering lazy load of LLM...")
+            logger.debug(f"[LocalGGUF] Triggering lazy load of LLM...")
             _ = self.llm  # Trigger lazy load
-            print(f"[DEBUG LocalGGUF] LLM loaded successfully")
+            logger.debug(f"[LocalGGUF] LLM loaded successfully")
             
-            print(f"[DEBUG LocalGGUF] Running test inference...")
+            logger.debug(f"[LocalGGUF] Running test inference...")
             test_output = self.generate("Say 'OK'", max_tokens=5, temperature=0)
-            print(f"[DEBUG LocalGGUF] Test inference successful. Output: {test_output}")
+            logger.debug(f"[LocalGGUF] Test inference successful. Output: {test_output}")
             
             latency = (time.time() - start) * 1000
             return {
@@ -130,8 +134,8 @@ class LocalGGUFProvider(BaseLLMProvider):
         except Exception as e:
             error_msg = str(e)
             tb = traceback.format_exc()
-            print(f"[DEBUG LocalGGUF] ERROR: {error_msg}")
-            print(f"[DEBUG LocalGGUF] Traceback:\n{tb}")
+            logger.error(f"[LocalGGUF] ERROR: {error_msg}")
+            logger.error(f"[LocalGGUF] Traceback:\n{tb}")
             return {
                 "success": False,
                 "message": f"Failed to load model: {error_msg}",
@@ -144,6 +148,7 @@ class LocalGGUFProvider(BaseLLMProvider):
             "model_path": self.model_path,
             "context_length": self.context_length
         }
+
 
 
 class OpenAICompatibleProvider(BaseLLMProvider):
@@ -168,7 +173,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
     def client(self):
         """Lazy load OpenAI client"""
         if self._client is None:
-            print(f"[DEBUG OpenAICompatible] Creating new OpenAI client...")
+            logger.debug(f"[OpenAICompatible] Creating new OpenAI client...")
             client_start = time.time()
             
             # For Ollama and other local providers, use empty string if api_key is None
@@ -178,7 +183,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             # OpenAI client's default timeout is too short for local LLM inference
             import httpx
             timeout_value = self._kwargs.get('timeout', 30)
-            print(f"[DEBUG OpenAICompatible] Using timeout: {timeout_value}s")
+            logger.debug(f"[OpenAICompatible] Using timeout: {timeout_value}s")
             
             # Use a single timeout value for all operations to ensure consistency
             httpx_timeout = httpx.Timeout(timeout_value, connect=timeout_value)
@@ -196,27 +201,27 @@ class OpenAICompatibleProvider(BaseLLMProvider):
             )
             openai_time = time.time() - openai_start
             total_time = time.time() - client_start
-            print(f"[DEBUG OpenAICompatible] OpenAI client created in {total_time:.3f}s (OpenAI init: {openai_time:.3f}s)")
-            print(f"[DEBUG OpenAICompatible] Base URL: {self.base_url}")
-            print(f"[DEBUG OpenAICompatible] Model: {self.model}")
+            logger.debug(f"[OpenAICompatible] OpenAI client created in {total_time:.3f}s (OpenAI init: {openai_time:.3f}s)")
+            logger.debug(f"[OpenAICompatible] Base URL: {self.base_url}")
+            logger.debug(f"[OpenAICompatible] Model: {self.model}")
         else:
-            print(f"[DEBUG OpenAICompatible] Using existing OpenAI client")
+            logger.debug(f"[OpenAICompatible] Using existing OpenAI client")
         
         return self._client
     
     def generate(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
                  system_prompt: Optional[str] = None, **kwargs) -> str:
         """Generate with OpenAI-compatible API"""
-        print(f"[DEBUG OpenAICompatible] generate() called with model: {self.model}")
-        print(f"[DEBUG OpenAICompatible] Temperature: {temperature}, Max tokens: {max_tokens}")
-        print(f"[DEBUG OpenAICompatible] Prompt length: {len(prompt)} chars")
+        logger.debug(f"[OpenAICompatible] generate() called with model: {self.model}")
+        logger.debug(f"[OpenAICompatible] Temperature: {temperature}, Max tokens: {max_tokens}")
+        logger.debug(f"[OpenAICompatible] Prompt length: {len(prompt)} chars")
         
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
-        print(f"[DEBUG OpenAICompatible] Making API call to {self.base_url}")
+        logger.debug(f"[OpenAICompatible] Making API call to {self.base_url}")
         api_start = time.time()
         
         response = self.client.chat.completions.create(
@@ -230,11 +235,34 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         content = response.choices[0].message.content
         response_text = content.strip() if content is not None else ""
         
-        print(f"[DEBUG OpenAICompatible] API call completed in {api_time:.3f}s")
-        print(f"[DEBUG OpenAICompatible] Response length: {len(response_text)} chars")
-        print(f"[DEBUG OpenAICompatible] Response model used: {response.model}")
+        logger.debug(f"[OpenAICompatible] API call completed in {api_time:.3f}s")
+        logger.debug(f"[OpenAICompatible] Response length: {len(response_text)} chars")
+        logger.debug(f"[OpenAICompatible] Response model used: {response.model}")
         
         return response_text
+
+    def generate_stream(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
+                        system_prompt: Optional[str] = None, **kwargs):
+        """Generate with OpenAI-compatible API and stream results"""
+        logger.debug(f"[OpenAICompatible] generate_stream() called with model: {self.model}")
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True
+        )
+        
+        for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     
     def test_connection(self) -> Dict[str, Any]:
         """Test API connection"""
@@ -309,9 +337,9 @@ class OllamaProvider(BaseLLMProvider):
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(
-                    self.api_url,
-                    json=payload,
-                    headers={"Content-Type": "application/json"}
+                     self.api_url,
+                     json=payload,
+                     headers={"Content-Type": "application/json"}
                 )
                 response.raise_for_status()
                 
@@ -323,6 +351,40 @@ class OllamaProvider(BaseLLMProvider):
             raise Exception(f"Request to Ollama timed out after {self.timeout} seconds")
         except httpx.ConnectError as e:
             raise Exception(f"Cannot connect to Ollama at {self.base_url}: {str(e)}")
+
+    def generate_stream(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
+                        system_prompt: Optional[str] = None, **kwargs):
+        """Generate text stream using Ollama native /api/generate endpoint with streaming enabled"""
+        import httpx
+        import json
+        
+        full_prompt = prompt
+        if system_prompt:
+            full_prompt = f"{system_prompt}\n\n{prompt}"
+        
+        payload = {
+            "model": self.model,
+            "prompt": full_prompt,
+            "stream": True,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens
+            }
+        }
+        
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                with client.stream("POST", self.api_url, json=payload, headers={"Content-Type": "application/json"}) as r:
+                    r.raise_for_status()
+                    for line in r.iter_lines():
+                        if line:
+                            chunk = json.loads(line)
+                            yield chunk.get("response", "")
+                            
+        except Exception as e:
+            logger.error(f"[OllamaProvider] Error in generate_stream: {e}")
+            # Fallback to generate if stream fails
+            yield self.generate(prompt, temperature, max_tokens, system_prompt, **kwargs)
         except httpx.HTTPStatusError as e:
             raise Exception(f"Ollama API error: {str(e)}")
         except Exception as e:
@@ -685,6 +747,129 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 "base_url": self.base_url
             }
 
+class VertexAIGenericEmbeddingProvider(BaseEmbeddingProvider):
+    """Unified Google Vertex AI Embedding Provider supporting any model entered by the user dynamically via REST API"""
+    
+    def __init__(self, project: str, location: str = "us-central1", model_name: str = "multimodalembedding@001", api_key: str = "", **kwargs):
+        self.project = project
+        self.location = location or "us-central1"
+        self.model_name = model_name or "multimodalembedding@001"
+        self.api_key = api_key
+        self._credentials = None
+        
+        # Load GCP credentials from API Key (Service Account JSON)
+        if api_key:
+            try:
+                import json
+                from google.oauth2 import service_account
+                if os.path.exists(api_key):
+                    self._credentials = service_account.Credentials.from_service_account_file(
+                        api_key,
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                    )
+                else:
+                    key_dict = json.loads(api_key)
+                    self._credentials = service_account.Credentials.from_service_account_info(
+                        key_dict,
+                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+                    )
+                logger.debug(f"[VertexAI Generic Embedding] Credentials loaded successfully with cloud-platform scope")
+            except Exception as e:
+                logger.warning(f"[VertexAI Generic Embedding] Failed to parse credentials from api_key: {e}. Will rely on default credentials.")
+
+    def _get_access_token(self) -> str:
+        """Get OAuth2 access token for GCP Vertex AI API"""
+        if self._credentials is None:
+            import google.auth
+            credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+            self._credentials = credentials
+            
+        import google.auth.transport.requests
+        auth_req = google.auth.transport.requests.Request()
+        self._credentials.refresh(auth_req)
+        return self._credentials.token
+
+    def encode(self, texts: List[str], raise_on_error: bool = False) -> List[List[float]]:
+        """Encode texts to 2048-dimensional embeddings using Vertex AI Unified REST API"""
+        import httpx
+        
+        results = []
+        try:
+            token = self._get_access_token()
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Dynamic REST API URL depending on model name entered in Admin config
+            url = f"https://{self.location}-aiplatform.googleapis.com/v1/projects/{self.project}/locations/{self.location}/publishers/google/models/{self.model_name}:embedContent"
+            
+            for text in texts:
+                data = {
+                    "content": {
+                        "parts": [
+                            {"text": text}
+                        ]
+                    },
+                    "output_dimensionality": 2048  # Try Matryoshka output dimensionality (supported by text-embedding-004, gemini-embedding-2, etc.)
+                }
+                
+                with httpx.Client(timeout=30) as client:
+                    response = client.post(url, headers=headers, json=data)
+                    
+                    # If model doesn't support output_dimensionality parameter, retry without it
+                    if response.status_code == 400 and "output_dimensionality" in response.text:
+                        data.pop("output_dimensionality")
+                        response = client.post(url, headers=headers, json=data)
+                        
+                    if response.status_code != 200:
+                        raise ValueError(f"Vertex AI REST API error: {response.status_code} - {response.text}")
+                    
+                    result = response.json()
+                    
+                    # Extract values
+                    if "embedding" in result and "values" in result["embedding"]:
+                        vector = result["embedding"]["values"]
+                        
+                        # Pad or truncate vector to exactly 2048 dimensions to ensure absolute database schema compatibility
+                        if len(vector) < 2048:
+                            vector = vector + [0.0] * (2048 - len(vector))
+                        elif len(vector) > 2048:
+                            vector = vector[:2048]
+                            
+                        results.append(vector)
+                    else:
+                        raise ValueError(f"Unexpected API response structure: {result}")
+                        
+            return results
+        except Exception as e:
+            logger.error(f"[VertexAI Generic Embedding] Encoding failed for model {self.model_name}: {e}", exc_info=True)
+            if raise_on_error:
+                raise e
+            # Safe fallback zero vector to avoid breaking indexing flows
+            return [[0.0] * 2048] * len(texts)
+
+    def test_connection(self) -> Dict[str, Any]:
+        import time
+        start = time.time()
+        try:
+            test_vector = self.encode(["test"], raise_on_error=True)
+            latency = (time.time() - start) * 1000
+            return {
+                "success": True,
+                "message": f"Kết nối thành công! Mô hình '{self.model_name}' hoạt động tốt và trả về vector {len(test_vector[0])} chiều.",
+                "latency_ms": latency,
+                "model": self.model_name,
+                "project": self.project
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Kết nối thất bại với mô hình '{self.model_name}': {str(e)}",
+                "latency_ms": (time.time() - start) * 1000,
+                "project": self.project
+            }
+
 class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
     """Google Vertex AI Multimodal Embedding Provider supporting text, image, and video"""
     
@@ -707,9 +892,9 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                     # Try to parse as JSON string
                     key_dict = json.loads(api_key)
                     self._credentials = service_account.Credentials.from_service_account_info(key_dict)
-                print(f"[DEBUG VertexAI] Credentials loaded successfully")
+                logger.debug(f"[VertexAI] Credentials loaded successfully")
             except Exception as e:
-                print(f"[DEBUG VertexAI] Failed to parse credentials from api_key: {e}. Will rely on default environment credentials.")
+                logger.warning(f"[VertexAI] Failed to parse credentials from api_key: {e}. Will rely on default environment credentials.")
                 
     @property
     def model(self):
@@ -718,14 +903,14 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
             import vertexai
             from vertexai.vision_models import MultiModalEmbeddingModel
             
-            print(f"[DEBUG VertexAI] Initializing vertexai with project={self.project}, location={self.location}")
+            logger.debug(f"[VertexAI] Initializing vertexai with project={self.project}, location={self.location}")
             vertexai.init(
                 project=self.project,
                 location=self.location,
                 credentials=self._credentials
             )
             self._model = MultiModalEmbeddingModel.from_pretrained(self.model_name)
-            print(f"[DEBUG VertexAI] Model {self.model_name} loaded successfully")
+            logger.debug(f"[VertexAI] Model {self.model_name} loaded successfully")
         return self._model
         
     def encode(self, texts: List[str]) -> List[List[float]]:
@@ -742,7 +927,7 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                     vector = vector + [0.0] * (2048 - len(vector))
                 results.append(vector)
             except Exception as e:
-                print(f"[ERROR VertexAI] Failed to encode text: {e}")
+                logger.error(f"[VertexAI] Failed to encode text: {e}", exc_info=True)
                 # Return zero vector in case of failure to prevent breaking the flow
                 results.append([0.0] * 2048)
         return results
@@ -762,7 +947,7 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                 vector = vector + [0.0] * (2048 - len(vector))
             return vector
         except Exception as e:
-            print(f"[ERROR VertexAI] Failed to encode image: {e}")
+            logger.error(f"[ERROR VertexAI] Failed to encode image: {e}", exc_info=True)
             return [0.0] * 2048
             
     def encode_video(self, video_path: str, contextual_text: Optional[str] = None) -> List[float]:
@@ -780,8 +965,9 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                 vector = vector + [0.0] * (2048 - len(vector))
             return vector
         except Exception as e:
-            print(f"[ERROR VertexAI] Failed to encode video: {e}")
+            logger.error(f"[ERROR VertexAI] Failed to encode video: {e}", exc_info=True)
             return [0.0] * 2048
+
 
     def test_connection(self) -> Dict[str, Any]:
         """Test API connection"""
@@ -854,12 +1040,32 @@ class VertexAIGeminiChatProvider(BaseLLMProvider):
                  system_prompt: Optional[str] = None, **kwargs) -> str:
         """Generate text using Vertex AI Generative Model"""
         try:
-            from vertexai.generative_models import GenerationConfig
+            from vertexai.generative_models import GenerationConfig, SafetySetting, HarmCategory, HarmBlockThreshold
             
             config = GenerationConfig(
                 temperature=temperature,
                 max_output_tokens=max_tokens
             )
+            
+            # Configure safety settings to avoid false positives and blocks
+            safety_settings = [
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+                SafetySetting(
+                    category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold=HarmBlockThreshold.BLOCK_NONE,
+                ),
+            ]
             
             # Combine system prompt with prompt if provided
             full_prompt = prompt
@@ -868,9 +1074,27 @@ class VertexAIGeminiChatProvider(BaseLLMProvider):
                 
             response = self.model.generate_content(
                 full_prompt,
-                generation_config=config
+                generation_config=config,
+                safety_settings=safety_settings
             )
-            return response.text.strip()
+            
+            try:
+                return response.text.strip()
+            except ValueError as ve:
+                print(f"[WARNING VertexAI Chat] ValueError getting response.text: {ve}. Checking candidates...")
+                if response.candidates:
+                    candidate = response.candidates[0]
+                    parts_text = []
+                    if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                        for part in candidate.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                parts_text.append(part.text)
+                    if parts_text:
+                        return "".join(parts_text).strip()
+                    
+                    finish_reason = getattr(candidate, "finish_reason", None)
+                    print(f"[WARNING VertexAI Chat] Candidate finish_reason: {finish_reason}")
+                return ""
         except Exception as e:
             print(f"[ERROR VertexAI Chat] Generation failed: {e}")
             raise Exception(f"Vertex AI Generation failed: {str(e)}")
@@ -882,7 +1106,7 @@ class VertexAIGeminiChatProvider(BaseLLMProvider):
         try:
             _ = self.model
             # Generate a test text
-            test_output = self.generate("Say 'OK'", max_tokens=5, temperature=0)
+            test_output = self.generate("Say 'OK'", max_tokens=100, temperature=0)
             latency = (time.time() - start) * 1000
             return {
                 "success": True,
@@ -953,7 +1177,9 @@ class ProviderFactory:
                 # Assume encrypted, try decrypt
                 try:
                     encryption = APIKeyEncryption()
-                    api_key = encryption.decrypt(api_key)
+                    decrypted = encryption.decrypt(api_key)
+                    if decrypted:
+                        api_key = decrypted
                 except:
                     pass  # Use as-is if decryption fails
             
@@ -1010,7 +1236,9 @@ class ProviderFactory:
             if api_key and not api_key.startswith("sk-"):
                 try:
                     encryption = APIKeyEncryption()
-                    api_key = encryption.decrypt(api_key)
+                    decrypted = encryption.decrypt(api_key)
+                    if decrypted:
+                        api_key = decrypted
                 except:
                     pass
             
@@ -1037,7 +1265,7 @@ class ProviderFactory:
             project = config.get("api_base_url", "")
             model = config.get("api_model") or config.get("embedding_model_name") or "multimodalembedding@001"
             
-            return VertexAIMultimodalEmbeddingProvider(
+            return VertexAIGenericEmbeddingProvider(
                 project=project,
                 location="us-central1",
                 model_name=model,
@@ -1172,6 +1400,39 @@ def get_llm_provider(ai_type: str, db_session=None) -> BaseLLMProvider:
     }
     
     return ProviderRegistry.get_provider(ai_type, config)
+
+
+def get_custom_llm_provider(model_id: int, db_session) -> BaseLLMProvider:
+    """Get custom LLM provider from ChatModel, loading config and decrypting API key if needed"""
+    from app.models.models import ChatModel
+    
+    # Try to get from registry first using unique cache key
+    cache_key = f"custom_{model_id}"
+    if cache_key in ProviderRegistry._llm_providers:
+        return ProviderRegistry.get_provider(cache_key)
+        
+    chat_model = db_session.query(ChatModel).filter(ChatModel.id == model_id).first()
+    if not chat_model:
+        raise ValueError(f"Không tìm thấy cấu hình mô hình custom ID {model_id}")
+        
+    raw_api_key = None
+    if chat_model.api_key:
+        try:
+            encryption = APIKeyEncryption()
+            decrypted = encryption.decrypt(chat_model.api_key)
+            raw_api_key = decrypted if decrypted else chat_model.api_key
+        except:
+            raw_api_key = chat_model.api_key
+            
+    config = {
+        "provider": chat_model.provider,
+        "api_base_url": chat_model.api_base_url,
+        "api_key": raw_api_key,
+        "api_model": chat_model.api_model,
+        "timeout": 30,
+    }
+    
+    return ProviderRegistry.get_provider(cache_key, config)
 
 
 def get_embedding_provider(db_session=None) -> BaseEmbeddingProvider:

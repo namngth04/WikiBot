@@ -34,7 +34,11 @@ const errorVariants = {
   exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.2 } },
 };
 
-export default function LoginPage() {
+interface LoginPageProps {
+  onSwitchToRegister?: () => void;
+}
+
+export default function LoginPage({ onSwitchToRegister }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -230,6 +234,23 @@ export default function LoginPage() {
                       'Đăng nhập'
                     )}
                   </motion.button>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="text-center text-xs text-slate-400 mt-4">
+                  Chưa có tài khoản?{' '}
+                  {onSwitchToRegister ? (
+                    <button
+                      type="button"
+                      onClick={onSwitchToRegister}
+                      className="text-blue-400 hover:text-blue-300 font-semibold transition-colors underline underline-offset-4 bg-transparent border-none p-0 cursor-pointer"
+                    >
+                      Đăng ký ngay
+                    </button>
+                  ) : (
+                    <Link href="/register" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors underline underline-offset-4">
+                      Đăng ký ngay
+                    </Link>
+                  )}
                 </motion.div>
               </motion.form>
             ) : (

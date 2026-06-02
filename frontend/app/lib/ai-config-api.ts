@@ -59,3 +59,24 @@ export const userAIAPI = {
   updateSettings: (data: UserAISettings) => api.put('/users/me/ai-settings', data),
   getLimits: () => api.get('/users/me/ai-limits'),
 };
+
+// Chat Models CRUD APIs for Admin
+export interface ChatModelData {
+  id?: number;
+  name: string;
+  provider: string;
+  api_base_url?: string;
+  api_key?: string;
+  api_model: string;
+  is_active?: boolean;
+  has_api_key?: boolean;
+}
+
+export const chatModelsAPI = {
+  listActive: () => api.get('/chat-models'),
+  list: () => api.get('/chat-models/admin'),
+  create: (data: ChatModelData) => api.post('/chat-models', data),
+  update: (id: number, data: ChatModelData) => api.put(`/chat-models/${id}`, data),
+  delete: (id: number) => api.delete(`/chat-models/${id}`),
+  testConnection: (id: number) => api.post(`/chat-models/${id}/test`),
+};

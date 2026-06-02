@@ -7,13 +7,14 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   ArcElement,
   Filler
 } from 'chart.js';
-import { Line, Pie } from 'react-chartjs-2';
+import { Line, Pie, Bar } from 'react-chartjs-2';
 import { UsageStats } from '@/app/lib/types';
 
 // Đăng ký các thành phần cần thiết cho Chart.js
@@ -22,6 +23,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   ArcElement,
   Title,
   Tooltip,
@@ -227,3 +229,110 @@ export const FeedbackPieChart = ({ data, colors }: FeedbackPieChartProps) => {
     </div>
   );
 };
+
+
+interface TopicBarChartProps {
+  data: { topic: string; count: number; percentage: number }[];
+}
+
+export const TopicBarChart = ({ data }: TopicBarChartProps) => {
+  const [mounted, setMounted] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(false);
+  
+  React.useEffect(() => {
+    setMounted(true);
+    
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  if (!mounted) {
+    return <div className="h-[250px] w-full flex items-center justify-center text-ink-tertiary">Đang khởi tạo biểu đồ...</div>;
+  }
+
+  if (!data?.length) {
+    return <div className="h-[250px] w-full flex items-center justify-center text-ink-tertiary">Không có dữ liệu hiển thị</div>;
+  }
+
+  const brandColor = isDark ? '#818cf8' : '#6366f1';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : '#f1f5f9';
+  const textColor = isDark ? '#8a8f98' : '#94a3b8';
+  const tooltipBg = isDark ? '#141516' : '#ffffff';
+  const tooltipBorder = isDark ? '#23252a' : '#e2e8f0';
+  const tooltipText = isDark ? '#f7f8f8' : '#0d253d';
+  const tooltipSubtext = isDark ? '#8a8f98' : '#475569';
+
+  const chartData = {
+    labels: data.map(item => item.topic),
+    datasets: [
+      {
+        label: 'Số lượt hỏi',
+        data: data.map(item => item.count),
+        backgroundColor: brandColor,
+        borderRadius: 8,
+        borderWidth: 0,
+        barThickness: 16,
+      },
+    ],
+  };
+
+  const options = {
+    indexAxis: 'y' as const,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: tooltipBg,
+        titleColor: tooltipText,
+        bodyColor: tooltipSubtext,
+        borderColor: tooltipBorder,
+        borderWidth: 1,
+        padding: 12,
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: {
+          display: true,
+          drawBorder: false,
+          color: gridColor,
+        },
+        ticks: {
+          color: textColor,
+          font: { size: 10, family: 'var(--font-be-vietnam)' },
+          precision: 0,
+        },
+      },
+      y: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: textColor,
+          font: { size: 10, family: 'var(--font-be-vietnam)', weight: 'bold' as const },
+        },
+      },
+    },
+  };
+
+  return (
+    <div className="w-full h-[250px]">
+      <Bar data={chartData} options={options} />
+    </div>
+  );
+};
+

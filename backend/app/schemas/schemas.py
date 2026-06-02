@@ -203,6 +203,7 @@ class TokenResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1)
     conversation_id: Optional[int] = None
+    model_id: Optional[int] = None
     response_style: Literal["concise", "normal", "detailed", "creative"] = "concise"
     max_tokens: Optional[int] = Field(None, ge=64, le=512)
     show_sources: bool = True
@@ -434,5 +435,40 @@ class UpgradeRequestResponse(UpgradeRequestBase):
     id: int
     created_at: datetime
     
+    class Config:
+        from_attributes = True
+
+
+# ============== Chat Model Schemas ==============
+class ChatModelBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    provider: str = Field(default="openrouter", pattern="^(local|openrouter|ollama|openai|gemini)$")
+    api_base_url: Optional[str] = None
+    api_model: str = Field(..., min_length=1, max_length=100)
+    is_active: bool = True
+
+
+class ChatModelCreate(ChatModelBase):
+    api_key: Optional[str] = None
+
+
+class ChatModelUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    provider: Optional[str] = Field(None, pattern="^(local|openrouter|ollama|openai|gemini)$")
+    api_base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    api_model: Optional[str] = Field(None, min_length=1, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class ChatModelResponse(ChatModelBase):
+    id: int
+    is_global: bool
+    tenant_id: Optional[int] = None
+    user_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    has_api_key: bool = False
+
     class Config:
         from_attributes = True

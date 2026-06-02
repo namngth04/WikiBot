@@ -263,7 +263,7 @@ class HybridRetriever:
                 tenant_filters = [
                     and_(
                         Document.tenant_id == current_user_tenant_id,
-                        Document.role_id.in_(role_ids)
+                        or_(Document.role_id.in_(role_ids), Document.role_id.is_(None))
                     )
                 ]
                 if receive_community:
@@ -359,7 +359,7 @@ class HybridRetriever:
                     role_ids = [x for x in accessible_role_ids if x is not None]
                     if 0 not in role_ids:
                         role_ids.append(0)
-                    tenant_access = (tenant_id == current_user_tenant_id) and (role_id in role_ids)
+                    tenant_access = (tenant_id == current_user_tenant_id) and (role_id in role_ids or role_id == 0 or role_id is None)
                     community_access = receive_community and is_public_community
                     has_access = tenant_access or community_access
                 

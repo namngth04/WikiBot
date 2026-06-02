@@ -25,10 +25,14 @@ import {
   Lock,
   Unlock,
   Building2,
-  Trash2
+  Trash2,
+  DollarSign,
+  TrendingUp,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ThemeToggle from '@/app/components/ThemeToggle';
+import ModelManagementTab from '@/components/admin/ModelManagementTab';
 
 interface UpgradeRequest {
   id: number;
@@ -46,13 +50,6 @@ interface OverviewStats {
   satisfaction_rate: number;
 }
 
-interface ResourceStats {
-  disk_usage_mb: number;
-  chromadb_chunks: number;
-  ram_usage_percent: number;
-  cpu_usage_percent: number;
-  total_tenants: number;
-}
 
 interface TenantData {
   tenant_id: number;
@@ -100,21 +97,32 @@ interface AISafetyConfigData {
   default_response_style: string;
 }
 
+interface RevenueStats {
+  total_revenue: number;
+  conversion_rate: number;
+  pro_users_count: number;
+  free_users_count: number;
+  total_personal_users: number;
+  revenue_by_month: { month: string; revenue: number }[];
+  growth_rate: number;
+}
+
 export default function SuperadminPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout, isAdmin } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'resources' | 'tenants' | 'personal-users' | 'upgrade-logs' | 'ai-config'>('resources');
+  const [aiSubTab, setAiSubTab] = useState<'system' | 'models'>('system');
   
   const [stats, setStats] = useState<OverviewStats | null>(null);
   const [requests, setRequests] = useState<UpgradeRequest[]>([]);
-  const [resources, setResources] = useState<ResourceStats | null>(null);
   const [tenants, setTenants] = useState<TenantData[]>([]);
+  const [revenue, setRevenue] = useState<RevenueStats | null>(null);
   
   const [loadingStats, setLoadingStats] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(false);
-  const [loadingResources, setLoadingResources] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
+  const [loadingRevenue, setLoadingRevenue] = useState(false);
   const [personalUsers, setPersonalUsers] = useState<PersonalUserData[]>([]);
   const [loadingPersonal, setLoadingPersonal] = useState(false);
   const [personalSearchTerm, setPersonalSearchTerm] = useState('');
@@ -147,7 +155,6 @@ export default function SuperadminPage() {
     
     setLoadingStats(true);
     setLoadingRequests(true);
-    setLoadingResources(true);
     setLoadingTenants(true);
     
     try {
@@ -159,13 +166,20 @@ export default function SuperadminPage() {
       const reqsRes = await api.get('/upgrade/requests');
       setRequests(reqsRes.data);
 
-      // Fetch vĩ mô resource stats
-      const resourcesRes = await api.get('/admin/stats/resources');
-      setResources(resourcesRes.data);
-
       // Fetch tenants list
       const tenantsRes = await api.get('/admin/tenants');
       setTenants(tenantsRes.data);
+
+      // Fetch revenue stats
+      setLoadingRevenue(true);
+      try {
+        const revenueRes = await api.get('/admin/stats/revenue');
+        setRevenue(revenueRes.data);
+      } catch (revErr) {
+        console.error('Error fetching revenue stats:', revErr);
+      } finally {
+        setLoadingRevenue(false);
+      }
 
       // Fetch AI configs for dashboard widget
       try {
@@ -187,7 +201,6 @@ export default function SuperadminPage() {
     } finally {
       setLoadingStats(false);
       setLoadingRequests(false);
-      setLoadingResources(false);
       setLoadingTenants(false);
     }
   };
@@ -491,14 +504,14 @@ export default function SuperadminPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Bảng quản trị tối cao WikiBot <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#5e6ad2] animate-pulse">LIVE</span>
             </h1>
-            <p className="text-xs text-[#8a8f98]">Giám sát tài nguyên vĩ mô, khóa/mở khóa doanh nghiệp và theo dõi doanh thu.</p>
+            <p className="text-xs text-[#8a8f98]">Quản lý doanh nghiệp, theo dõi doanh thu và giám sát cấu hình LLM.</p>
           </div>
           <button 
             onClick={fetchData} 
-            disabled={loadingStats || loadingRequests || loadingResources || loadingTenants}
+            disabled={loadingStats || loadingRequests || loadingTenants || loadingRevenue}
             className="px-3 py-1.5 text-xs font-semibold border border-[#23252a] hover:bg-[#141516] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 text-[#8a8f98] hover:text-white"
           >
-            <RefreshCw size={12} className={loadingStats || loadingRequests ? 'animate-spin' : ''} /> Tải lại dữ liệu
+            <RefreshCw size={12} className={loadingStats || loadingRequests || loadingRevenue ? 'animate-spin' : ''} /> Tải lại dữ liệu
           </button>
         </div>
 
@@ -555,7 +568,7 @@ export default function SuperadminPage() {
                 : 'text-[#8a8f98] hover:text-white'
             }`}
           >
-            🤖 Cấu hình AI hệ thống
+            🤖 Quản lý LLM
           </button>
         </div>
 
@@ -570,94 +583,75 @@ export default function SuperadminPage() {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              {/* Premium Resources Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* CPU Usage Card */}
-                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#23252a]/80 transition-all">
+
+              {/* Premium Revenue Stats Section */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Total Revenue Card */}
+                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#5e6ad2]/40 transition-all">
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">VI XỬ LÝ (CPU)</span>
-                    <div className="w-8 h-8 rounded bg-cyan-500/5 border border-cyan-500/15 flex items-center justify-center text-cyan-400">
-                      <Cpu size={16} />
+                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">Tổng doanh thu thương mại</span>
+                    <div className="w-8 h-8 rounded bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 flex items-center justify-center text-[#5e6ad2]">
+                      <DollarSign size={16} />
                     </div>
                   </div>
-                  {loadingResources ? (
+                  {loadingRevenue ? (
+                    <div className="h-8 w-24 bg-[#141516] rounded animate-pulse" />
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <span className="text-2xl font-extrabold text-white">{(revenue?.total_revenue ?? 0).toLocaleString('vi-VN')} VNĐ</span>
+                      <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <TrendingUp size={10} /> +{(revenue?.growth_rate ?? 0)}% tăng trưởng tháng này
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Conversion Rate Card */}
+                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#5e6ad2]/40 transition-all">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">Tỷ lệ nâng cấp PRO</span>
+                    <div className="w-8 h-8 rounded bg-[#8b5cf6]/10 border border-[#8b5cf6]/20 flex items-center justify-center text-[#8b5cf6]">
+                      <CreditCard size={16} />
+                    </div>
+                  </div>
+                  {loadingRevenue ? (
                     <div className="h-8 w-16 bg-[#141516] rounded animate-pulse" />
                   ) : (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-extrabold text-white">{resources?.cpu_usage_percent ?? 0.0}%</span>
-                        <span className="text-[10px] text-[#8a8f98]">đang tải</span>
+                        <span className="text-2xl font-extrabold text-white">{revenue?.conversion_rate ?? 0.0}%</span>
+                        <span className="text-[10px] text-[#8a8f98]">({revenue?.pro_users_count ?? 0}/{revenue?.total_personal_users ?? 0} cá nhân)</span>
                       </div>
-                      {/* Premium Progress Bar */}
                       <div className="w-full bg-[#141516] h-1.5 rounded-full overflow-hidden border border-[#23252a]">
                         <div 
-                          className="bg-cyan-500 h-full rounded-full transition-all duration-500" 
-                          style={{ width: `${resources?.cpu_usage_percent ?? 0}%` }}
+                          className="bg-gradient-to-r from-[#5e6ad2] to-[#8b5cf6] h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${revenue?.conversion_rate ?? 0}%` }}
                         />
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* RAM Usage Card */}
-                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#23252a]/80 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">BỘ NHỚ TRONG (RAM)</span>
-                    <div className="w-8 h-8 rounded bg-purple-500/5 border border-purple-500/15 flex items-center justify-center text-purple-400">
-                      <Cpu size={16} />
-                    </div>
+                {/* Revenue History Month Card */}
+                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#5e6ad2]/40 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">Lịch sử doanh thu 6 tháng gần nhất</span>
                   </div>
-                  {loadingResources ? (
-                    <div className="h-8 w-16 bg-[#141516] rounded animate-pulse" />
+                  {loadingRevenue ? (
+                    <div className="space-y-2">
+                      <div className="h-4 bg-[#141516] rounded w-full animate-pulse" />
+                      <div className="h-4 bg-[#141516] rounded w-3/4 animate-pulse" />
+                    </div>
+                  ) : !revenue?.revenue_by_month || revenue.revenue_by_month.length === 0 ? (
+                    <span className="text-xs text-[#8a8f98] italic block py-4">Chưa có giao dịch nâng cấp nào</span>
                   ) : (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-extrabold text-white">{resources?.ram_usage_percent ?? 0.0}%</span>
-                        <span className="text-[10px] text-[#8a8f98]">tiêu thụ</span>
-                      </div>
-                      {/* Premium Progress Bar */}
-                      <div className="w-full bg-[#141516] h-1.5 rounded-full overflow-hidden border border-[#23252a]">
-                        <div 
-                          className="bg-purple-500 h-full rounded-full transition-all duration-500" 
-                          style={{ width: `${resources?.ram_usage_percent ?? 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Disk Space Usage Card */}
-                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#23252a]/80 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">DUNG LƯỢNG ĐĨA FILE</span>
-                    <div className="w-8 h-8 rounded bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-amber-500">
-                      <HardDrive size={16} />
-                    </div>
-                  </div>
-                  {loadingResources ? (
-                    <div className="h-8 w-16 bg-[#141516] rounded animate-pulse" />
-                  ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-extrabold text-white">{resources?.disk_usage_mb ?? 0.0} MB</span>
-                      <span className="text-[10px] text-[#8a8f98]">tài liệu vật lý</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* ChromaDB Vector chunks Card */}
-                <div className="p-5 rounded-xl border border-[#23252a] bg-[#0f1011]/30 relative overflow-hidden group hover:border-[#23252a]/80 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-[#8a8f98] tracking-wider uppercase">CHROMA DB VECTOR CHUNKS</span>
-                    <div className="w-8 h-8 rounded bg-emerald-500/5 border border-emerald-500/15 flex items-center justify-center text-emerald-400">
-                      <Layers size={16} />
-                    </div>
-                  </div>
-                  {loadingResources ? (
-                    <div className="h-8 w-16 bg-[#141516] rounded animate-pulse" />
-                  ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-extrabold text-white">{resources?.chromadb_chunks ?? 0}</span>
-                      <span className="text-[10px] text-[#8a8f98]">mảnh vector index</span>
+                    <div className="space-y-1.5 max-h-[80px] overflow-y-auto pr-1">
+                      {revenue.revenue_by_month.map(item => (
+                        <div key={item.month} className="flex justify-between items-center text-xs">
+                          <span className="font-mono text-[#8a8f98]">{item.month}</span>
+                          <span className="font-bold text-emerald-400">+{item.revenue.toLocaleString('vi-VN')} VNĐ</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -694,48 +688,29 @@ export default function SuperadminPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Chat AI Card */}
-                  {(() => {
-                    const chatConfig = aiConfigs.find(c => c.ai_type === 'chat');
-                    return (
-                      <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">🗣️ Chat AI / RAG</span>
-                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#5e6ad2] group-hover:text-white transition-colors">ACTIVE</span>
-                        </div>
-                        {loadingStats || aiConfigs.length === 0 ? (
-                          <div className="space-y-2 py-2">
-                            <div className="h-4 bg-[#1e2024] rounded w-3/4 animate-pulse" />
-                            <div className="h-3 bg-[#1e2024] rounded w-1/2 animate-pulse" />
-                          </div>
-                        ) : chatConfig ? (
-                          <div className="space-y-3">
-                            <div>
-                              <span className="text-[10px] text-[#565860] block">Provider</span>
-                              <span className="text-xs font-extrabold text-white capitalize">{chatConfig.provider}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-[#565860] block">Model Active</span>
-                              <code className="text-xs text-[#a5b4fc] font-mono break-all bg-[#010102]/60 px-1.5 py-0.5 rounded border border-[#23252a]">
-                                {chatConfig.api_model || chatConfig.local_model_path || 'N/A'}
-                              </code>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#23252a]/40 text-[10px]">
-                              <div>
-                                <span className="text-[#565860]">Temp:</span> <span className="text-white font-semibold">{chatConfig.default_temperature ?? 0.2}</span>
-                              </div>
-                              <div>
-                                <span className="text-[#565860]">Max Tokens:</span> <span className="text-white font-semibold">{chatConfig.default_max_tokens ?? 512}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[#8a8f98] italic">Chưa được cấu hình</span>
-                        )}
+                  <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">🗣️ LLM Chat Engine (Đa mô hình)</span>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#5e6ad2] group-hover:text-white transition-colors">MANAGED</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-[10px] text-[#565860] block">Chế độ vận hành</span>
+                        <span className="text-xs font-extrabold text-white">Quản trị viên cấu hình động</span>
                       </div>
-                    );
-                  })()}
+                      <div>
+                        <span className="text-[10px] text-[#565860] block">Trạng thái</span>
+                        <span className="text-xs text-[#a5b4fc] font-semibold">
+                          Hoạt động trực tiếp qua tab 🤖 Quản lý LLM
+                        </span>
+                      </div>
+                      <div className="pt-1 border-t border-[#23252a]/40 text-[10px]">
+                        <span className="text-[#565860]">Mục đích:</span> <span className="text-white font-semibold">Hỗ trợ RAG & Phản hồi câu hỏi</span>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Embedding AI Card */}
                   {(() => {
@@ -767,54 +742,6 @@ export default function SuperadminPage() {
                             </div>
                             <div className="pt-1 border-t border-[#23252a]/40 text-[10px]">
                               <span className="text-[#565860]">Dùng cho:</span> <span className="text-white font-semibold">Tách và số hóa tài liệu RAG</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[#8a8f98] italic">Chưa được cấu hình</span>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* FAQ AI Card */}
-                  {(() => {
-                    const faqConfig = aiConfigs.find(c => c.ai_type === 'faq');
-                    const chatConfig = aiConfigs.find(c => c.ai_type === 'chat');
-                    const isFaqWithRag = faqConfig ? (faqConfig.use_rag_provider ?? true) : true;
-                    return (
-                      <div className="p-4 rounded-xl border border-[#23252a]/60 bg-[#141516]/40 flex flex-col justify-start gap-4 group hover:border-[#5e6ad2]/30 transition-all">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-[#8a8f98] tracking-wider uppercase">❓ FAQ Classification</span>
-                          <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400 group-hover:text-white transition-colors">ACTIVE</span>
-                        </div>
-                        {loadingStats || aiConfigs.length === 0 ? (
-                          <div className="space-y-2 py-2">
-                            <div className="h-4 bg-[#1e2024] rounded w-3/4 animate-pulse" />
-                            <div className="h-3 bg-[#1e2024] rounded w-1/2 animate-pulse" />
-                          </div>
-                        ) : faqConfig ? (
-                          <div className="space-y-3">
-                            <div>
-                              <span className="text-[10px] text-[#565860] block">Chế độ hoạt động</span>
-                              <span className="text-xs font-extrabold text-white">
-                                {isFaqWithRag ? 'Dùng chung với Chat AI (RAG)' : `Độc lập - ${faqConfig.provider}`}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-[#565860] block">Model Active</span>
-                              <code className="text-xs text-[#a5b4fc] font-mono break-all bg-[#010102]/60 px-1.5 py-0.5 rounded border border-[#23252a]">
-                                {isFaqWithRag 
-                                  ? (chatConfig?.api_model || chatConfig?.local_model_path || 'N/A')
-                                  : (faqConfig.api_model || 'N/A')}
-                              </code>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#23252a]/40 text-[10px]">
-                              <div>
-                                <span className="text-[#565860]">Temp:</span> <span className="text-white font-semibold">{isFaqWithRag ? (chatConfig?.default_temperature ?? 0.2) : (faqConfig.default_temperature ?? 0.2)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[#565860]">Auto-FAQ:</span> <span className="text-white font-semibold">Enabled</span>
-                              </div>
                             </div>
                           </div>
                         ) : (
@@ -1210,261 +1137,262 @@ export default function SuperadminPage() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-white">Cấu hình Nhà Cung Cấp AI</h3>
-                  <p className="text-xs text-[#8a8f98] mt-0.5">Cấu hình provider cho từng loại AI: Chat, Embedding, FAQ</p>
+                  <h3 className="text-base font-bold text-white">Quản lý Mô hình LLM & AI</h3>
+                  <p className="text-xs text-[#8a8f98] mt-0.5">Cấu hình mô hình Embedding hệ thống và quản lý danh sách LLMs động</p>
                 </div>
+                {aiSubTab === 'system' && (
+                  <button
+                    onClick={fetchAIConfigs}
+                    disabled={loadingAI}
+                    className="px-3 py-1.5 text-xs font-semibold border border-[#23252a] hover:bg-[#141516] rounded-lg transition-colors flex items-center gap-1.5 text-[#8a8f98] hover:text-white disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} className={loadingAI ? 'animate-spin' : ''} /> Làm mới
+                  </button>
+                )}
+              </div>
+
+              {/* Internal Sub-Tabs */}
+              <div className="flex gap-4 border-b border-[#23252a]/60 pb-2 text-xs">
                 <button
-                  onClick={fetchAIConfigs}
-                  disabled={loadingAI}
-                  className="px-3 py-1.5 text-xs font-semibold border border-[#23252a] hover:bg-[#141516] rounded-lg transition-colors flex items-center gap-1.5 text-[#8a8f98] hover:text-white disabled:opacity-50"
+                  onClick={() => setAiSubTab('system')}
+                  className={`pb-1.5 font-bold transition-all relative ${
+                    aiSubTab === 'system'
+                      ? 'text-white border-b-2 border-[#5e6ad2]'
+                      : 'text-[#8a8f98] hover:text-white'
+                  }`}
                 >
-                  <RefreshCw size={12} className={loadingAI ? 'animate-spin' : ''} /> Làm mới
+                  ⚙️ Cấu hình Hệ thống (Mặc định)
+                </button>
+                <button
+                  onClick={() => setAiSubTab('models')}
+                  className={`pb-1.5 font-bold transition-all relative ${
+                    aiSubTab === 'models'
+                      ? 'text-white border-b-2 border-[#5e6ad2]'
+                      : 'text-[#8a8f98] hover:text-white'
+                  }`}
+                >
+                  🤖 Quản lý Mô hình LLM
                 </button>
               </div>
 
-              {loadingAI ? (
-                <div className="py-16 flex flex-col items-center gap-3">
-                  <Loader2 className="animate-spin text-[#5e6ad2]" size={28} />
-                  <span className="text-xs text-[#8a8f98]">Đang tải cấu hình AI...</span>
-                </div>
-              ) : (
-                <>
-                  {/* Provider Panels */}
-                  {(['chat', 'embedding', 'faq'] as const).map((ai_type) => {
-                    const cfg = editingConfigs[ai_type] || {};
-                    const testResult = testResults[ai_type];
-                    const typeLabels: Record<string, string> = { chat: '🗣️ Chat (Trả lời câu hỏi)', embedding: '📐 Embedding (Vector hoá tài liệu)', faq: '❓ FAQ (Phân loại câu hỏi)' };
-                    const providers = ai_type === 'embedding' 
-                      ? ['local', 'openrouter', 'openai', 'gemini'] 
-                      : ['openrouter', 'openai', 'ollama', 'gemini'];
-                    const isFaqWithRag = ai_type === 'faq' && (cfg.use_rag_provider ?? true);
-                    return (
-                      <div key={ai_type} className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6 space-y-4">
-                        <div className="flex items-center gap-2 pb-3 border-b border-[#23252a]/60">
-                          <span className="text-sm font-bold text-white">{typeLabels[ai_type]}</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#23252a] bg-[#141516] text-[#8a8f98]">{ai_type.toUpperCase()}</span>
-                        </div>
-
-                        {/* Special FAQ Toggle */}
-                        {ai_type === 'faq' && (
-                          <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#23252a]/60 bg-[#141516]/50">
-                            <div>
-                              <span className="text-xs font-semibold text-white block">Dùng chung cấu hình với Chat AI</span>
-                              <span className="text-[10px] text-[#8a8f98] mt-0.5 block">Hệ thống sẽ tự động dùng chung mô hình và API key của mục Chat</span>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={cfg.use_rag_provider ?? true}
-                              onChange={(e) => setEditingConfigs(prev => ({...prev, faq: {...prev.faq, use_rag_provider: e.target.checked}}))}
-                              className="w-4 h-4 rounded text-[#5e6ad2] bg-[#141516] border-[#23252a] focus:ring-[#5e6ad2] cursor-pointer"
-                            />
+              {aiSubTab === 'system' ? (
+                loadingAI ? (
+                  <div className="py-16 flex flex-col items-center gap-3">
+                    <Loader2 className="animate-spin text-[#5e6ad2]" size={28} />
+                    <span className="text-xs text-[#8a8f98]">Đang tải cấu hình AI...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Provider Panels */}
+                    {(['embedding'] as const).map((ai_type) => {
+                      const cfg = editingConfigs[ai_type] || {};
+                      const testResult = testResults[ai_type];
+                      const typeLabels: Record<string, string> = { embedding: '📐 Cấu hình mô hình Embedding (Số hóa tài liệu)' };
+                      const providers = ['local', 'openrouter', 'openai', 'gemini'];
+                      return (
+                        <div key={ai_type} className="rounded-xl border border-[#23252a] bg-[#0f1011]/30 p-6 space-y-4">
+                          <div className="flex items-center gap-2 pb-3 border-b border-[#23252a]/60">
+                            <span className="text-sm font-bold text-white">{typeLabels[ai_type]}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#23252a] bg-[#141516] text-[#8a8f98]">{ai_type.toUpperCase()}</span>
                           </div>
-                        )}
 
-                        {!isFaqWithRag ? (
-                          <>
-                            {/* Provider Selection */}
-                            <div>
-                              <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-2">Provider</label>
-                              <div className="flex flex-wrap gap-2">
-                                {providers.map(p => (
-                                  <button
-                                    key={p}
-                                    onClick={() => {
-                                      const defaultUrls: Record<string, string> = {
-                                        openrouter: 'https://openrouter.ai/api/v1',
-                                        ollama: 'http://localhost:11434',
-                                        openai: 'https://api.openai.com/v1',
-                                        gemini: ''
-                                      };
-                                      setEditingConfigs(prev => ({
-                                        ...prev, 
-                                        [ai_type]: {
-                                          ...prev[ai_type], 
-                                          provider: p,
-                                          api_base_url: defaultUrls[p] || ''
-                                        }
-                                      }));
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                                      cfg.provider === p
-                                        ? 'bg-[#5e6ad2] border-[#5e6ad2] text-white'
-                                        : 'border-[#23252a] text-[#8a8f98] hover:border-[#5e6ad2]/50 hover:text-white'
-                                    }`}
-                                  >
-                                    {p}
-                                  </button>
-                                ))}
-                              </div>
+                          {/* Provider Selection */}
+                          <div>
+                            <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-2">Provider</label>
+                            <div className="flex flex-wrap gap-2">
+                              {providers.map(p => (
+                                <button
+                                  key={p}
+                                  onClick={() => {
+                                    const defaultUrls: Record<string, string> = {
+                                      openrouter: 'https://openrouter.ai/api/v1',
+                                      ollama: 'http://localhost:11434',
+                                      openai: 'https://api.openai.com/v1',
+                                      gemini: ''
+                                    };
+                                    setEditingConfigs(prev => ({
+                                      ...prev, 
+                                      [ai_type]: {
+                                        ...prev[ai_type], 
+                                        provider: p,
+                                        api_base_url: defaultUrls[p] || ''
+                                      }
+                                    }));
+                                  }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                    cfg.provider === p
+                                      ? 'bg-[#5e6ad2] border-[#5e6ad2] text-white'
+                                      : 'border-[#23252a] text-[#8a8f98] hover:border-[#5e6ad2]/50 hover:text-white'
+                                  }`}
+                                >
+                                  {p}
+                                </button>
+                              ))}
                             </div>
+                          </div>
 
-
-
-                            {/* API fields (non-local) */}
-                            {cfg.provider !== 'local' && (
-                              <>
-                                <div>
-                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
-                                    {cfg.provider === 'gemini' ? 'GCP Project ID (API Base URL)' : 'API Base URL'}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={cfg.api_base_url || ''}
-                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_base_url: e.target.value}}))}
-                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
-                                    placeholder={cfg.provider === 'gemini' ? 'Nhập Project ID GCP của bạn (vd: my-gcp-project-123)' : 'https://openrouter.ai/api/v1'}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
-                                    {cfg.provider === 'gemini' ? 'JSON Key Service Account (API Key)' : 'API Key'}
-                                  </label>
-                                  <input
-                                    type="password"
-                                    value={cfg.api_key || ''}
-                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_key: e.target.value}}))}
-                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
-                                    placeholder={cfg.provider === 'gemini' ? 'Dán toàn bộ nội dung file JSON Service Account Key tại đây' : '••••••••'}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Model</label>
-                                  <input
-                                    type="text"
-                                    value={cfg.api_model || ''}
-                                    onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_model: e.target.value}}))}
-                                    className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
-                                    placeholder={cfg.provider === 'gemini' ? (ai_type === 'embedding' ? 'multimodalembedding@001' : 'gemini-2.5-flash') : 'openai/gpt-4o-mini'}
-                                  />
-                                </div>
-                              </>
-                            )}
-
-                            {/* Temperature & Max Tokens */}
-                            <div className="grid grid-cols-2 gap-4">
+                          {/* API fields (non-local) */}
+                          {cfg.provider !== 'local' && (
+                            <>
                               <div>
-                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Temperature</label>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
+                                  {cfg.provider === 'gemini' ? 'GCP Project ID (API Base URL)' : 'API Base URL'}
+                                </label>
                                 <input
-                                  type="number"
-                                  min={0} max={2} step={0.1}
-                                  value={cfg.default_temperature ?? 0.2}
-                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_temperature: parseFloat(e.target.value)}}))}
+                                  type="text"
+                                  value={cfg.api_base_url || ''}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_base_url: e.target.value}}))}
                                   className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                  placeholder={cfg.provider === 'gemini' ? 'Nhập Project ID GCP của bạn (vd: my-gcp-project-123)' : 'https://openrouter.ai/api/v1'}
                                 />
                               </div>
                               <div>
-                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens</label>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">
+                                  {cfg.provider === 'gemini' ? 'JSON Key Service Account (API Key)' : 'API Key'}
+                                </label>
                                 <input
-                                  type="number"
-                                  min={128} max={4096}
-                                  value={cfg.default_max_tokens ?? 512}
-                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_max_tokens: parseInt(e.target.value)}}))}
-                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                  type="password"
+                                  value={cfg.api_key || ''}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_key: e.target.value}}))}
+                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors font-mono"
+                                  placeholder={cfg.provider === 'gemini' ? 'Dán toàn bộ nội dung file JSON Service Account Key tại đây' : '••••••••'}
                                 />
                               </div>
+                              <div>
+                                <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Model</label>
+                                <input
+                                  type="text"
+                                  value={cfg.api_model || ''}
+                                  onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], api_model: e.target.value}}))}
+                                  className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                                  placeholder={cfg.provider === 'gemini' ? 'multimodalembedding@001' : 'text-embedding-3-small'}
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {/* Temperature & Max Tokens */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Temperature</label>
+                              <input
+                                type="number"
+                                min={0} max={2} step={0.1}
+                                value={cfg.default_temperature ?? 0.2}
+                                onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_temperature: parseFloat(e.target.value)}}))}
+                                className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                              />
                             </div>
-                          </>
-                        ) : (
-                          <div className="p-4 rounded-lg border border-dashed border-[#23252a] bg-[#141516]/20 text-center text-xs text-[#8a8f98]">
-                            💡 FAQ đang sử dụng chung cấu hình với **Chat AI**. Bạn không cần thiết lập thêm.
+                            <div>
+                              <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens</label>
+                              <input
+                                type="number"
+                                min={128} max={4096}
+                                value={cfg.default_max_tokens ?? 512}
+                                onChange={(e) => setEditingConfigs(prev => ({...prev, [ai_type]: {...prev[ai_type], default_max_tokens: parseInt(e.target.value)}}))}
+                                className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-[#5e6ad2] transition-colors"
+                              />
+                            </div>
                           </div>
-                        )}
 
-                        {/* Test Result Badge */}
-                        {testResult !== undefined && testResult !== null && (
-                          <div className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
-                            testResult.success
-                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                              : 'bg-red-500/10 border-red-500/30 text-red-400'
-                          }`}>
-                            <span>{testResult.success ? '✅' : '❌'}</span>
-                            <span>{testResult.message}</span>
-                            {testResult.success && testResult.latency_ms && (
-                              <span className="ml-auto font-mono text-[10px]">{testResult.latency_ms}ms</span>
-                            )}
-                          </div>
-                        )}
+                          {/* Test Result Badge */}
+                          {testResult !== undefined && testResult !== null && (
+                            <div className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${
+                              testResult.success
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                : 'bg-red-500/10 border-red-500/30 text-red-400'
+                            }`}>
+                              <span>{testResult.success ? '✅' : '❌'}</span>
+                              <span>{testResult.message}</span>
+                              {testResult.success && testResult.latency_ms && (
+                                <span className="ml-auto font-mono text-[10px]">{testResult.latency_ms}ms</span>
+                              )}
+                            </div>
+                          )}
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 pt-2">
-                          {!isFaqWithRag && (
+                          {/* Action Buttons */}
+                          <div className="flex gap-3 pt-2">
                             <button
                               onClick={() => handleTestConnection(ai_type)}
                               className="px-4 py-2 text-xs font-bold border border-[#23252a] hover:bg-[#141516] hover:border-[#5e6ad2]/50 rounded-lg transition-colors text-[#8a8f98] hover:text-white flex items-center gap-1.5"
                             >
                               🔌 Test Connection
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleSaveAIConfig(ai_type)}
-                            disabled={savingAI === ai_type}
-                            className="px-4 py-2 text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
-                          >
-                            {savingAI === ai_type ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu cấu hình'}
-                          </button>
+                            <button
+                              onClick={() => handleSaveAIConfig(ai_type)}
+                              disabled={savingAI === ai_type}
+                              className="px-4 py-2 text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              {savingAI === ai_type ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu cấu hình'}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                  {/* Safety Limits Panel */}
-                  {editingSafety && (
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-4">
-                      <div className="pb-3 border-b border-[#23252a]/60">
-                        <h4 className="text-sm font-bold text-white">⚠️ Safety Limits Toàn Hệ Thống</h4>
-                        <p className="text-xs text-[#8a8f98] mt-0.5">Giới hạn toàn cục áp dụng cho tất cả người dùng</p>
+                    {/* Safety Limits Panel */}
+                    {editingSafety && (
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-6 space-y-4">
+                        <div className="pb-3 border-b border-[#23252a]/60">
+                          <h4 className="text-sm font-bold text-white">⚠️ Safety Limits Toàn Hệ Thống</h4>
+                          <p className="text-xs text-[#8a8f98] mt-0.5">Giới hạn toàn cục áp dụng cho tất cả người dùng</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Temperature</label>
+                            <input
+                              type="number" min={0.1} max={2} step={0.1}
+                              value={editingSafety.max_temperature_limit}
+                              onChange={(e) => setEditingSafety({...editingSafety, max_temperature_limit: parseFloat(e.target.value)})}
+                              className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens Limit</label>
+                            <input
+                              type="number" min={128} max={4096}
+                              value={editingSafety.max_tokens_limit}
+                              onChange={(e) => setEditingSafety({...editingSafety, max_tokens_limit: parseInt(e.target.value)})}
+                              className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Temperature</label>
+                            <input
+                              type="number" min={0} max={2} step={0.1}
+                              value={editingSafety.default_temperature}
+                              onChange={(e) => setEditingSafety({...editingSafety, default_temperature: parseFloat(e.target.value)})}
+                              className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Response Style</label>
+                            <select
+                              value={editingSafety.default_response_style}
+                              onChange={(e) => setEditingSafety({...editingSafety, default_response_style: e.target.value})}
+                              className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
+                            >
+                              <option value="concise">Ngắn gọn</option>
+                              <option value="detailed">Chi tiết</option>
+                              <option value="technical">Kỹ thuật</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleSaveSafety}
+                          disabled={savingSafety}
+                          className="px-5 py-2 text-xs font-bold bg-amber-500/80 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {savingSafety ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu Safety Config'}
+                        </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Temperature</label>
-                          <input
-                            type="number" min={0.1} max={2} step={0.1}
-                            value={editingSafety.max_temperature_limit}
-                            onChange={(e) => setEditingSafety({...editingSafety, max_temperature_limit: parseFloat(e.target.value)})}
-                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Max Tokens Limit</label>
-                          <input
-                            type="number" min={128} max={4096}
-                            value={editingSafety.max_tokens_limit}
-                            onChange={(e) => setEditingSafety({...editingSafety, max_tokens_limit: parseInt(e.target.value)})}
-                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Temperature</label>
-                          <input
-                            type="number" min={0} max={2} step={0.1}
-                            value={editingSafety.default_temperature}
-                            onChange={(e) => setEditingSafety({...editingSafety, default_temperature: parseFloat(e.target.value)})}
-                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-semibold text-[#8a8f98] uppercase tracking-wider block mb-1">Default Response Style</label>
-                          <select
-                            value={editingSafety.default_response_style}
-                            onChange={(e) => setEditingSafety({...editingSafety, default_response_style: e.target.value})}
-                            className="w-full px-3 py-2 text-xs bg-[#141516] border border-[#23252a] rounded-lg text-white outline-none focus:border-amber-500/50 transition-colors"
-                          >
-                            <option value="concise">Ngắn gọn</option>
-                            <option value="detailed">Chi tiết</option>
-                            <option value="technical">Kỹ thuật</option>
-                          </select>
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleSaveSafety}
-                        disabled={savingSafety}
-                        className="px-5 py-2 text-xs font-bold bg-amber-500/80 hover:bg-amber-500 text-white rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        {savingSafety ? <><Loader2 className="animate-spin" size={12} />Đang lưu...</> : '💾 Lưu Safety Config'}
-                      </button>
-                    </div>
-                  )}
-                </>
+                    )}
+                  </>
+                )
+              ) : (
+                <div className="mt-4">
+                  <ModelManagementTab />
+                </div>
               )}
             </motion.div>
           )}

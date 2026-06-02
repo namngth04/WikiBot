@@ -6,10 +6,11 @@ import {
   Send, Plus, Trash2, MessageSquare,
   ChevronLeft, ChevronRight, Shield, Edit, Check, X,
   ThumbsUp, ThumbsDown, Search, Sparkles,
-  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown, BarChart3
+  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown, BarChart3, Cpu
 } from 'lucide-react';
 import { cn } from '@/app/lib/utils';
 import { useChat } from '@/app/hooks/useChat';
+import { chatModelsAPI, ChatModelData } from '@/app/lib/ai-config-api';
 import { useAuth } from '@/app/context/auth-context';
 import { useRouter } from 'next/navigation';
 import MessageList from './MessageList';
@@ -17,6 +18,7 @@ import ChatInput from './ChatInput';
 import { UserSettings } from '@/app/components/UserSettings';
 import AppLogo from './AppLogo';
 import ThemeToggle from './ThemeToggle';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface ChatContainerProps {
   className?: string;
@@ -31,6 +33,36 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [inputMessage, setInputMessage] = useState('');
   const [quota, setQuota] = useState<any>(null);
+  const [activeModels, setActiveModels] = useState<ChatModelData[]>([]);
+  
+  // Citation Modal states
+  const [citationModalOpen, setCitationModalOpen] = useState(false);
+  const [citationData, setCitationData] = useState<any>(null);
+  const [citationLoading, setCitationLoading] = useState(false);
+
+  const handleShowSource = async (docId: number, pageNum: number) => {
+    setCitationLoading(true);
+    setCitationModalOpen(true);
+    setCitationData(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/documents/${docId}/pages/${pageNum}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCitationData(data);
+      } else {
+        console.error('Failed to fetch page content');
+      }
+    } catch (error) {
+      console.error('Error fetching page content:', error);
+    } finally {
+      setCitationLoading(false);
+    }
+  };
   
   // Feedback states
   const [feedbackMessageId, setFeedbackMessageId] = useState<number | null>(null);
@@ -85,6 +117,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     setSearchQuery,
     quotaReached,
     setQuotaReached,
+    selectedModelId,
+    setSelectedModelId,
+    stopGenerating,
   } = useChat({
     onNewConversation: (conv) => {
       // Auto-select new conversation
@@ -100,7 +135,33 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       loadConversations();
       fetchQuota();
     }
-  }, [user, messages]);
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && user) {
+      fetchQuota();
+    }
+  }, [loading, user]);
+
+  useEffect(() => {
+    const fetchActiveModels = async () => {
+      try {
+        const response = await chatModelsAPI.listActive();
+        const activeList = response.data || [];
+        setActiveModels(activeList);
+        
+        // Auto-select first active model if not already set
+        if (activeList.length > 0 && !selectedModelId) {
+          setSelectedModelId(activeList[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch active models for chat dropdown:', err);
+      }
+    };
+    if (user) {
+      fetchActiveModels();
+    }
+  }, [user, setSelectedModelId, selectedModelId]);
 
   useEffect(() => {
     // Handle suggested questions from MessageList and MessageItem
@@ -598,11 +659,30 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 <h2 className="text-sm font-bold text-ink tracking-tight">
                   {currentConversation?.title || 'Cuộc hội thoại mới'}
                 </h2>
-                <div className="flex items-center justify-center gap-4 mt-1">
+                <div className="flex items-center justify-center gap-3 mt-1">
+                  {/* Model Selector Dropdown */}
+                  {activeModels.length > 0 && (
+                    <div className="flex items-center gap-1 bg-surface-2 border border-hairline rounded-md px-2 py-0.5 hover:border-brand-lavender/50 transition-all">
+                      <Cpu size={10} className="text-brand-lavender shrink-0" />
+                      <select
+                        value={selectedModelId || ''}
+                        onChange={(e) => setSelectedModelId(e.target.value ? parseInt(e.target.value) : null)}
+                        className="text-[9px] font-bold uppercase tracking-widest text-ink-subtle bg-transparent outline-none cursor-pointer hover:text-brand-lavender transition-colors max-w-[150px] truncate"
+                      >
+                        {activeModels.map((m) => (
+                          <option key={m.id} value={m.id} className="bg-surface-3 text-ink text-[10px]">
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Response Style Selector */}
                   <select
                     value={responseStyle}
                     onChange={(e) => setResponseStyle(e.target.value as any)}
-                    className="text-[9px] font-bold uppercase tracking-widest text-ink-subtle bg-canvas border border-hairline rounded-md px-1.5 py-0.5 outline-none cursor-pointer hover:text-brand-lavender transition-colors"
+                    className="text-[9px] font-bold uppercase tracking-widest text-ink-subtle bg-surface-2 border border-hairline rounded-md px-2 py-0.5 outline-none cursor-pointer hover:text-brand-lavender transition-colors"
                   >
                     <option value="concise">Ngắn gọn</option>
                     <option value="normal">Bình thường</option>
@@ -676,6 +756,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               onRetryMessage={retryMessage}
               onRateMessage={handleRateMessage}
               onSetFeedback={setFeedback}
+              onShowSource={handleShowSource}
               messagesEndRef={messagesEndRef}
               ratingMessageId={ratingMessageId}
             />
@@ -685,6 +766,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               value={inputMessage}
               onChange={setInputMessage}
               onSubmit={handleSendMessage}
+              onStop={stopGenerating}
               loading={loading}
             />
           </>
@@ -860,6 +942,125 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                     Gửi góp ý
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Multi-modal Citation Source Viewer Modal */}
+      <AnimatePresence>
+        {citationModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-slate-900/90 text-white rounded-[2rem] p-6 md:p-8 border border-white/10 shadow-2xl max-w-5xl w-full h-[85vh] flex flex-col relative overflow-hidden backdrop-blur-xl"
+            >
+              {/* Decorative backgrounds */}
+              <div className="absolute -right-20 -top-20 w-48 h-48 bg-brand-lavender/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -left-20 -bottom-20 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6 shrink-0 z-10">
+                <div>
+                  <h3 className="text-lg md:text-xl font-be-vietnam font-bold text-white flex items-center gap-2">
+                    <FileText size={20} className="text-brand-lavender" /> 
+                    Nguồn trích dẫn: {citationData?.original_name || 'Đang tải...'}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Trang số: <span className="font-bold text-brand-lavender text-sm">{citationData?.page_number || '...'}</span> của tài liệu gốc
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setCitationModalOpen(false);
+                    setCitationData(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all active:scale-90"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto min-h-0 z-10 custom-scrollbar">
+                {citationLoading ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3">
+                    <div className="w-10 h-10 border-4 border-brand-lavender border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm text-slate-400 font-medium">Đang trích xuất nội dung trang PDF gốc...</p>
+                  </div>
+                ) : citationData ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full items-start">
+                    
+                    {/* Cột 1: Nội dung văn bản Markdown gốc (8/12) */}
+                    <div className="lg:col-span-8 bg-slate-950/40 border border-white/5 rounded-2xl p-6 h-full overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 pb-2 border-b border-white/5 shrink-0">
+                        <Sparkles size={12} className="text-brand-lavender" /> Văn bản trích xuất ({citationData.chunks.length} đoạn)
+                      </h4>
+                      <div className="flex-1 space-y-6 text-sm text-slate-300 leading-relaxed font-medium">
+                        {citationData.chunks.length > 0 ? (
+                          citationData.chunks.map((chunk: any, i: number) => (
+                            <div key={chunk.id || i} className="pb-4 border-b border-white/5 last:border-none">
+                              <span className="text-[10px] font-bold bg-white/5 text-slate-400 border border-white/10 px-2 py-0.5 rounded mr-2 uppercase tracking-widest">
+                                Chunk #{i+1} - {chunk.element_type || 'narrative'}
+                              </span>
+                              <div className="mt-3 text-slate-200">
+                                <MarkdownRenderer content={chunk.content} />
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-slate-500 italic text-center py-10">Không tìm thấy nội dung văn bản cho trang này.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Cột 2: Hình ảnh trích xuất của trang PDF (4/12) */}
+                    <div className="lg:col-span-4 bg-slate-950/40 border border-white/5 rounded-2xl p-6 h-full overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 pb-2 border-b border-white/5 shrink-0">
+                        📸 Hình ảnh trích xuất ({citationData.images.length})
+                      </h4>
+                      <div className="flex-1 space-y-4">
+                        {citationData.images.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            {citationData.images.map((imgUrl: string, idx: number) => (
+                              <div key={idx} className="group relative bg-slate-900 border border-white/5 rounded-xl overflow-hidden shadow-md hover:border-brand-lavender/40 transition-all duration-300">
+                                <img 
+                                  src={`http://localhost:8000${imgUrl}`} 
+                                  alt={`Hình ảnh trang ${citationData.page_number}`}
+                                  className="w-full object-contain max-h-[220px] mx-auto p-2 group-hover:scale-[1.02] transition-transform duration-300"
+                                />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+                                  <span className="text-[10px] font-bold uppercase text-white bg-brand-lavender px-2 py-1 rounded shadow">
+                                    Click để mở tab xem kích thước gốc
+                                  </span>
+                                </div>
+                                <a 
+                                  href={`http://localhost:8000${imgUrl}`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  className="absolute inset-0"
+                                  title="Xem ảnh kích thước đầy đủ"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-center py-12 px-2 text-slate-500">
+                            <span className="text-3xl mb-2">📷</span>
+                            <p className="text-xs italic">Trang này không phát hiện hoặc trích xuất thấy hình ảnh/sơ đồ nào.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  <p className="text-slate-500 italic text-center py-10">Không có dữ liệu.</p>
+                )}
               </div>
             </motion.div>
           </div>
