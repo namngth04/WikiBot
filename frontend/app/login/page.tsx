@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/auth-context';
 import { Lock, User, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AppLogo from '@/app/components/AppLogo';
+import { isElectron } from '@/app/lib/platform';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -53,12 +54,17 @@ export default function LoginPage({ onSwitchToRegister }: LoginPageProps) {
     const isSystemAdmin = loggedInUser.role?.level === 0 && (loggedInUser.tenant_id === null || loggedInUser.tenant_id === undefined);
     const isTenantAdmin = (loggedInUser.role?.level === 0 || loggedInUser.role?.level === 1) && loggedInUser.tenant_id !== null && loggedInUser.tenant_id !== undefined;
 
-    if (isSystemAdmin) {
-      router.push('/superadmin');
-    } else if (isTenantAdmin) {
-      router.push('/admin/dashboard');
+    if (isElectron()) {
+      if (isSystemAdmin) {
+        router.push('/superadmin');
+      } else if (isTenantAdmin) {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/chat');
+      }
     } else {
-      router.push('/chat');
+      // Chạy trên Web Browser: Tất cả người dùng (kể cả Admin) đều không chuyển hướng đến Dashboard, giữ lại ở trang chủ '/'
+      router.push('/');
     }
   };
 

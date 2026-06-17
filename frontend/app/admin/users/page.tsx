@@ -117,7 +117,7 @@ export default function UsersPage() {
   // Filter sections for FilterDropdown
   const filterSections: FilterSection[] = [
     {
-      title: 'Chức vụ',
+      title: 'Vai trò',
       type: 'checkbox',
       key: 'roles',
       options: roles.filter(r => r.level !== 0).map(role => ({
@@ -227,7 +227,7 @@ export default function UsersPage() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline overflow-hidden">
+      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline">
         <div className="p-6 border-b border-hairline flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" size={18} />
@@ -411,7 +411,7 @@ export default function UsersPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Chức vụ</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Vai trò</label>
                   <select
                     value={userForm.role_id}
                     onChange={(e) => setUserForm({ ...userForm, role_id: e.target.value })}

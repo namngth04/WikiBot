@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { adminAPI } from '@/app/lib/api';
+import { adminAPI, API_BASE_URL } from '@/app/lib/api';
 import { DashboardStats, UsageStats } from '@/app/lib/types';
 import { 
   Users, MessageSquare, FileText, Star, ThumbsUp, AlertCircle,
-  ArrowUpRight, ArrowDownRight, Activity, Sparkles
+  ArrowUpRight, ArrowDownRight, Activity, Sparkles, Loader2, RefreshCw
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
-import ModelStatusCard from '@/components/admin/ModelStatusCard';
 
 // Import các component biểu đồ động để tránh lỗi SSR
 const UsageTrendChart = dynamic(() => import('@/components/admin/Charts').then(mod => mod.UsageTrendChart), { 
@@ -33,30 +32,74 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [usage, setUsage] = useState<UsageStats[]>([]);
   const [topics, setTopics] = useState<any[]>([]);
+  const [refreshingTopics, setRefreshingTopics] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+
+  const handleRefreshTopics = async () => {
+    setRefreshingTopics(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/admin/analytics/topics?refresh=true`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const topicsData = await res.json();
+        setTopics(topicsData);
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật lại chủ đề:', error);
+    } finally {
+      setRefreshingTopics(false);
+    }
+  };
+
+  const [timeFilter, setTimeFilter] = useState('30');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [loadingUsage, setLoadingUsage] = useState(false);
+
+  const fetchUsageData = async () => {
+    setLoadingUsage(true);
+    try {
+      const params: any = {};
+      if (timeFilter === 'custom') {
+        params.start_date = startDate;
+        params.end_date = endDate;
+      } else {
+        params.days = parseInt(timeFilter);
+      }
+      const usageRes = await adminAPI.getUsage(params);
+      const usageData = Array.isArray(usageRes.data) ? usageRes.data : [];
+      const normalized = usageData.map((item: Partial<UsageStats>) => ({
+        date: String(item?.date ?? ''),
+        count: Number(item?.count ?? 0),
+      }));
+      setUsage(normalized);
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu sử dụng:', error);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const [statsRes, usageRes, topicsRes] = await Promise.all([
+        const [statsRes, topicsRes] = await Promise.all([
           adminAPI.getOverview(),
-          adminAPI.getUsage(30),
-          fetch('http://localhost:8000/api/admin/analytics/topics', {
+          fetch(`${API_BASE_URL}/api/admin/analytics/topics`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
         
         setStats(statsRes.data);
-        
-        const usageData = Array.isArray(usageRes.data) ? usageRes.data : [];
-        const normalized = usageData.map((item: Partial<UsageStats>) => ({
-          date: String(item?.date ?? ''),
-          count: Number(item?.count ?? 0),
-        }));
-        setUsage(normalized);
 
         if (topicsRes.ok) {
           const topicsData = await topicsRes.json();
@@ -70,6 +113,12 @@ export default function DashboardPage() {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (isMounted) {
+      fetchUsageData();
+    }
+  }, [isMounted, timeFilter, startDate, endDate]);
 
   if (!isMounted || loading) {
     return (
@@ -162,23 +211,56 @@ export default function DashboardPage() {
           variants={itemVariants}
           className="lg:col-span-2 bg-surface-1/60 backdrop-blur-md p-8 rounded-[2rem] border border-hairline shadow-md relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-brand-lavender/10 text-brand-lavender border border-brand-lavender-border rounded-xl">
                 <Activity size={18} />
               </div>
               <div>
                 <h3 className="font-be-vietnam font-bold text-ink text-lg">Hoạt động hệ thống</h3>
-                <p className="text-xs text-ink-subtle font-medium mt-0.5">Tần suất tra cứu trong 30 ngày gần nhất</p>
+                <p className="text-xs text-ink-subtle font-medium mt-0.5">
+                  Tần suất tra cứu {timeFilter === 'custom' ? `từ ${startDate} đến ${endDate}` : `trong ${timeFilter} ngày gần nhất`}
+                </p>
               </div>
             </div>
-            <select className="bg-surface-2 border border-hairline text-xs font-bold text-ink-muted rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-lavender/25 outline-none transition-all cursor-pointer">
-              <option>30 ngày qua</option>
-              <option>7 ngày qua</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="bg-surface-2 border border-hairline text-xs font-bold text-ink-muted rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-lavender/25 outline-none transition-all cursor-pointer"
+              >
+                <option value="7">7 ngày qua</option>
+                <option value="30">30 ngày qua</option>
+                <option value="90">90 ngày qua</option>
+                <option value="custom">Tùy chọn...</option>
+              </select>
+
+              {timeFilter === 'custom' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="px-2 py-1 bg-surface-2 border border-hairline rounded-lg text-ink outline-none focus:border-brand-lavender"
+                  />
+                  <span className="text-ink-subtle text-[10px]">đến</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="px-2 py-1 bg-surface-2 border border-hairline rounded-lg text-ink outline-none focus:border-brand-lavender"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full relative">
+            {loadingUsage && (
+              <div className="absolute inset-0 bg-surface-1/40 flex items-center justify-center backdrop-blur-[1px] z-10 rounded-2xl">
+                <Loader2 className="animate-spin text-brand-lavender" size={24} />
+              </div>
+            )}
             {usage.length > 0 ? (
               <UsageTrendChart data={usage} />
             ) : (
@@ -243,13 +325,22 @@ export default function DashboardPage() {
               <MessageSquare size={18} />
             </div>
             <div>
-              <h3 className="font-be-vietnam font-bold text-ink text-lg animate-pulse">Phân tích & Thống kê Chủ đề (Topic Analytics)</h3>
+              <h3 className="font-be-vietnam font-bold text-ink text-lg">Phân tích và thống kê chủ đề</h3>
               <p className="text-xs text-ink-subtle font-medium mt-0.5">Các chủ đề hội thoại nhân viên đang quan tâm nhiều nhất trong tuần</p>
             </div>
           </div>
-          <div className="text-xs font-semibold text-brand-lavender bg-brand-lavender/10 px-3 py-1.5 rounded-xl border border-brand-lavender/20 flex items-center gap-1 shadow-sm">
-            <span>Cập nhật tự động bằng AI ⚡</span>
-          </div>
+          <button
+            onClick={handleRefreshTopics}
+            disabled={refreshingTopics}
+            className="text-xs font-semibold text-brand-lavender bg-brand-lavender/10 px-3 py-1.5 rounded-xl border border-brand-lavender/20 flex items-center gap-1.5 shadow-sm hover:bg-brand-lavender/20 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {refreshingTopics ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+            <span>Cập nhật lại</span>
+          </button>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -293,27 +384,7 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Recent Activity / Insights Section */}
-      <motion.div 
-        variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-none"
-      >
-        <div className="md:col-span-2 bg-gradient-to-br from-surface-1 to-surface-2 border border-hairline rounded-[2rem] p-8 text-ink relative overflow-hidden group shadow-md hover:border-brand-lavender/25 transition-all duration-300">
-          <div className="relative z-10">
-            <h3 className="text-xl font-be-vietnam font-bold text-ink mb-2">Tối ưu hóa dữ liệu FAQ</h3>
-            <p className="text-ink-muted text-sm max-w-md mb-8 leading-relaxed">Hệ thống phát hiện các câu hỏi mới thường xuyên xuất hiện trong phòng chat nhưng chưa có trong danh mục FAQ chuẩn.</p>
-            <button 
-              onClick={() => router.push('/admin/faqs')}
-              className="bg-brand-lavender hover:bg-brand-lavender-hover text-white px-6 py-3 rounded-2xl font-bold text-sm hover:scale-[1.02] transition-all duration-200 active:scale-95 shadow-sm"
-            >
-              Xem gợi ý câu hỏi FAQ ⚡
-            </button>
-          </div>
-          <Sparkles className="absolute -right-8 -bottom-8 text-brand-lavender/5 w-64 h-64 group-hover:scale-110 group-hover:text-brand-lavender/10 transition-all duration-700 pointer-events-none" />
-        </div>
-        
-        <ModelStatusCard />
-      </motion.div>
+      {/* Removed FAQ optimization and model status card section */}
     </motion.div>
   );
 }

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/app/lib/types';
-import { authAPI } from '@/app/lib/api';
+import { authAPI, API_BASE_URL } from '@/app/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     formData.append('username', username);
     formData.append('password', password);
 
-    const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       body: formData,
     });
@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const selectTenant = async (tempToken: string, tenantId: number | null) => {
-    const response = await fetch('http://127.0.0.1:8000/api/auth/login/select-tenant', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login/select-tenant`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

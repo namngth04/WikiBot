@@ -174,13 +174,7 @@ def get_my_stats(
     # Đếm câu hỏi đã dùng hôm nay
     today = datetime.utcnow().date()
     start_of_today = datetime.combine(today, datetime_time.min)
-    questions_used_today = db.query(Message).join(Conversation).filter(
-        Conversation.user_id == current_user.id,
-        Message.role == "user",
-        Message.created_at >= start_of_today
-    ).count()
-
-    # Xác định quota_limit
+    
     is_superadmin = current_user.role and current_user.role.level == 0
     if current_user.user_type == "employee" and current_user.tenant_id is not None:
         # Tìm Company Admin (chủ doanh nghiệp) để kiểm tra gói cước của công ty
@@ -189,8 +183,28 @@ def get_my_stats(
             User.role.has(level=1)
         ).first()
         is_free = (company_admin.subscription_tier == "free") if company_admin else True
+        
+        if is_free:
+            # Đối với doanh nghiệp gói Free, đếm tổng số câu hỏi của cả doanh nghiệp ngày hôm nay
+            questions_used_today = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
+                User.tenant_id == current_user.tenant_id,
+                Message.role == "user",
+                Message.created_at >= start_of_today
+            ).count()
+        else:
+            questions_used_today = db.query(Message).join(Conversation).filter(
+                Conversation.user_id == current_user.id,
+                Message.role == "user",
+                Message.created_at >= start_of_today
+            ).count()
     else:
         is_free = current_user.subscription_tier == "free"
+        questions_used_today = db.query(Message).join(Conversation).filter(
+            Conversation.user_id == current_user.id,
+            Message.role == "user",
+            Message.created_at >= start_of_today
+        ).count()
+        
     quota_limit = 999999 if (not is_free or is_superadmin) else 10
 
     # Tính tỷ lệ hài lòng (satisfaction_rate)

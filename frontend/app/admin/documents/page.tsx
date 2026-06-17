@@ -20,7 +20,7 @@ export default function DocumentsPage() {
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [editingDocId, setEditingDocId] = useState<number | null>(null);
   const [editDocName, setEditDocName] = useState('');
-  
+
   // Filter states
   const [selectedAccess, setSelectedAccess] = useState<string[]>([]);
   const [selectedFormats, setSelectedFormats] = useState<string[]>([]);
@@ -201,14 +201,14 @@ export default function DocumentsPage() {
 
     // Filter by formats
     if (selectedFormats.length > 0) {
-      filtered = filtered.filter(doc => 
+      filtered = filtered.filter(doc =>
         doc.file_type && selectedFormats.includes(doc.file_type.toLowerCase())
       );
     }
 
     // Filter by sizes
     if (selectedSizes.length > 0) {
-      filtered = filtered.filter(doc => 
+      filtered = filtered.filter(doc =>
         selectedSizes.some(size => {
           if (size === '<1mb') return doc.file_size < 1024 * 1024;
           if (size === '1-5mb') return doc.file_size >= 1024 * 1024 && doc.file_size <= 5 * 1024 * 1024;
@@ -231,7 +231,7 @@ export default function DocumentsPage() {
     // Sort
     filtered.sort((a, b) => {
       let aValue: any, bValue: any;
-      
+
       switch (sortBy) {
         case 'original_name':
           aValue = a.original_name.toLowerCase();
@@ -252,7 +252,7 @@ export default function DocumentsPage() {
         default:
           return 0;
       }
-      
+
       if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
@@ -292,7 +292,7 @@ export default function DocumentsPage() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline overflow-hidden">
+      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline">
         <div className="p-6 border-b border-hairline flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" size={18} />
@@ -315,14 +315,14 @@ export default function DocumentsPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead>
               <tr className="bg-surface-2/50">
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Tài liệu</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Định dạng</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Dung lượng</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Quyền truy cập</th>
-                <th className="px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
+                <th className="w-[35%] px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Tài liệu</th>
+                <th className="w-[12%] px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Định dạng</th>
+                <th className="w-[15%] px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Dung lượng</th>
+                <th className="w-[23%] px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Quyền truy cập</th>
+                <th className="w-[15%] px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline">
@@ -352,12 +352,12 @@ export default function DocumentsPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-surface-2 text-ink-subtle flex items-center justify-center border border-hairline">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-surface-2 text-ink-subtle flex items-center justify-center border border-hairline shrink-0">
                           <FileText size={20} />
                         </div>
-                        <div>
-                          <p className="font-bold text-ink text-sm line-clamp-1">{doc.original_name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-ink text-sm break-all whitespace-pre-wrap pr-2">{doc.original_name}</p>
                           <p className="text-[10px] text-ink-subtle font-bold uppercase tracking-wider mt-0.5">ID: DOC-{doc.id}</p>
                         </div>
                       </div>
@@ -376,7 +376,7 @@ export default function DocumentsPage() {
                       <select
                         value={doc.role_id || ''}
                         onChange={(e) => handleUpdateDocRole(doc.id, e.target.value)}
-                        className="appearance-none bg-surface-2 border border-hairline rounded-xl px-4 py-1.5 pr-8 text-xs font-bold text-ink focus:ring-2 focus:ring-primary-500/10 outline-none cursor-pointer"
+                        className="appearance-none bg-surface-2 border border-hairline rounded-xl px-4 py-1.5 pr-8 text-xs font-bold text-ink focus:ring-2 focus:ring-primary-500/10 outline-none cursor-pointer w-full max-w-[180px]"
                       >
                         <option value="">Công khai (Public)</option>
                         {roles.filter(r => r.level !== 0).map((role) => (
@@ -389,22 +389,22 @@ export default function DocumentsPage() {
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
+                    <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap min-w-max">
+                      <button
                         onClick={() => { setEditingDocId(doc.id); setEditDocName(doc.original_name); }}
                         className="p-2 text-ink-subtle hover:text-primary-600 hover:bg-surface-2 dark:hover:bg-surface-3 rounded-xl shadow-sm transition-all"
                         title="Đổi tên"
                       >
                         <Edit2 size={16} />
                       </button>
-                      <label 
+                      <label
                         className="p-2 text-ink-subtle hover:text-amber-600 hover:bg-surface-2 dark:hover:bg-surface-3 rounded-xl shadow-sm transition-all cursor-pointer"
                         title="Cập nhật phiên bản mới"
                       >
                         <RefreshCw size={16} />
                         <input type="file" className="hidden" accept=".pdf,.docx,.txt,.pptx,.xlsx,.csv,.html,.md,.png,.jpg,.jpeg" onChange={(e) => handleReupload(e, doc.id, doc.role_id)} />
                       </label>
-                      <button 
+                      <button
                         onClick={() => handleDeleteDocument(doc.id)}
                         className="p-2 text-ink-subtle hover:text-rose-600 hover:bg-rose-950/20 rounded-xl shadow-sm transition-all"
                         title="Xóa tài liệu"
@@ -424,91 +424,91 @@ export default function DocumentsPage() {
       <ModalPortal>
         <AnimatePresence>
           {showUploadModal && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUploadModal(false)}
-              className="modal-backdrop"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="modal-content p-6 space-y-5"
-            >
-              <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
-                <div>
-                  <h3 className="text-2xl font-be-vietnam font-bold text-ink">Tải lên tài liệu</h3>
-                  <p className="text-sm text-ink-subtle font-medium">Bổ sung tri thức vào hệ thống RAG</p>
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowUploadModal(false)}
+                className="modal-backdrop"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="modal-content p-6 space-y-5"
+              >
+                <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
+                  <div>
+                    <h3 className="text-2xl font-be-vietnam font-bold text-ink">Tải lên tài liệu</h3>
+                    <p className="text-sm text-ink-subtle font-medium">Bổ sung tri thức vào hệ thống RAG</p>
+                  </div>
+                  <button onClick={() => setShowUploadModal(false)} className="p-2 text-ink-subtle hover:text-ink hover:bg-surface-2 rounded-xl transition-all">
+                    <X size={24} />
+                  </button>
                 </div>
-                <button onClick={() => setShowUploadModal(false)} className="p-2 text-ink-subtle hover:text-ink hover:bg-surface-2 rounded-xl transition-all">
-                  <X size={24} />
-                </button>
-              </div>
 
-              <form onSubmit={handleUpload} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar bg-surface-1">
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Chọn tệp tin</label>
-                  <div className="relative group">
-                    <input 
-                      type="file" 
-                      accept=".pdf,.docx,.txt,.pptx,.xlsx,.csv,.html,.md,.png,.jpg,.jpeg" 
-                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      required 
-                    />
-                    <div className="border-2 border-dashed border-hairline rounded-2xl p-6 flex flex-col items-center justify-center gap-3 group-hover:border-primary-400 transition-all bg-surface-2/50">
-                      <div className="p-3 bg-surface-1 rounded-xl shadow-sm text-primary-600 border border-hairline">
-                        <Upload size={24} />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-bold text-ink">
-                          {uploadFile ? uploadFile.name : 'Nhấn để chọn hoặc kéo thả file'}
-                        </p>
-                        <p className="text-xs text-ink-subtle mt-1">Hỗ trợ PDF, DOCX, TXT, Excel, PPTX, MD, CSV, Ảnh (Tối đa 20MB)</p>
+                <form onSubmit={handleUpload} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar bg-surface-1">
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Chọn tệp tin</label>
+                    <div className="relative group">
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.txt,.pptx,.xlsx,.csv,.html,.md,.png,.jpg,.jpeg"
+                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        required
+                      />
+                      <div className="border-2 border-dashed border-hairline rounded-2xl p-6 flex flex-col items-center justify-center gap-3 group-hover:border-primary-400 transition-all bg-surface-2/50">
+                        <div className="p-3 bg-surface-1 rounded-xl shadow-sm text-primary-600 border border-hairline">
+                          <Upload size={24} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-ink">
+                            {uploadFile ? uploadFile.name : 'Nhấn để chọn hoặc kéo thả file'}
+                          </p>
+                          <p className="text-xs text-ink-subtle mt-1">Hỗ trợ PDF, DOCX, TXT, Excel, PPTX, MD, CSV, Ảnh (Tối đa 20MB)</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Quyền truy cập</label>
-                  <select 
-                    value={uploadRoleId} 
-                    onChange={(e) => setUploadRoleId(e.target.value)} 
-                    className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Quyền truy cập</label>
+                    <select
+                      value={uploadRoleId}
+                      onChange={(e) => setUploadRoleId(e.target.value)}
+                      className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="">Mọi người (Public)</option>
+                      {roles.filter(r => r.level !== 0).map((role) => (
+                        <option key={role.id} value={role.id}>Chỉ dành cho {role.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </form>
+
+                <div className="p-4 border-t border-hairline flex items-center gap-3 shrink-0 bg-surface-1 rounded-b-3xl">
+                  <button
+                    type="button"
+                    onClick={() => setShowUploadModal(false)}
+                    className="btn-secondary flex-1 justify-center py-3"
                   >
-                    <option value="">Mọi người (Public)</option>
-                    {roles.filter(r => r.level !== 0).map((role) => (
-                      <option key={role.id} value={role.id}>Chỉ dành cho {role.name}</option>
-                    ))}
-                  </select>
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    className="btn-primary flex-1 justify-center py-3 shadow-lg shadow-primary-200/30"
+                  >
+                    <Save size={18} />
+                    Tải lên
+                  </button>
                 </div>
-              </form>
-
-              <div className="p-4 border-t border-hairline flex items-center gap-3 shrink-0 bg-surface-1 rounded-b-3xl">
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="btn-secondary flex-1 justify-center py-3"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  onClick={handleUpload}
-                  className="btn-primary flex-1 justify-center py-3 shadow-lg shadow-primary-200/30"
-                >
-                  <Save size={18} />
-                  Tải lên
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </ModalPortal>
     </div>
   );

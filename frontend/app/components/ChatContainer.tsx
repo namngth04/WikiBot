@@ -6,10 +6,13 @@ import {
   Send, Plus, Trash2, MessageSquare,
   ChevronLeft, ChevronRight, Shield, Edit, Check, X,
   ThumbsUp, ThumbsDown, Search, Sparkles,
-  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown, BarChart3, Cpu
+  User, LogOut, Download, FileText, FileCode, FileEdit, ChevronDown, BarChart3, Cpu,
+  Settings, CreditCard
 } from 'lucide-react';
+
 import { cn } from '@/app/lib/utils';
 import { useChat } from '@/app/hooks/useChat';
+import { API_BASE_URL } from '@/app/lib/api';
 import { chatModelsAPI, ChatModelData } from '@/app/lib/ai-config-api';
 import { useAuth } from '@/app/context/auth-context';
 import { useRouter } from 'next/navigation';
@@ -27,10 +30,14 @@ interface ChatContainerProps {
 export default function ChatContainer({ className }: ChatContainerProps) {
   const router = useRouter();
   const { user, isAdmin, isCompanyAdmin, logout } = useAuth();
+  const isStaff = user?.user_type === 'employee' && user?.role?.level >= 2;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
+  const [currentSection, setCurrentSection] = useState<'chat' | 'manage'>('chat');
+  const [activeManageTab, setActiveManageTab] = useState<'dashboard' | 'profile' | 'ai' | 'documents' | 'pricing' | 'feedback' | 'models'>('dashboard');
+  const [userStats, setUserStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [quota, setQuota] = useState<any>(null);
   const [activeModels, setActiveModels] = useState<ChatModelData[]>([]);
@@ -46,7 +53,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     setCitationData(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/documents/${docId}/pages/${pageNum}`, {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${docId}/pages/${pageNum}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +80,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
   const fetchQuota = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/upgrade/quota', {
+      const response = await fetch(`${API_BASE_URL}/api/upgrade/quota`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -86,6 +93,32 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       console.error('Error fetching quota in chat:', error);
     }
   };
+
+  const fetchUserStats = async () => {
+    setLoadingStats(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUserStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentSection === 'manage' && user) {
+      fetchUserStats();
+    }
+  }, [currentSection, activeManageTab, user]);
   
   // Export states
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
@@ -232,7 +265,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
     setExportWarning(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/chat/conversations/${currentConversation.id}/export/${format}`, {
+      const response = await fetch(`${API_BASE_URL}/api/chat/conversations/${currentConversation.id}/export/${format}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -308,306 +341,384 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: sidebarOpen ? 320 : 80 }}
+        animate={{ width: sidebarOpen ? 280 : 0 }}
         className={cn(
           "bg-surface-1 border-r border-hairline flex flex-col relative z-20 overflow-hidden transition-all duration-300",
           !sidebarOpen && "border-none"
         )}
       >
-        <div className="p-4 flex flex-col h-full min-w-[80px]">
-          {/* Sidebar Header */}
-          <div className={cn(
-            "flex items-center gap-3 mb-6 px-2 transition-all duration-300",
-            !sidebarOpen && "justify-center px-0"
-          )}>
-            <AppLogo size="md" />
+        {currentSection === 'chat' ? (
+          <div className="p-4 flex flex-col h-full min-w-[80px]">
+            {/* Sidebar Header */}
+            <div className={cn(
+              "flex items-center gap-3 mb-6 px-2 transition-all duration-300",
+              !sidebarOpen && "justify-center px-0"
+            )}>
+              <AppLogo size="md" />
+              <AnimatePresence>
+                {sidebarOpen && (
+                  <motion.h1 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="text-xl font-be-vietnam font-bold text-ink tracking-tight whitespace-nowrap"
+                  >
+                    WikiBot
+                  </motion.h1>
+                )}
+              </AnimatePresence>
+              {sidebarOpen && (
+                <button
+                  onClick={createNewConversation}
+                  className="ml-auto p-1.5 border border-hairline text-ink-subtle hover:text-brand-lavender hover:bg-surface-2 rounded-md transition-all active:scale-90"
+                  title="Cuộc hội thoại mới"
+                >
+                  <Plus size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Search */}
             <AnimatePresence>
               {sidebarOpen && (
-                <motion.h1 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  className="text-xl font-be-vietnam font-bold text-ink tracking-tight whitespace-nowrap"
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="px-2 mb-4"
                 >
-                  WikiBot
-                </motion.h1>
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle group-focus-within:text-brand-lavender transition-colors" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm hội thoại..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-surface-2 border border-hairline rounded-md text-xs focus:border-hairline-strong focus:ring-1 focus:ring-brand-lavender/30 transition-all outline-none"
+                    />
+                  </div>
+                </motion.div>
               )}
             </AnimatePresence>
-            {sidebarOpen && (
-              <button
-                onClick={createNewConversation}
-                className="ml-auto p-1.5 border border-hairline text-ink-subtle hover:text-brand-lavender hover:bg-surface-2 rounded-md transition-all active:scale-90"
-                title="Cuộc hội thoại mới"
-              >
-                <Plus size={18} />
-              </button>
-            )}
-          </div>
 
-          {/* Search */}
-          <AnimatePresence>
-            {sidebarOpen && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="px-2 mb-4"
-              >
-                <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle group-focus-within:text-brand-lavender transition-colors" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm hội thoại..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-surface-2 border border-hairline rounded-md text-xs focus:border-hairline-strong focus:ring-1 focus:ring-brand-lavender/30 transition-all outline-none"
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Conversations List */}
-          <div className="flex-1 overflow-y-auto space-y-1 px-2 custom-scrollbar">
-            {filteredConversations.map((conv) => (
-              <div
-                key={conv.id}
-                onClick={() => selectConversation(conv)}
-                className={cn(
-                  "w-full flex items-center transition-all duration-200 group rounded-md p-2.5 cursor-pointer",
-                  sidebarOpen ? "gap-3" : "justify-center",
-                  currentConversation?.id === conv.id
-                    ? "bg-surface-2 border border-hairline text-ink"
-                    : "text-ink-muted hover:bg-surface-1/50 hover:text-ink"
-                )}
-                title={!sidebarOpen ? conv.title : ""}
-              >
-                <MessageSquare size={16} className={cn("shrink-0", currentConversation?.id === conv.id ? "text-brand-lavender" : "text-ink-subtle group-hover:scale-105 transition-transform")} />
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.div 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="flex-1 truncate text-xs font-medium"
-                    >
-                      {editingId === conv.id ? (
-                        <input
-                          autoFocus
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          onBlur={() => handleUpdateTitle(conv.id, editTitle)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle(conv.id, editTitle)}
-                          className="bg-surface-3 border border-brand-lavender/50 rounded px-1.5 py-0.5 w-full outline-none text-ink"
-                        />
-                      ) : (
-                        conv.title
-                      )}
-                    </motion.div>
+            {/* Conversations List */}
+            <div className="flex-1 overflow-y-auto space-y-1 px-2 custom-scrollbar">
+              {filteredConversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  onClick={() => selectConversation(conv)}
+                  className={cn(
+                    "w-full flex items-center transition-all duration-200 group rounded-md p-2.5 cursor-pointer",
+                    sidebarOpen ? "gap-3" : "justify-center",
+                    currentConversation?.id === conv.id
+                      ? "bg-surface-2 border border-hairline text-ink"
+                      : "text-ink-muted hover:bg-surface-1/50 hover:text-ink"
                   )}
-                </AnimatePresence>
-                {sidebarOpen && (
-                  <div className="hidden group-hover:flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); startEditing(conv.id, conv.title); }}
-                      className="p-1 text-ink-subtle hover:text-brand-lavender rounded transition-colors"
-                    >
-                      <Edit size={12} />
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteConversation(conv.id, e)}
-                      className="p-1 text-ink-subtle hover:text-red-400 rounded transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Quota Widget for Free User */}
-          {sidebarOpen && quota && quota.subscription_tier === 'free' && (
-            <div className="mb-4 mx-2 p-3 bg-surface-2 border border-hairline rounded-lg text-xs space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-ink flex items-center gap-1">
-                  <Sparkles size={12} className="text-brand-lavender" /> Gói miễn phí
-                </span>
-                <span className="text-[10px] text-ink-subtle">Hạn ngạch</span>
-              </div>
-              
-              {/* Question progress */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-ink-muted">
-                  <span>Câu hỏi: {quota.questions_used}/{quota.questions_limit}</span>
-                  <span>{Math.round((quota.questions_used / quota.questions_limit) * 100)}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-lavender rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min((quota.questions_used / quota.questions_limit) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Document progress */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-ink-muted">
-                  <span>Tài liệu: {quota.documents_used}/{quota.documents_limit}</span>
-                  <span>{Math.round((quota.documents_used / quota.documents_limit) * 100)}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-cyan-500 rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min((quota.documents_used / quota.documents_limit) * 100, 100)}%` }}
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={() => router.push('/pricing')}
-                className="w-full py-1.5 mt-1 bg-brand-lavender hover:bg-brand-lavender/90 text-white rounded text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1"
-              >
-                Nâng cấp Pro ⚡
-              </button>
-            </div>
-          )}
-
-          {!sidebarOpen && quota && quota.subscription_tier === 'free' && (
-            <div 
-              onClick={() => router.push('/pricing')}
-              className="mb-4 mx-auto w-8 h-8 rounded-full bg-brand-lavender/10 border border-brand-lavender/30 flex items-center justify-center text-brand-lavender cursor-pointer hover:bg-brand-lavender hover:text-white transition-all active:scale-90"
-              title={`Hạn ngạch câu hỏi: ${quota.questions_used}/${quota.questions_limit}`}
-            >
-              <Sparkles size={14} className="animate-pulse" />
-            </div>
-          )}
-
-          {/* User Section */}
-          <div className="mt-auto pt-4 border-t border-hairline px-2">
-            {(isAdmin || isCompanyAdmin) && (
-              <button
-                onClick={() => {
-                  if (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined)) {
-                    router.push('/superadmin');
-                  } else {
-                    router.push('/admin/dashboard');
-                  }
-                }}
-                className={cn(
-                  "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
-                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
-                )}
-                title={!sidebarOpen ? "Quản trị hệ thống" : ""}
-              >
-                <Shield size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.span 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="text-xs font-medium whitespace-nowrap"
-                    >
-                      Quản trị hệ thống
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-            )}
-            {!isAdmin && !isCompanyAdmin && (
-              <button
-                onClick={() => router.push('/dashboard')}
-                className={cn(
-                  "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
-                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
-                )}
-                title={!sidebarOpen ? "Dashboard cá nhân" : ""}
-              >
-                <BarChart3 size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.span 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="text-xs font-medium whitespace-nowrap"
-                    >
-                      📊 Dashboard
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-            )}
-              <button
-                onClick={() => setCurrentView('settings')}
-                className={cn(
-                  "w-full flex items-center border border-hairline transition-all mb-1 group rounded-md",
-                  sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0",
-                  currentView === 'settings'
-                    ? "text-brand-lavender bg-surface-2"
-                    : "text-ink-muted hover:text-brand-lavender hover:bg-surface-2"
-                )}
-                title={!sidebarOpen ? "Cá nhân" : ""}
-              >
-                <User size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.span 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="text-xs font-medium whitespace-nowrap"
-                    >
-                      Cá nhân
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-            <div className={cn(
-              "flex items-center p-2.5 bg-surface-2 border border-hairline rounded-lg transition-all duration-300",
-              sidebarOpen ? "justify-between" : "justify-center"
-            )}>
-              <div className={cn(
-                "flex items-center gap-2.5 min-w-0",
-                !sidebarOpen && "hidden"
-              )}>
-                <div className="w-7 h-7 rounded bg-brand-lavender flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
-                  {user?.username.charAt(0).toUpperCase()}
-                </div>
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.div 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      className="truncate"
-                    >
-                      <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
-                      <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">
-                        {quota?.subscription_tier === 'pro' ? (
-                          <span className="text-brand-lavender font-bold flex items-center gap-0.5">⚡ PRO TIER</span>
-                        ) : quota?.subscription_tier === 'enterprise' ? (
-                          <span className="text-purple-400 font-bold flex items-center gap-0.5">🛡️ ENTERPRISE</span>
+                  title={!sidebarOpen ? conv.title : ""}
+                >
+                  <MessageSquare size={16} className={cn("shrink-0", currentConversation?.id === conv.id ? "text-brand-lavender" : "text-ink-subtle group-hover:scale-105 transition-transform")} />
+                  <AnimatePresence>
+                    {sidebarOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        className="flex-1 truncate text-xs font-medium"
+                      >
+                        {editingId === conv.id ? (
+                          <input
+                            autoFocus
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            onBlur={() => handleUpdateTitle(conv.id, editTitle)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleUpdateTitle(conv.id, editTitle)}
+                            className="bg-surface-3 border border-brand-lavender/50 rounded px-1.5 py-0.5 w-full outline-none text-ink"
+                          />
                         ) : (
-                          'User'
+                          conv.title
                         )}
-                      </p>
-                    </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  {sidebarOpen && (
+                    <div className="hidden group-hover:flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); startEditing(conv.id, conv.title); }}
+                        className="p-1 text-ink-subtle hover:text-brand-lavender rounded transition-colors"
+                      >
+                        <Edit size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteConversation(conv.id, e)}
+                        className="p-1 text-ink-subtle hover:text-red-400 rounded transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   )}
-                </AnimatePresence>
+                </div>
+              ))}
+            </div>
+
+            {/* Quota Widget for Free User */}
+            {sidebarOpen && quota && quota.subscription_tier === 'free' && (
+              <div className="mb-4 mx-2 p-3 bg-surface-2 border border-hairline rounded-lg text-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-ink flex items-center gap-1">
+                    <Sparkles size={12} className="text-brand-lavender" /> Gói miễn phí
+                  </span>
+                  <span className="text-[10px] text-ink-subtle">Hạn ngạch</span>
+                </div>
+                
+                {/* Question progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-ink-muted">
+                    <span>Câu hỏi: {quota.questions_used}/{quota.questions_limit}</span>
+                    <span>{Math.round((quota.questions_used / quota.questions_limit) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-brand-lavender rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min((quota.questions_used / quota.questions_limit) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Document progress */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-ink-muted">
+                    <span>Tài liệu: {quota.documents_used}/{quota.documents_limit}</span>
+                    <span>{Math.round((quota.documents_used / quota.documents_limit) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-cyan-500 rounded-full transition-all duration-500" 
+                      style={{ width: `${Math.min((quota.documents_used / quota.documents_limit) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => router.push('/pricing')}
+                  className="w-full py-1.5 mt-1 bg-brand-lavender hover:bg-brand-lavender/90 text-white rounded text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1"
+                >
+                  Nâng cấp Pro ⚡
+                </button>
               </div>
-              <button
-                onClick={handleLogout}
-                className={cn(
-                  "p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all",
-                  !sidebarOpen && "hidden"
-                )}
-                title="Đăng xuất"
+            )}
+
+            {!sidebarOpen && quota && quota.subscription_tier === 'free' && (
+              <div 
+                onClick={() => router.push('/pricing')}
+                className="mb-4 mx-auto w-8 h-8 rounded-full bg-brand-lavender/10 border border-brand-lavender/30 flex items-center justify-center text-brand-lavender cursor-pointer hover:bg-brand-lavender hover:text-white transition-all active:scale-90"
+                title={`Hạn ngạch câu hỏi: ${quota.questions_used}/${quota.questions_limit}`}
               >
-                <LogOut size={16} />
+                <Sparkles size={14} className="animate-pulse" />
+              </div>
+            )}
+
+            {/* User Section (Admins/Company Admins keep the old sidebar layout without dock sidebar) */}
+            {(isAdmin || isCompanyAdmin) && (
+              <div className="mt-auto pt-4 border-t border-hairline px-2">
+                <button
+                  onClick={() => {
+                    if (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined)) {
+                      router.push('/superadmin');
+                    } else {
+                      router.push('/admin/dashboard');
+                    }
+                  }}
+                  className={cn(
+                    "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all mb-1 group rounded-md",
+                    sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
+                  )}
+                  title={!sidebarOpen ? (isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined) ? "Quản trị hệ thống" : "Quản trị doanh nghiệp") : ""}
+                >
+                  <Shield size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
+                  <AnimatePresence>
+                    {sidebarOpen && (
+                      <motion.span 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        className="text-xs font-medium whitespace-nowrap"
+                      >
+                        {isAdmin && (user?.tenant_id === null || user?.tenant_id === undefined) ? "Quản trị hệ thống" : "Quản trị doanh nghiệp"}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+
+                <div className={cn(
+                  "flex items-center p-2.5 bg-surface-2 border border-hairline rounded-lg transition-all duration-300",
+                  sidebarOpen ? "justify-between" : "justify-center"
+                )}>
+                  <div className={cn(
+                    "flex items-center gap-2.5 min-w-0",
+                    !sidebarOpen && "hidden"
+                  )}>
+                    <div className="w-7 h-7 rounded bg-brand-lavender flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
+                      {user?.username.charAt(0).toUpperCase()}
+                    </div>
+                    <AnimatePresence>
+                      {sidebarOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          className="truncate"
+                        >
+                          <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
+                          <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">Admin</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className={cn(
+                      "p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all",
+                      !sidebarOpen && "hidden"
+                    )}
+                    title="Đăng xuất"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* User Section for Personal Users (Dock integrated into the single sidebar) */}
+            {!isAdmin && !isCompanyAdmin && (
+              <div className="mt-auto pt-4 border-t border-hairline px-2 space-y-2">
+                <button
+                  onClick={() => {
+                    setCurrentSection('manage');
+                    setActiveManageTab(isStaff ? 'profile' : 'dashboard');
+                    if (!sidebarOpen) setSidebarOpen(true);
+                  }}
+                  className={cn(
+                    "w-full flex items-center border border-hairline text-ink-muted hover:text-brand-lavender hover:bg-surface-2 transition-all group rounded-md",
+                    sidebarOpen ? "gap-3 p-2.5" : "justify-center p-2.5 px-0"
+                  )}
+                  title={!sidebarOpen ? "Cài đặt" : ""}
+                >
+                  <Settings size={16} className={cn("shrink-0 group-hover:scale-105 transition-transform")} />
+                  <AnimatePresence>
+                    {sidebarOpen && (
+                      <motion.span 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        className="text-xs font-semibold whitespace-nowrap"
+                      >
+                        Cài đặt
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+
+                <div className={cn(
+                  "flex items-center p-2 bg-surface-2 border border-hairline rounded-xl transition-all duration-300",
+                  sidebarOpen ? "justify-between" : "justify-center"
+                )}>
+                  <div className={cn(
+                    "flex items-center gap-2 min-w-0",
+                    !sidebarOpen && "hidden"
+                  )}>
+                    <div className="w-7 h-7 rounded bg-brand-lavender flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
+                      {user?.username.charAt(0).toUpperCase()}
+                    </div>
+                    <AnimatePresence>
+                      {sidebarOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          className="truncate"
+                        >
+                          <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
+                          <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">Cá nhân</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className={cn(
+                      "p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all",
+                      !sidebarOpen && "hidden"
+                    )}
+                    title="Đăng xuất"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Render Manage Sidebar Content */
+          <div className="p-4 flex flex-col h-full min-w-[240px]">
+            {/* Sidebar Header */}
+            <div className="flex items-center gap-3 mb-6 px-2">
+              <button
+                onClick={() => setCurrentSection('chat')}
+                className="p-1.5 border border-hairline text-ink-subtle hover:text-brand-lavender hover:bg-surface-2 rounded-md transition-all active:scale-90"
+                title="Quay lại"
+              >
+                <ChevronLeft size={16} />
               </button>
-              {!sidebarOpen && (
+              <h1 className="text-sm font-bold tracking-tight text-ink">Cài đặt</h1>
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-1 space-y-1 px-2">
+              {[
+                { id: 'dashboard', label: 'Tổng quan', icon: BarChart3 },
+                { id: 'profile', label: 'Thông tin cá nhân', icon: User },
+                { id: 'ai', label: 'Cá nhân hóa trợ lý', icon: Sparkles },
+                { id: 'documents', label: 'Tài liệu cá nhân', icon: FileText },
+                { id: 'models', label: 'Mô hình AI', icon: Cpu },
+                { id: 'pricing', label: 'Gói cước', icon: CreditCard },
+                { id: 'feedback', label: 'Lịch sử phản hồi', icon: ThumbsDown },
+              ].filter((tab) => {
+                if (isStaff) {
+                  return ['profile', 'ai'].includes(tab.id);
+                }
+                return true;
+              }).map((tab) => {
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveManageTab(tab.id as any)}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-2.5 rounded-lg text-left text-xs font-semibold transition-all border border-transparent",
+                      activeManageTab === tab.id
+                        ? "bg-surface-2 border-hairline text-ink"
+                        : "text-ink-muted hover:bg-surface-1/50 hover:text-ink"
+                    )}
+                  >
+                    <IconComponent size={15} className={activeManageTab === tab.id ? "text-brand-lavender" : "text-ink-subtle"} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            
+            {/* User Info & Logout at bottom of settings sidebar */}
+            <div className="mt-auto pt-4 border-t border-hairline px-2">
+              <div className="flex items-center justify-between p-2 bg-surface-2 border border-hairline rounded-xl">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded bg-brand-lavender flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
+                    {user?.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="truncate">
+                    <p className="text-xs font-bold text-ink truncate">{user?.full_name || user?.username}</p>
+                    <p className="text-[9px] text-ink-subtle uppercase tracking-wider font-semibold">Cá nhân</p>
+                  </div>
+                </div>
                 <button
                   onClick={handleLogout}
                   className="p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-950/20 rounded transition-all"
@@ -615,10 +726,10 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 >
                   <LogOut size={16} />
                 </button>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </motion.aside>
 
       {/* Main Chat Area */}
@@ -643,7 +754,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
           )}
         </AnimatePresence>
 
-        {currentView === 'chat' ? (
+        {currentSection === 'chat' ? (
           <>
             {/* Toggle Sidebar Button */}
             <button
@@ -771,12 +882,89 @@ export default function ChatContainer({ className }: ChatContainerProps) {
             />
           </>
         ) : (
-          currentView === 'settings' && !isAdmin && (
-            <UserSettings 
-              onBack={() => setCurrentView('chat')} 
-              user={user} 
-            />
-          )
+          /* Render Manage Workspace Content */
+          <div className="flex-1 overflow-y-auto bg-canvas text-ink p-8">
+            <div className="max-w-5xl mx-auto">
+              {activeManageTab === 'dashboard' ? (
+                <div className="space-y-8">
+                  {/* Dashboard Header */}
+                  <div className="flex items-center justify-between pb-4 border-b border-hairline">
+                    <div>
+                      <h2 className="text-2xl font-bold tracking-tight text-ink">Tổng quan hoạt động</h2>
+                      <p className="text-xs text-ink-subtle mt-0.5">Thống kê sử dụng tài nguyên và hạn ngạch của tài khoản</p>
+                    </div>
+                    <button
+                      onClick={fetchUserStats}
+                      className="px-3 py-1.5 border border-hairline text-xs font-semibold hover:text-brand-lavender hover:bg-surface-2 rounded-xl transition-all"
+                    >
+                      Làm mới
+                    </button>
+                  </div>
+
+                  {/* Metrics grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                      { label: 'Hội thoại', value: userStats?.conv_count ?? 0, icon: MessageSquare, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
+                      { label: 'Tin nhắn gửi', value: userStats?.message_count ?? 0, icon: Send, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+                      { label: 'Tài liệu đã tải', value: userStats?.doc_count ?? 0, icon: FileText, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+                      { label: 'Tỷ lệ hài lòng', value: userStats?.satisfaction_rate !== undefined ? `${userStats.satisfaction_rate}%` : '100%', icon: ThumbsUp, color: 'text-indigo-400', bg: 'bg-indigo-500/10 border-indigo-500/20' },
+                    ].map((item, idx) => (
+                      <div key={idx} className="bg-surface-1 border border-hairline rounded-[2rem] p-6 shadow-sm flex flex-col justify-between hover:border-brand-lavender/30 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-[10px] font-bold text-ink-tertiary uppercase tracking-widest">{item.label}</span>
+                          <div className={`p-2 rounded-xl border ${item.bg} ${item.color}`}>
+                            <item.icon size={16} />
+                          </div>
+                        </div>
+                        <h3 className="text-3xl font-bold text-ink tracking-tight">{item.value}</h3>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Quota Progress */}
+                  <div className="bg-surface-1 border border-hairline rounded-[2rem] p-8 shadow-sm space-y-6">
+                    <h3 className="text-lg font-bold text-ink flex items-center gap-2">
+                      <Sparkles size={20} className="text-amber-500" />
+                      Hạn ngạch câu hỏi hôm nay
+                    </h3>
+                    
+                    {userStats ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-baseline text-xs font-bold text-ink-muted">
+                          <span>Số câu hỏi đã sử dụng:</span>
+                          <span className="text-brand-lavender text-lg font-extrabold">
+                            {userStats.questions_used_today} / {userStats.quota_limit === 999999 ? '∞ (Không giới hạn)' : userStats.quota_limit}
+                          </span>
+                        </div>
+                        <div className="w-full h-3 bg-surface-2 rounded-full overflow-hidden border border-hairline">
+                          <div 
+                            className={cn(
+                              "h-full rounded-full transition-all duration-700 ease-out",
+                              (userStats.questions_used_today / userStats.quota_limit) * 100 >= 90 ? 'bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]' :
+                              (userStats.questions_used_today / userStats.quota_limit) * 100 >= 70 ? 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)]' :
+                              'bg-brand-lavender shadow-[0_0_12px_rgba(94,106,210,0.5)]'
+                            )}
+                            style={{ width: `${Math.min((userStats.questions_used_today / userStats.quota_limit) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-ink-subtle">
+                          Hạn ngạch câu hỏi được làm mới tự động vào lúc 00:00 hàng ngày.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-xs text-ink-tertiary">Đang tải hạn ngạch sử dụng...</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <UserSettings
+                  user={user}
+                  activeTab={activeManageTab as any}
+                  isUnifiedView={true}
+                />
+              )}
+            </div>
+          </div>
         )}
       </main>
 
@@ -1029,7 +1217,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                             {citationData.images.map((imgUrl: string, idx: number) => (
                               <div key={idx} className="group relative bg-slate-900 border border-white/5 rounded-xl overflow-hidden shadow-md hover:border-brand-lavender/40 transition-all duration-300">
                                 <img 
-                                  src={`http://localhost:8000${imgUrl}`} 
+                                  src={`${API_BASE_URL}${imgUrl}`} 
                                   alt={`Hình ảnh trang ${citationData.page_number}`}
                                   className="w-full object-contain max-h-[220px] mx-auto p-2 group-hover:scale-[1.02] transition-transform duration-300"
                                 />
@@ -1039,7 +1227,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                                   </span>
                                 </div>
                                 <a 
-                                  href={`http://localhost:8000${imgUrl}`} 
+                                  href={`${API_BASE_URL}${imgUrl}`} 
                                   target="_blank" 
                                   rel="noreferrer"
                                   className="absolute inset-0"

@@ -144,8 +144,19 @@ async def upload_document(
     content = await file.read()
     file_size = len(content)
     
-    # Quota Guard for Free Tier (Personal User)
-    if current_user.subscription_tier == "free" and current_user.tenant_id is None:
+    # Quota Guard for Free Tier (Personal & Tenant Users)
+    is_free = False
+    if current_user.tenant_id is None:
+        is_free = (current_user.subscription_tier == "free")
+    else:
+        # Lấy gói cước của Company Admin để làm chuẩn cho doanh nghiệp
+        company_admin = db.query(User).filter(
+            User.tenant_id == current_user.tenant_id,
+            User.role.has(level=1)
+        ).first()
+        is_free = (company_admin.subscription_tier == "free") if company_admin else True
+
+    if is_free:
         # 1. Kiểm tra kích thước file (> 2MB)
         if file_size > 2 * 1024 * 1024:
             raise HTTPException(
@@ -154,10 +165,18 @@ async def upload_document(
             )
         
         # 2. Kiểm tra số lượng file hiện tại (>= 3)
-        existing_count = db.query(Document).filter(
-            Document.uploaded_by == current_user.id,
-            Document.is_active == True
-        ).count()
+        if current_user.tenant_id is None:
+            # Cá nhân: Đếm theo người tải lên
+            existing_count = db.query(Document).filter(
+                Document.uploaded_by == current_user.id,
+                Document.is_active == True
+            ).count()
+        else:
+            # Doanh nghiệp: Đếm tổng tài liệu active chung của cả doanh nghiệp
+            existing_count = db.query(Document).filter(
+                Document.tenant_id == current_user.tenant_id,
+                Document.is_active == True
+            ).count()
         
         if existing_count >= 3:
             raise HTTPException(

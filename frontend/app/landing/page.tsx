@@ -82,18 +82,22 @@ export default function LandingPage() {
                       <div className="px-3 py-2.5 border-b border-[#23252a]/60 mb-2">
                         <p className="text-xs font-semibold text-white truncate">{user.full_name || user.username}</p>
                         <p className="text-[10px] text-[#8a8f98] truncate mt-0.5">@{user.username} · {user.email || 'Chưa có email'}</p>
+                        <div className="mt-2.5 px-2.5 py-1.5 bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-lg text-[10px] flex items-center justify-between">
+                          <span className="text-[#8a8f98]">Gói hiện tại:</span>
+                          <span className="text-[#a5b4fc] font-bold">
+                            {user.user_type === 'superadmin' || user?.role?.level === 0
+                              ? 'Super Admin ⚡'
+                              : (user.user_type === 'employee' || user.tenant_id
+                                ? (user.subscription_tier === 'pro' ? 'Doanh nghiệp PRO' : 'Doanh nghiệp FREE')
+                                : (user.subscription_tier === 'pro' ? 'Cá nhân PRO' : 'Cá nhân FREE')
+                              )
+                            }
+                          </span>
+                        </div>
                       </div>
 
                       {/* Action items */}
                       <div className="space-y-1">
-                        <button
-                          onClick={() => { setShowDropdown(false); router.push('/dashboard'); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-[#8a8f98] hover:text-white rounded-lg hover:bg-[#141516] transition-colors text-left"
-                        >
-                          <LayoutDashboard size={14} className="text-[#5e6ad2]" />
-                          Đi tới Dashboard
-                        </button>
-                        
                         <button
                           onClick={() => { setShowDropdown(false); logout(); router.push('/'); }}
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-red-300 rounded-lg hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/10 text-left"

@@ -4,12 +4,12 @@
   "private": true,
   "main": "electron-main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3005",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "electron": "electron .",
-    "electron:dev": "concurrently \"next dev\" \"wait-on http://127.0.0.1:3000 && electron .\""
+    "electron:dev": "concurrently \"next dev -p 3005\" \"wait-on http://127.0.0.1:3005 && electron .\""
   },
   "dependencies": {
     "autoprefixer": "^10.4.17",

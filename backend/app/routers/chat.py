@@ -188,24 +188,45 @@ async def send_message_stream(
             detail="Tài khoản Superadmin hệ thống không có quyền sử dụng tính năng Chat."
         )
 
-    # Quota Guard for Free Tier (Personal User) - Exempt system admin
+    # Quota Guard for Free Tier (Personal & Corporate) - Exempt system admin
     is_admin = current_user.role and current_user.role.level == 0
-    if not is_admin and current_user.subscription_tier == "free" and current_user.tenant_id is None:
+    if not is_admin:
         from datetime import datetime, time as datetime_time
         today = datetime.utcnow().date()
         start_of_today = datetime.combine(today, datetime_time.min)
         
-        questions_used = db.query(Message).join(Conversation).filter(
-            Conversation.user_id == current_user.id,
-            Message.role == "user",
-            Message.created_at >= start_of_today
-        ).count()
-        
-        if questions_used >= 10:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
-            )
+        if current_user.tenant_id is not None:
+            company_admin = db.query(User).filter(
+                User.tenant_id == current_user.tenant_id,
+                User.role.has(level=1)
+            ).first()
+            is_free = (company_admin.subscription_tier == "free") if company_admin else True
+            
+            if is_free:
+                questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
+                    User.tenant_id == current_user.tenant_id,
+                    Message.role == "user",
+                    Message.created_at >= start_of_today
+                ).count()
+                
+                if questions_used >= 10:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
+                    )
+        else:
+            if current_user.subscription_tier == "free":
+                questions_used = db.query(Message).join(Conversation).filter(
+                    Conversation.user_id == current_user.id,
+                    Message.role == "user",
+                    Message.created_at >= start_of_today
+                ).count()
+                
+                if questions_used >= 10:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
+                    )
 
     # Get or create conversation
     if request.conversation_id:
@@ -688,24 +709,45 @@ def send_message(
             detail="Tài khoản Superadmin hệ thống không có quyền sử dụng tính năng Chat."
         )
 
-    # Quota Guard for Free Tier (Personal User) - Exempt system admin
+    # Quota Guard for Free Tier (Personal & Corporate) - Exempt system admin
     is_admin = current_user.role and current_user.role.level == 0
-    if not is_admin and current_user.subscription_tier == "free" and current_user.tenant_id is None:
+    if not is_admin:
         from datetime import datetime, time as datetime_time
         today = datetime.utcnow().date()
         start_of_today = datetime.combine(today, datetime_time.min)
         
-        questions_used = db.query(Message).join(Conversation).filter(
-            Conversation.user_id == current_user.id,
-            Message.role == "user",
-            Message.created_at >= start_of_today
-        ).count()
-        
-        if questions_used >= 10:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
-            )
+        if current_user.tenant_id is not None:
+            company_admin = db.query(User).filter(
+                User.tenant_id == current_user.tenant_id,
+                User.role.has(level=1)
+            ).first()
+            is_free = (company_admin.subscription_tier == "free") if company_admin else True
+            
+            if is_free:
+                questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
+                    User.tenant_id == current_user.tenant_id,
+                    Message.role == "user",
+                    Message.created_at >= start_of_today
+                ).count()
+                
+                if questions_used >= 10:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
+                    )
+        else:
+            if current_user.subscription_tier == "free":
+                questions_used = db.query(Message).join(Conversation).filter(
+                    Conversation.user_id == current_user.id,
+                    Message.role == "user",
+                    Message.created_at >= start_of_today
+                ).count()
+                
+                if questions_used >= 10:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
+                    )
 
     # Get or create conversation
     if request.conversation_id:

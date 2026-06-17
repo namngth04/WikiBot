@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { usersAPI } from '@/app/lib/api';
 import { useAuth } from '@/app/context/auth-context';
 import { motion } from 'framer-motion';
-import { 
-  User, Mail, Phone, Lock, Save, 
+import {
+  User, Mail, Phone, Lock, Save,
   ShieldCheck, AlertCircle, Camera, CheckCircle2,
   ArrowLeft, Settings, Brain, ChevronRight
 } from 'lucide-react';
@@ -77,8 +77,8 @@ export default function SettingsPage() {
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: { duration: 0.5, staggerChildren: 0.1 }
     }
@@ -90,7 +90,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <motion.div 
+    <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -106,14 +106,13 @@ export default function SettingsPage() {
             <ArrowLeft size={24} />
           </button>
           <div>
-            <h1 className="text-xl font-be-vietnam font-bold text-slate-900">Cá nhân</h1>
-            <p className="text-sm text-slate-500">Quản lý thông tin cá nhân và bảo mật</p>
+            <h1 className="text-xl font-be-vietnam font-bold text-slate-900">Thông tin cá nhân</h1>
           </div>
         </div>
-        
+
         <div className="flex flex-col gap-2 min-w-[300px]">
           {success && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
@@ -123,7 +122,7 @@ export default function SettingsPage() {
             </motion.div>
           )}
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="bg-rose-50 border border-rose-100 text-rose-600 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
@@ -140,7 +139,7 @@ export default function SettingsPage() {
         <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
           <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-soft text-center relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-primary-600 to-violet-600 opacity-10 group-hover:opacity-20 transition-opacity" />
-            
+
             <div className="relative z-10">
               <div className="relative inline-block mb-6">
                 <div className="w-32 h-32 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden flex items-center justify-center mx-auto ring-4 ring-primary-50">
@@ -150,10 +149,10 @@ export default function SettingsPage() {
                   <Camera size={18} />
                 </button>
               </div>
-              
+
               <h2 className="text-2xl font-be-vietnam font-bold text-slate-900 mb-1">{user?.full_name || user?.username}</h2>
               <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-4">Người dùng</p>
-              
+
               <div className="flex flex-wrap justify-center gap-2">
                 <span className="px-3 py-1 bg-primary-50 text-primary-600 text-[10px] font-bold rounded-full uppercase tracking-wider border border-primary-100">
                   Active
@@ -216,19 +215,19 @@ export default function SettingsPage() {
               <User className="text-primary-600" size={24} />
               Cập nhật thông tin
             </h3>
-            
+
             <form onSubmit={handleUpdateProfile} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Tên đăng nhập</label>
                   <div className="relative">
                     <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={profileForm.username} 
-                      onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
-                      required 
+                    <input
+                      type="text"
+                      value={profileForm.username}
+                      onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700"
+                      required
                     />
                   </div>
                 </div>
@@ -237,11 +236,11 @@ export default function SettingsPage() {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Họ tên</label>
                   <div className="relative">
                     <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={profileForm.full_name} 
-                      onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                    <input
+                      type="text"
+                      value={profileForm.full_name}
+                      onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700"
                     />
                   </div>
                 </div>
@@ -250,11 +249,11 @@ export default function SettingsPage() {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email</label>
                   <div className="relative">
                     <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="email" 
-                      value={profileForm.email} 
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700"
                     />
                   </div>
                 </div>
@@ -263,11 +262,11 @@ export default function SettingsPage() {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Số điện thoại</label>
                   <div className="relative">
                     <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={profileForm.phone} 
-                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700" 
+                    <input
+                      type="text"
+                      value={profileForm.phone}
+                      onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all font-medium text-slate-700"
                     />
                   </div>
                 </div>
@@ -275,8 +274,8 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex justify-end pt-4">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={loading}
                   className="bg-primary-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 active:scale-95 flex items-center gap-2 disabled:opacity-50"
                 >
@@ -293,20 +292,20 @@ export default function SettingsPage() {
               <Lock className="text-amber-500" size={24} />
               Đổi mật khẩu
             </h3>
-            
+
             <form onSubmit={handleChangePassword} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Mật khẩu mới</label>
                   <div className="relative">
                     <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="password" 
-                      value={profileForm.new_password} 
-                      onChange={(e) => setProfileForm({ ...profileForm, new_password: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700" 
-                      required 
-                      minLength={6} 
+                    <input
+                      type="password"
+                      value={profileForm.new_password}
+                      onChange={(e) => setProfileForm({ ...profileForm, new_password: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700"
+                      required
+                      minLength={6}
                     />
                   </div>
                 </div>
@@ -315,20 +314,20 @@ export default function SettingsPage() {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Xác nhận mật khẩu mới</label>
                   <div className="relative">
                     <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="password" 
-                      value={profileForm.confirm_password} 
-                      onChange={(e) => setProfileForm({ ...profileForm, confirm_password: e.target.value })} 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700" 
-                      required 
+                    <input
+                      type="password"
+                      value={profileForm.confirm_password}
+                      onChange={(e) => setProfileForm({ ...profileForm, confirm_password: e.target.value })}
+                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500 outline-none transition-all font-medium text-slate-700"
+                      required
                     />
                   </div>
                 </div>
               </div>
 
               <div className="flex justify-end pt-4">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={loading}
                   className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-95 flex items-center gap-2 disabled:opacity-50"
                 >

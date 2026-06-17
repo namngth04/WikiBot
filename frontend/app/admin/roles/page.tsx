@@ -88,7 +88,7 @@ export default function RolesPage() {
       setRoleForm({ name: '', description: '', level: 2 });
       loadData();
     } catch (error: any) {
-      alert(error.response?.data?.detail || 'Tạo chức vụ thất bại');
+      alert(error.response?.data?.detail || 'Tạo vai trò thất bại');
     }
   };
 
@@ -106,7 +106,7 @@ export default function RolesPage() {
   };
 
   const handleDeleteRole = async (id: number) => {
-    if (!confirm('Bạn có chắc muốn xóa chức vụ này?')) return;
+    if (!confirm('Bạn có chắc muốn xóa vai trò này?')) return;
     try {
       await rolesAPI.delete(id);
       loadData();
@@ -124,7 +124,7 @@ export default function RolesPage() {
   // Filter sections for FilterDropdown
   const filterSections: FilterSection[] = [
     {
-      title: 'Chức vụ',
+      title: 'Vai trò',
       type: 'checkbox',
       key: 'levels',
       options: roles.filter(r => r.level !== 0).map(role => ({
@@ -138,7 +138,7 @@ export default function RolesPage() {
   ];
 
   const sortOptions: SortOption[] = [
-    { value: 'name', label: 'Tên chức vụ' },
+    { value: 'name', label: 'Tên vai trò' },
     { value: 'level', label: 'Cấp độ' },
     { value: 'created_at', label: 'Ngày tạo' }
   ];
@@ -152,7 +152,7 @@ export default function RolesPage() {
             <Shield size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-be-vietnam font-bold text-ink">Quản lý Chức vụ</h2>
+            <h2 className="text-xl font-be-vietnam font-bold text-ink">Quản lý Vai trò</h2>
             <p className="text-xs text-ink-subtle font-medium">Thiết lập cấp độ truy cập cho nhân sự</p>
           </div>
         </div>
@@ -165,14 +165,14 @@ export default function RolesPage() {
           className="btn-primary"
         >
           <Plus size={20} />
-          Thêm Chức vụ
+          Thêm Vai trò
         </button>
       </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
-          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Tổng chức vụ</p>
+          <p className="text-[10px] font-bold text-ink-subtle uppercase tracking-widest mb-1">Tổng vai trò</p>
           <h3 className="text-2xl font-be-vietnam font-bold text-ink">{roles.length}</h3>
         </div>
         <div className="bg-surface-1 p-6 rounded-3xl border border-hairline shadow-sm">
@@ -184,13 +184,13 @@ export default function RolesPage() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline overflow-hidden">
+      <div className="bg-surface-1 rounded-[2rem] shadow-sm border border-hairline">
         <div className="p-6 border-b border-hairline flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" size={18} />
             <input
               type="text"
-              placeholder="Tìm kiếm chức vụ..."
+              placeholder="Tìm kiếm vai trò..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
@@ -210,7 +210,7 @@ export default function RolesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-surface-2/50">
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Chức vụ</th>
+                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Vai trò</th>
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Mô tả</th>
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Cấp độ</th>
                 <th className="px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
@@ -295,7 +295,7 @@ export default function RolesPage() {
               <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
                 <div>
                   <h3 className="text-2xl font-be-vietnam font-bold text-ink">
-                    {editingRole ? 'Sửa Chức vụ' : 'Thêm Chức vụ'}
+                    {editingRole ? 'Sửa Vai trò' : 'Thêm Vai trò'}
                   </h3>
                   <p className="text-sm text-ink-subtle font-medium">Thiết lập định danh và cấp độ bảo mật</p>
                 </div>
@@ -306,7 +306,7 @@ export default function RolesPage() {
 
               <form onSubmit={editingRole ? handleUpdateRole : handleCreateRole} className="flex-1 p-4 space-y-4 overflow-y-auto custom-scrollbar bg-surface-1">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Tên chức vụ *</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Tên vai trò *</label>
                   <input
                     type="text"
                     required
@@ -323,7 +323,7 @@ export default function RolesPage() {
                     value={roleForm.description}
                     onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
                     className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none min-h-[120px]"
-                    placeholder="Mô tả về quyền hạn và trách nhiệm của chức vụ..."
+                    placeholder="Mô tả về quyền hạn và trách nhiệm của vai trò..."
                   />
                 </div>
 
@@ -360,7 +360,7 @@ export default function RolesPage() {
                   className="btn-primary flex-1 justify-center py-4 shadow-lg shadow-primary-200/30"
                 >
                   <Save size={20} />
-                  {editingRole ? 'Cập nhật' : 'Tạo chức vụ'}
+                  {editingRole ? 'Cập nhật' : 'Tạo vai trò'}
                 </button>
               </div>
             </motion.div>

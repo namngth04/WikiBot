@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
 import { api } from '@/app/lib/api';
 import AppLogo from '@/app/components/AppLogo';
-import { Check, X, Sparkles, Shield, AlertCircle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import { Check, X, Sparkles, Shield, AlertCircle, ArrowLeft, ArrowRight, Loader2, LogOut, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isElectron } from '@/app/lib/platform';
 
@@ -22,7 +22,7 @@ interface QuotaData {
 
 export default function PricingPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   
   const [quota, setQuota] = useState<QuotaData | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -30,6 +30,21 @@ export default function PricingPage() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'success' | 'error'>('none');
   const [errorMessage, setErrorMessage] = useState('');
+  const [billingType, setBillingType] = useState<'personal' | 'business'>('personal');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const [runningInDesktop, setRunningInDesktop] = useState(false);
 
   useEffect(() => {
@@ -87,15 +102,17 @@ export default function PricingPage() {
   const getVietQRUrl = () => {
     const bankId = 'MB'; // MB Bank
     const accountNo = '9999988888'; // WikiBot premium account
-    const amount = 99000;
-    const addInfo = `WIKIBOT PRO ${user?.username || 'GUEST'}`;
+    const amount = billingType === 'business' ? 2499000 : 99000;
+    const addInfo = billingType === 'business' ? `WIKIBOT CORP PRO ${user?.username || 'GUEST'}` : `WIKIBOT PRO ${user?.username || 'GUEST'}`;
     const accountName = 'CONG TY CONG NGHE WIKIBOT';
     
     return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
   };
 
   const isPro = quota?.subscription_tier === 'pro';
-  const isEnterprise = quota?.subscription_tier === 'enterprise' || user?.tenant_id !== null;
+  const isEnterprise = quota?.subscription_tier === 'enterprise';
+  const isCompanyAdmin = user?.user_type === 'employee' && user?.role?.level === 1;
+  const isNormalEmployee = user?.tenant_id && !isCompanyAdmin;
 
   return (
     <div className="min-h-screen bg-[#010102] text-[#f7f8f8] selection:bg-[#5e6ad2]/30 selection:text-white font-sans antialiased overflow-x-hidden relative">
@@ -132,20 +149,63 @@ export default function PricingPage() {
             {authLoading ? (
               <div className="w-8 h-8 rounded-full border border-[#23252a] animate-pulse bg-[#0f1011]" />
             ) : user ? (
-              <>
+              <div className="relative" ref={dropdownRef}>
+                {/* User Avatar Circle */}
                 <button
-                  onClick={() => router.push('/dashboard')}
-                  className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium"
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className="flex items-center gap-2 p-1.5 rounded-xl border border-[#23252a] bg-[#0f1011]/80 hover:bg-[#141516] hover:border-[#34343a] transition-all duration-200 active:scale-[0.98] select-none"
                 >
-                  Dashboard
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#5e6ad2] to-[#8b5cf6] flex items-center justify-center font-bold text-white text-xs shadow-md shadow-[#5e6ad2]/20">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <ChevronDown size={14} className={`text-[#8a8f98] transition-transform duration-200 mr-1 ${showDropdown ? 'rotate-180 text-white' : ''}`} />
                 </button>
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98]"
-                >
-                  Xem Dashboard ⚡
-                </button>
-              </>
+
+                {/* Dropdown Menu */}
+                <AnimatePresence>
+                  {showDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
+                      className="absolute right-0 mt-2.5 w-64 rounded-xl border border-[#23252a] bg-[#0f1011]/95 backdrop-blur-xl p-2.5 shadow-2xl shadow-[#5e6ad2]/5 z-50 overflow-hidden text-left"
+                    >
+                      {/* Glow effect */}
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#5e6ad2]/5 blur-xl rounded-full pointer-events-none" />
+                      
+                      {/* User profile segment */}
+                      <div className="px-3 py-2.5 border-b border-[#23252a]/60 mb-2">
+                        <p className="text-xs font-semibold text-white truncate">{user.full_name || user.username}</p>
+                        <p className="text-[10px] text-[#8a8f98] truncate mt-0.5">@{user.username} · {user.email || 'Chưa có email'}</p>
+                        <div className="mt-2.5 px-2.5 py-1.5 bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-lg text-[10px] flex items-center justify-between">
+                          <span className="text-[#8a8f98]">Gói hiện tại:</span>
+                          <span className="text-[#a5b4fc] font-bold">
+                            {user.user_type === 'superadmin' || user?.role?.level === 0
+                              ? 'Super Admin ⚡'
+                              : (user.user_type === 'employee' || user.tenant_id
+                                ? (user.subscription_tier === 'pro' ? 'Doanh nghiệp PRO' : 'Doanh nghiệp FREE')
+                                : (user.subscription_tier === 'pro' ? 'Cá nhân PRO' : 'Cá nhân FREE')
+                              )
+                            }
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action items */}
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => { setShowDropdown(false); logout(); router.push('/'); }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-red-300 rounded-lg hover:bg-red-500/10 transition-colors border border-transparent hover:border-red-500/10 text-left"
+                        >
+                          <LogOut size={14} />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             ) : (
               <>
                 {!runningInDesktop && (
@@ -166,7 +226,7 @@ export default function PricingPage() {
       <main className="relative z-10 max-w-7xl mx-auto px-6 pt-16 pb-24">
         
         {/* Header Title */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-12">
           {runningInDesktop ? (
             <button 
               onClick={() => router.push('/dashboard')} 
@@ -185,174 +245,284 @@ export default function PricingPage() {
           <p className="text-[#8a8f98] text-base font-light mb-6">
             Giải pháp chatbot RAG bảo mật, chính xác và có khả năng mở rộng không giới hạn cho cá nhân và tổ chức.
           </p>
+        </div>
 
+        {/* Tab Switcher */}
+        <div className="flex justify-center mb-12">
+          <div className="bg-[#0f1011] p-1.5 rounded-xl border border-[#23252a]/60 flex gap-1">
+            <button
+              onClick={() => setBillingType('personal')}
+              className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${
+                billingType === 'personal'
+                  ? 'bg-[#5e6ad2] text-white shadow-md'
+                  : 'text-[#8a8f98] hover:text-white'
+              }`}
+            >
+              Cá nhân
+            </button>
+            <button
+              onClick={() => setBillingType('business')}
+              className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${
+                billingType === 'business'
+                  ? 'bg-[#5e6ad2] text-white shadow-md'
+                  : 'text-[#8a8f98] hover:text-white'
+              }`}
+            >
+              Doanh nghiệp
+            </button>
+          </div>
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-20 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch mb-20 max-w-4xl mx-auto">
           
-          {/* FREE PLAN */}
-          <div className="flex flex-col p-8 rounded-2xl border border-[#23252a] bg-[#0f1011]/40 backdrop-blur-sm relative overflow-hidden transition-all hover:border-[#23252a]/90">
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white mb-2">Free Tier</h3>
-              <p className="text-xs text-[#8a8f98] min-h-[32px]">Dành cho người dùng cá nhân trải nghiệm chatbot cơ bản.</p>
-              <div className="mt-4 flex items-baseline">
-                <span className="text-4xl font-extrabold text-white">0đ</span>
-                <span className="text-[#8a8f98] text-sm ml-2">/ vĩnh viễn</span>
+          {billingType === 'personal' ? (
+            <>
+              {/* PERSONAL FREE PLAN */}
+              <div className="flex flex-col p-8 rounded-2xl border border-[#23252a] bg-[#0f1011]/40 backdrop-blur-sm relative overflow-hidden transition-all hover:border-[#23252a]/90">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-white mb-2">Cá nhân FREE</h3>
+                  <p className="text-xs text-[#8a8f98] min-h-[32px]">Dành cho người dùng cá nhân trải nghiệm chatbot cơ bản.</p>
+                  <div className="mt-4 flex items-baseline">
+                    <span className="text-4xl font-extrabold text-white">0đ</span>
+                    <span className="text-[#8a8f98] text-sm ml-2">/ vĩnh viễn</span>
+                  </div>
+                </div>
+                
+                <button
+                  disabled={true}
+                  className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                >
+                  {quota?.subscription_tier === 'free' && !user?.tenant_id ? 'Gói hiện tại' : 'Đã vượt qua'}
+                </button>
+
+                <div className="space-y-4 flex-1">
+                  <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TÍNH NĂNG BAO GỒM</span>
+                  <ul className="space-y-3 text-xs">
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Giới hạn 10 câu hỏi/ngày</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Upload tối đa 3 tài liệu RAG</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Dung lượng tài liệu &lt; 2MB/file</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <X size={14} className="text-red-500/70 mt-0.5 shrink-0" />
+                      <span className="text-[#8a8f98]">Không hỗ trợ Ollama Local (Offline)</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
-            
-            <button
-              disabled={true}
-              className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
-            >
-              {(isPro || isEnterprise) ? 'Đã vượt qua gói này' : 'Gói mặc định của bạn'}
-            </button>
 
-            <div className="space-y-4 flex-1">
-              <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TÍNH NĂNG BAO GỒM</span>
-              <ul className="space-y-3 text-xs">
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Giới hạn 10 câu hỏi/ngày</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Upload tối đa 3 tài liệu tài khoản</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Dung lượng tài liệu &lt; 2MB/file</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <X size={14} className="text-red-500/70 mt-0.5 shrink-0" />
-                  <span className="text-[#8a8f98]">Không hỗ trợ Ollama Local (Offline)</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <X size={14} className="text-red-500/70 mt-0.5 shrink-0" />
-                  <span className="text-[#8a8f98]">Không có trích dẫn nguồn chi tiết nâng cao</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+              {/* PERSONAL PRO PLAN */}
+              <div className="flex flex-col p-8 rounded-2xl border-2 border-[#5e6ad2] bg-[#0f1011]/80 backdrop-blur-sm relative overflow-hidden shadow-xl shadow-[#5e6ad2]/5 transition-all hover:shadow-[#5e6ad2]/10">
+                <div className="absolute top-3 right-3 bg-[#5e6ad2] text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md">
+                  <Sparkles size={10} /> PHỔ BIẾN
+                </div>
 
-          {/* PRO PLAN */}
-          <div className="flex flex-col p-8 rounded-2xl border-2 border-[#5e6ad2] bg-[#0f1011]/80 backdrop-blur-sm relative overflow-hidden shadow-xl shadow-[#5e6ad2]/5 transition-all hover:shadow-[#5e6ad2]/10">
-            {/* Pop badge */}
-            <div className="absolute top-3 right-3 bg-[#5e6ad2] text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md">
-              <Sparkles size={10} /> PHỔ BIẾN
-            </div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-white mb-2">Cá nhân PRO</h3>
+                  <p className="text-xs text-[#8a8f98] min-h-[32px]">Mở rộng giới hạn, tăng cường khả năng phân tích và bảo mật cá nhân.</p>
+                  <div className="mt-4 flex items-baseline">
+                    <span className="text-4xl font-extrabold text-white">99.000đ</span>
+                  </div>
+                </div>
 
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white mb-2">Pro Individual</h3>
-              <p className="text-xs text-[#8a8f98] min-h-[32px]">Mở rộng giới hạn, tăng cường khả năng phân tích và bảo mật cá nhân.</p>
-              <div className="mt-4 flex items-baseline">
-                <span className="text-4xl font-extrabold text-white">99.000đ</span>
-                <span className="text-[#8a8f98] text-sm ml-2">/ tháng</span>
+                {!user ? (
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
+                  >
+                    Đăng nhập để nâng cấp <ArrowRight size={12} />
+                  </button>
+                ) : isPro && !user?.tenant_id ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 cursor-default mb-8"
+                  >
+                    ⚡ Gói hiện tại của bạn (PRO)
+                  </button>
+                ) : isNormalEmployee ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                    title="Chỉ có Quản trị doanh nghiệp mới có quyền nâng cấp gói cước"
+                  >
+                    Gói cước do quản trị doanh nghiệp quản lý
+                  </button>
+                ) : isCompanyAdmin ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                    title="Tài khoản Doanh nghiệp không thể nâng cấp gói cước Cá nhân"
+                  >
+                    Chỉ dành cho Cá nhân
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowQRModal(true)}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
+                  >
+                    Nâng cấp Pro Ngay ⚡
+                  </button>
+                )}
+
+                <div className="space-y-4 flex-1">
+                  <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TẤT CẢ TÍNH NĂNG FREE, KÈM THEO:</span>
+                  <ul className="space-y-3 text-xs">
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Không giới hạn số câu hỏi/ngày</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Tối đa 100 tài liệu RAG</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Hỗ trợ file dung lượng lên tới 100MB</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium text-emerald-400">Mở khóa Ollama Local (Bảo mật 100%)</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Trích dẫn nguồn trực quan đến từng trang</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {/* BUSINESS FREE PLAN */}
+              <div className="flex flex-col p-8 rounded-2xl border border-[#23252a] bg-[#0f1011]/40 backdrop-blur-sm relative overflow-hidden transition-all hover:border-[#23252a]/90">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-white mb-2">Doanh nghiệp FREE</h3>
+                  <p className="text-xs text-[#8a8f98] min-h-[32px]">Giải pháp dùng thử giới hạn cho đội nhóm và doanh nghiệp nhỏ.</p>
+                  <div className="mt-4 flex items-baseline">
+                    <span className="text-4xl font-extrabold text-white">0đ</span>
+                    <span className="text-[#8a8f98] text-sm ml-2">/ vĩnh viễn</span>
+                  </div>
+                </div>
 
-            {!user ? (
-              <button
-                onClick={() => router.push('/login')}
-                className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
-              >
-                Đăng nhập để nâng cấp <ArrowRight size={12} />
-              </button>
-            ) : isPro ? (
-              <button
-                disabled={true}
-                className="w-full py-2.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 cursor-default mb-8"
-              >
-                ⚡ Gói hiện tại của bạn (PRO)
-              </button>
-            ) : isEnterprise ? (
-              <button
-                disabled={true}
-                className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-default mb-8"
-              >
-                Tài khoản Doanh nghiệp (Enterprise)
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowQRModal(true)}
-                className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
-              >
-                Nâng cấp Pro Ngay ⚡
-              </button>
-            )}
+                <button
+                  disabled={true}
+                  className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                >
+                  {quota?.subscription_tier === 'free' && user?.tenant_id ? 'Gói hiện tại' : 'Đã vượt qua'}
+                </button>
 
-            <div className="space-y-4 flex-1">
-              <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TẤT CẢ TÍNH NĂNG FREE, KÈM THEO:</span>
-              <ul className="space-y-3 text-xs">
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8] font-medium">Không giới hạn số câu hỏi/ngày</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8] font-medium">Không giới hạn số lượng tài liệu</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8] font-medium">Hỗ trợ file dung lượng lên tới 100MB</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8] font-medium text-emerald-400">Mở khóa Ollama Local (Bảo mật 100%)</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Trích dẫn nguồn trực quan đến từng trang</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* ENTERPRISE PLAN */}
-          <div className="flex flex-col p-8 rounded-2xl border border-[#23252a] bg-[#0f1011]/40 backdrop-blur-sm relative overflow-hidden transition-all hover:border-[#23252a]/90">
-            <div className="mb-6">
-              <h3 className="text-lg font-bold text-white mb-2">Enterprise</h3>
-              <p className="text-xs text-[#8a8f98] min-h-[32px]">Hệ thống bảo mật tối cao, triển khai on-premise riêng biệt cho tổ chức.</p>
-              <div className="mt-4 flex items-baseline">
-                <span className="text-3xl font-extrabold text-white">Liên hệ</span>
-                <span className="text-[#8a8f98] text-sm ml-2">/ doanh nghiệp</span>
+                <div className="space-y-4 flex-1">
+                  <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TÍNH NĂNG BAO GỒM</span>
+                  <ul className="space-y-3 text-xs">
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Tối đa 5 nhân sự (bao gồm Admin)</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Tối đa 3 tài liệu RAG chung</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Giới hạn 10 câu hỏi/ngày chung toàn công ty</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Dung lượng tài liệu &lt; 2MB/file</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
-            </div>
 
-            <a
-              href="mailto:contact@wikibot.vn?subject=Yeu%20cau%20tu%20van%20goi%20Enterprise"
-              className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] hover:bg-[#1c1e22] text-white border border-[#23252a] text-center transition-colors mb-8"
-            >
-              Liên hệ tư vấn giải pháp
-            </a>
+              {/* BUSINESS PRO PLAN */}
+              <div className="flex flex-col p-8 rounded-2xl border-2 border-[#5e6ad2] bg-[#0f1011]/80 backdrop-blur-sm relative overflow-hidden shadow-xl shadow-[#5e6ad2]/5 transition-all hover:shadow-[#5e6ad2]/10">
+                <div className="absolute top-3 right-3 bg-[#5e6ad2] text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md">
+                  <Sparkles size={10} /> PHỔ BIẾN
+                </div>
 
-            <div className="space-y-4 flex-1">
-              <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TẤT CẢ TÍNH NĂNG PRO, KÈM THEO:</span>
-              <ul className="space-y-3 text-xs">
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8] font-medium text-purple-400">Triển khai On-Premise (100% Offline)</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Phân quyền RBAC sâu sắc (Admin/Manager/Staff)</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Tích hợp OCR Paddle bóc tách cấu trúc lưới</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-[#f7f8f8]">Tùy biến Tenant & Tên miền riêng</span>
-                </li>
-                <li className="flex items-start gap-2.5">
-                  <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
-                  <span className="text-emerald-400">Cam kết SLA bảo trì 24/7</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-white mb-2">Doanh nghiệp PRO</h3>
+                  <p className="text-xs text-[#8a8f98] min-h-[32px]">Đầy đủ sức mạnh RAG, quản trị nhân sự và không giới hạn tài nguyên.</p>
+                  <div className="mt-4 flex items-baseline">
+                    <span className="text-4xl font-extrabold text-white">2.499.000đ</span>
+                  </div>
+                </div>
+
+                {!user ? (
+                  <button
+                    onClick={() => router.push('/login')}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
+                  >
+                    Đăng nhập để nâng cấp <ArrowRight size={12} />
+                  </button>
+                ) : isPro && user?.tenant_id ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 cursor-default mb-8"
+                  >
+                    ⚡ Gói hiện tại (DOANH NGHIỆP PRO)
+                  </button>
+                ) : isNormalEmployee ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                    title="Chỉ có Quản trị doanh nghiệp mới có quyền nâng cấp gói cước"
+                  >
+                    Gói cước do quản trị doanh nghiệp quản lý
+                  </button>
+                ) : (user?.user_type === 'personal' || !user?.tenant_id) ? (
+                  <button
+                    disabled={true}
+                    className="w-full py-2.5 rounded-lg text-xs font-semibold bg-[#141516] text-[#8a8f98] border border-[#23252a] cursor-not-allowed mb-8"
+                    title="Gói cước này chỉ áp dụng cho tài khoản Doanh nghiệp"
+                  >
+                    Chỉ dành cho Doanh nghiệp
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowQRModal(true)}
+                    className="w-full py-2.5 rounded-lg text-xs font-bold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white transition-colors flex items-center justify-center gap-1.5 shadow-lg shadow-[#5e6ad2]/20 mb-8"
+                  >
+                    Nâng cấp Doanh nghiệp PRO ⚡
+                  </button>
+                )}
+
+                <div className="space-y-4 flex-1">
+                  <span className="text-xs font-bold text-[#8a8f98] block uppercase tracking-wider mb-2">TẤT CẢ TÍNH NĂNG DOANH NGHIỆP FREE, KÈM:</span>
+                  <ul className="space-y-3 text-xs">
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Không giới hạn số lượng nhân sự</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Không giới hạn số lượng tài liệu chung</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium">Không giới hạn số lượt hỏi đáp/ngày</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8] font-medium text-emerald-400">Mở khóa Ollama Local (Mạng LAN nội bộ)</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <Check size={14} className="text-[#5e6ad2] mt-0.5 shrink-0" />
+                      <span className="text-[#f7f8f8]">Phân quyền RBAC sâu sắc cho tài liệu nội bộ</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </>
+          )}
 
         </div>
 

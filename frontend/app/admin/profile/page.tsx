@@ -161,20 +161,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="bg-surface-1 border border-hairline rounded-[2.5rem] p-8 text-ink relative overflow-hidden shadow-sm">
-            <ShieldCheck className="absolute -right-8 -bottom-8 w-48 h-48 text-ink/5" />
-            <h3 className="text-lg font-be-vietnam font-bold mb-4 flex items-center gap-2">
-              <Lock size={20} className="text-brand-lavender" />
-              Bảo mật tài khoản
-            </h3>
-            <p className="text-ink-subtle text-sm mb-6 leading-relaxed">
-              Mật khẩu của bạn được mã hóa an toàn. Chúng tôi khuyên bạn nên đổi mật khẩu định kỳ 3 tháng một lần.
-            </p>
-            <div className="flex items-center gap-2 text-xs font-bold text-brand-lavender">
-              <div className="w-2 h-2 rounded-full bg-brand-lavender animate-pulse" />
-              Hệ thống đã được bảo vệ
-            </div>
-          </div>
         </motion.div>
 
         {/* Right Column: Forms */}

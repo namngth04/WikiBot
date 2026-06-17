@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   description: 'Hệ thống chatbot AI với kiểm soát truy cập dựa trên vai trò',
 };
 
+import Script from 'next/script';
+
 export default function RootLayout({
   children,
 }: {
@@ -23,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className={`${beVietnamPro.variable}`}>
       <head>
-        <script src="/env-config.js" defer />
+        <Script src="/env-config.js" strategy="beforeInteractive" />
       </head>
       <body className="font-be-vietnam antialiased">
         <AuthProvider>

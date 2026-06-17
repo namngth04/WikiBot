@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { chatAPI, ResponseStyle } from '@/app/lib/api';
+import { chatAPI, ResponseStyle, API_BASE_URL } from '@/app/lib/api';
 import { Conversation, Message } from '@/app/lib/types';
 import { ChatResponse } from '@/app/types/chat';
 import { ChatMessage } from '@/app/types/chat';
@@ -157,7 +157,7 @@ export const useChat = (options: UseChatOptions = {}) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/chat/send-stream', {
+      const response = await fetch(`${API_BASE_URL}/api/chat/send-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -365,7 +365,7 @@ export const useChat = (options: UseChatOptions = {}) => {
       let responseData;
       if (feedbackText !== undefined || feedbackCategory !== undefined) {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/api/chat/messages/${messageId}/feedback`, {
+        const response = await fetch(`${API_BASE_URL}/api/chat/messages/${messageId}/feedback`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

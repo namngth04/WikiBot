@@ -32,6 +32,8 @@ class QuotaResponse(BaseModel):
     documents_used: int
     file_size_limit_mb: float
     ollama_allowed: bool
+    staff_limit: Optional[int] = None
+    staff_used: Optional[int] = None
 
 
 # ============== Helpers ==============
@@ -52,13 +54,13 @@ def request_upgrade(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Personal User (Free) requests an upgrade to Pro"""
-    # 1. Ràng buộc: Chỉ dành cho Personal User (không thuộc tenant)
+    # 1. Ràng buộc: Cho phép Personal User hoặc Company Admin nâng cấp
     if current_user.tenant_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tính năng nâng cấp cá nhân chỉ dành cho người dùng tự do (Personal User)"
-        )
+        if not current_user.role or current_user.role.level != 1:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Chỉ Quản trị viên Doanh nghiệp mới có quyền nâng cấp gói cước Doanh nghiệp."
+            )
     
     # 2. Ràng buộc: Chỉ áp dụng khi tài khoản đang ở gói free
     if current_user.subscription_tier != "free":
@@ -233,17 +235,51 @@ def get_user_quota(
             ollama_allowed=True
         )
     
-    # Nếu thuộc công ty (Company Staff/Admin), họ tự động hưởng các hạn ngạch lớn như Enterprise
+    # Nếu thuộc công ty (Company Staff/Admin), họ tự động hưởng các hạn ngạch dựa trên gói của Company Admin
     if current_user.tenant_id is not None:
-        return QuotaResponse(
-            subscription_tier="enterprise",
-            questions_limit=999999,  # Không giới hạn thực tế
-            questions_used=questions_used,
-            documents_limit=999999,
-            documents_used=documents_used,
-            file_size_limit_mb=100.0,
-            ollama_allowed=True
-        )
+        company_admin = db.query(User).filter(
+            User.tenant_id == current_user.tenant_id,
+            User.role.has(level=1)
+        ).first()
+        is_free = (company_admin.subscription_tier == "free") if company_admin else True
+        
+        staff_used = db.query(User).filter(User.tenant_id == current_user.tenant_id).count()
+        
+        documents_used = db.query(Document).filter(
+            Document.tenant_id == current_user.tenant_id,
+            Document.is_active == True
+        ).count()
+        
+        questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
+            User.tenant_id == current_user.tenant_id,
+            Message.role == "user",
+            Message.created_at >= start_of_today
+        ).count()
+        
+        if is_free:
+            return QuotaResponse(
+                subscription_tier="free",
+                questions_limit=10,
+                questions_used=questions_used,
+                documents_limit=3,
+                documents_used=documents_used,
+                file_size_limit_mb=2.0,
+                ollama_allowed=False,
+                staff_limit=5,
+                staff_used=staff_used
+            )
+        else:
+            return QuotaResponse(
+                subscription_tier="pro",
+                questions_limit=999999,
+                questions_used=questions_used,
+                documents_limit=999999,
+                documents_used=documents_used,
+                file_size_limit_mb=100.0,
+                ollama_allowed=True,
+                staff_limit=None,
+                staff_used=staff_used
+            )
     
     if tier == "pro":
         return QuotaResponse(

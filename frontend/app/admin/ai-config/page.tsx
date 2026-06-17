@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Settings, Server, Key, Brain, Layers, Shield,
@@ -12,9 +13,17 @@ import ModelManagementTab from '@/components/admin/ModelManagementTab';
 
 export default function AdminAIConfigPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const isCompanyAdmin = user?.role?.level === 1;
+
+  useEffect(() => {
+    if (isCompanyAdmin) {
+      router.replace('/admin/dashboard');
+    }
+  }, [isCompanyAdmin, router]);
   
   const [activeTab, setActiveTab] = useState<'safety' | 'chat' | 'embedding' | 'overview' | 'models'>('overview');
+  const [activeCompanyTab, setActiveCompanyTab] = useState<'settings' | 'models'>('settings');
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -94,7 +103,7 @@ export default function AdminAIConfigPage() {
     setLoading(true);
     try {
       await tenantAIAPI.updateSettings(tenantSettings);
-      showMessage('success', 'Đã lưu cấu hình AI của Doanh nghiệp thành công!');
+      showMessage('success', 'Đã lưu cấu hình cá nhân hóa trợ lý của Doanh nghiệp thành công!');
     } catch (err: any) {
       showMessage('error', err.response?.data?.detail || 'Lỗi khi lưu cấu hình');
     }
@@ -282,9 +291,9 @@ export default function AdminAIConfigPage() {
         <div>
           <h1 className="text-3xl font-bold text-ink flex items-center gap-3">
             <Brain className="text-brand-lavender w-8 h-8" />
-            Cấu hình AI Doanh nghiệp
+            Cá nhân hóa trợ lý Doanh nghiệp
           </h1>
-          <p className="text-ink-subtle">Cấu hình các tham số và mô hình AI mặc định dùng chung cho toàn bộ nhân viên trong công ty.</p>
+          <p className="text-ink-subtle">Cấu hình các tham số cá nhân hóa và mô hình AI mặc định dùng chung cho toàn bộ nhân viên trong công ty.</p>
         </div>
 
         <div className="bg-surface-1 rounded-2xl p-8 border border-hairline shadow-sm space-y-6">
@@ -379,7 +388,7 @@ export default function AdminAIConfigPage() {
               className="flex items-center gap-2 bg-brand-lavender text-white px-6 py-2.5 rounded-xl hover:bg-brand-lavender-hover disabled:opacity-50 transition-all font-bold shadow-md shadow-brand-lavender/10"
             >
               <Save size={18} />
-              {loading ? 'Đang lưu...' : 'Lưu cấu hình AI'}
+              {loading ? 'Đang lưu...' : 'Lưu cấu hình'}
             </button>
           </div>
         </div>
@@ -406,7 +415,7 @@ export default function AdminAIConfigPage() {
 
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-ink">Cấu hình AI Hệ thống</h1>
+          <h1 className="text-3xl font-bold text-ink">Cá nhân hóa trợ lý Hệ thống</h1>
           <p className="text-ink-subtle">Quản lý model, provider và giới hạn cho Chat, Embedding</p>
         </div>
       </div>

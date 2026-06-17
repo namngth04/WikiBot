@@ -192,7 +192,6 @@ export default function FAQManagementPage() {
             <thead>
               <tr className="bg-surface-2/50">
                 <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Nội dung câu hỏi</th>
-                <th className="px-8 py-4 text-left text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Danh mục</th>
                 <th className="px-8 py-4 text-center text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Lượt xem</th>
                 <th className="px-8 py-4 text-center text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Trạng thái</th>
                 <th className="px-8 py-4 text-right text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Thao tác</th>
@@ -202,7 +201,7 @@ export default function FAQManagementPage() {
               {loading ? (
                 [1, 2, 3].map(i => (
                   <tr key={i} className="animate-pulse">
-                    <td colSpan={5} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
+                    <td colSpan={4} className="px-8 py-6"><div className="h-4 bg-slate-100 rounded w-full" /></td>
                   </tr>
                 ))
               ) : faqs.map((faq) => (
@@ -210,11 +209,6 @@ export default function FAQManagementPage() {
                   <td className="px-8 py-5">
                     <p className="font-bold text-ink text-sm line-clamp-1 mb-1">{faq.question}</p>
                     <p className="text-xs text-ink-subtle line-clamp-1">{faq.answer}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <span className="bg-primary-50 dark:bg-primary-950/20 text-primary-600 dark:text-primary-400 border border-primary-200/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                      {faq.category || 'Chung'}
-                    </span>
                   </td>
                   <td className="px-8 py-5 text-center">
                     <span className="text-sm font-be-vietnam font-bold text-ink">{faq.hits}</span>
@@ -266,7 +260,7 @@ export default function FAQManagementPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="modal-content"
+              className="modal-content w-full md:w-[800px]"
             >
               <div className="p-6 border-b border-hairline flex items-center justify-between shrink-0 bg-surface-1 rounded-t-3xl">
                 <div>
@@ -310,28 +304,16 @@ export default function FAQManagementPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Danh mục</label>
-                    <input
-                      type="text"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-4 py-3 bg-surface-2 border border-hairline text-ink rounded-xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none"
-                      placeholder="VD: Nhân sự"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Trạng thái</label>
-                    <select
-                      value={formData.is_active ? 'true' : 'false'}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'true' })}
-                      className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="true">Hoạt động</option>
-                      <option value="false">Tạm ngưng</option>
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Trạng thái</label>
+                  <select
+                    value={formData.is_active ? 'true' : 'false'}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'true' })}
+                    className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="true">Hoạt động</option>
+                    <option value="false">Tạm ngưng</option>
+                  </select>
                 </div>
               </form>
 

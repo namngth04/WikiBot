@@ -319,7 +319,7 @@ HƯỚNG DẪN TRẢ LỜI:
                 chunks = self.hybrid_retriever.search(
                     query=query_var,
                     accessible_role_ids=accessible_role_ids,
-                    top_k=3,  # Giảm vì có nhiều variations
+                    top_k=5,  # Tăng lên 5 để quét rộng hơn, tránh bỏ sót danh sách/bảng biểu dài
                     max_distance=self.settings.rag_max_distance,
                     receive_community=receive_community,
                     current_user_id=current_user_id,

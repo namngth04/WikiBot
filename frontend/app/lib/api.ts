@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 
+export const API_BASE_URL = 
   (typeof window !== 'undefined' && (window as any).__ENV__?.NEXT_PUBLIC_API_URL) || 
   process.env.NEXT_PUBLIC_API_URL || 
   'http://localhost:8000';
@@ -113,7 +113,7 @@ export const chatAPI = {
 // Admin API
 export const adminAPI = {
   getOverview: () => api.get('/admin/stats/overview'),
-  getUsage: (days: number = 7) => api.get(`/admin/stats/usage?days=${days}`),
+  getUsage: (params?: { days?: number; start_date?: string; end_date?: string }) => api.get('/admin/stats/usage', { params }),
   
   // FAQ Management
   listFAQs: (search?: string, skip: number = 0, limit: number = 100) =>
