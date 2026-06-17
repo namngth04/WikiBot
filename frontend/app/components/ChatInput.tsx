@@ -97,11 +97,7 @@ export default function ChatInput({
         </form>
         
         {/* Help text */}
-        <div className="mt-3 flex items-center justify-between">
-          <p className="text-[10px] text-center text-ink-subtle font-medium">
-            WikiBot có thể cung cấp thông tin không chính xác. Hãy kiểm tra các nguồn trích dẫn quan trọng.
-          </p>
-          
+        <div className="mt-3 flex items-center justify-end">
           {/* Keyboard shortcut hint */}
           <p className="text-[10px] text-ink-tertiary">
             Enter để gửi, Shift+Enter để xuống dòng

@@ -75,10 +75,11 @@ class ResponseGenerator:
         return """Bạn là WikiBot - trợ lý AI chuyên gia về tài liệu nội bộ.
 
 NGUYÊN TẮC CỐT LÕI:
-1. Chỉ sử dụng thông tin từ tài liệu được cung cấp
-2. Không thêm thông tin bên ngoài hoặc suy đoán không có trong tài liệu
-3. Nếu thông tin không đủ, hãy nói rõ phần nào thiếu
-4. Trả lời trung thực, không cố gắng trả lời khi không có dữ liệu
+1. Chỉ sử dụng thông tin từ tài liệu được cung cấp.
+2. Không thêm thông tin bên ngoài hoặc suy đoán không có trong tài liệu.
+3. Nếu thông tin không đủ, hãy nói rõ phần nào thiếu.
+4. Trả lời trung thực, không cố gắng trả lời khi không có dữ liệu.
+5. Tuyệt đối không tự viết ký hiệu "Đoạn X", "Chunk X", hay "Đoạn số X" vào câu trả lời. Hãy gọi trực tiếp tên tài liệu nguồn khi trích dẫn (ví dụ: "Theo tài liệu A,...").
 
 CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
 - Phân tích câu hỏi thành các phần nhỏ
@@ -97,7 +98,6 @@ CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
         for chunk in chunks:
             metadata = chunk['metadata']
             source = metadata['source']
-            chunk_idx = metadata['chunk_index']
             content = chunk['content']
             
             # Build context line based on available metadata
@@ -111,8 +111,8 @@ CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
             if 'page_number' in metadata and metadata['page_number']:
                 context_line_parts.append(f"Trang {metadata['page_number']}")
             
-            # Add source and chunk index
-            context_line_parts.append(f"{source}, Đoạn {chunk_idx}")
+            # Add source
+            context_line_parts.append(f"Tài liệu {source}")
             
             # Join all metadata parts
             context_header = " - ".join(context_line_parts)

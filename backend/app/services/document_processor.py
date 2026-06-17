@@ -60,7 +60,25 @@ class DocumentProcessor:
             logger.warning(f"Could not load default chat LLM provider: {e}. Vision fallback to OCR will be used.")
             self.llm_provider = None
             
-        # Tự động dò tìm active Gemini model trong ChatModel để làm Vision processor
+        self._vision_llm_provider = None
+        self._initial_db_session = db_session
+            
+        if close_session:
+            db_session.close()
+
+    @property
+    def vision_llm_provider(self):
+        """Lazy load vision LLM provider only when needed (e.g. image processing)"""
+        if self._vision_llm_provider is not None:
+            return self._vision_llm_provider
+            
+        db_session = self._initial_db_session
+        close_session = False
+        if db_session is None:
+            from app.core.database import SessionLocal
+            db_session = SessionLocal()
+            close_session = True
+            
         try:
             from app.models.models import ChatModel
             from app.services.llm_providers import get_custom_llm_provider
@@ -70,16 +88,18 @@ class DocumentProcessor:
                 ChatModel.is_active == True
             ).first()
             if gemini_model:
-                self.vision_llm_provider = get_custom_llm_provider(gemini_model.id, db_session)
+                self._vision_llm_provider = get_custom_llm_provider(gemini_model.id, db_session)
                 logger.info(f"[Vision LLM Auto-Detect] Found active Gemini model for Vision: {gemini_model.name}")
             else:
-                self.vision_llm_provider = self.llm_provider
+                self._vision_llm_provider = self.llm_provider
         except Exception as e:
             logger.warning(f"Could not auto-detect Gemini model for Vision: {e}")
-            self.vision_llm_provider = self.llm_provider
-            
-        if close_session:
-            db_session.close()
+            self._vision_llm_provider = self.llm_provider
+        finally:
+            if close_session:
+                db_session.close()
+                
+        return self._vision_llm_provider
 
     
     def get_loader(self, file_path: str, file_type: str):
