@@ -46,6 +46,10 @@ class BaseLLMProvider(ABC):
     def get_config(self) -> Dict[str, Any]:
         """Get provider configuration"""
         return {}
+        
+    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+        """Describe image or extract text from image using vision capability"""
+        raise NotImplementedError("Vision capability is not supported by this provider.")
 
 
 class LocalGGUFProvider(BaseLLMProvider):
@@ -240,6 +244,34 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         logger.debug(f"[OpenAICompatible] Response model used: {response.model}")
         
         return response_text
+
+    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+        """Describe image or extract text from image using OpenAI API"""
+        import base64
+        base64_image = base64.b64encode(image_data).decode('utf-8')
+        
+        logger.debug(f"[OpenAICompatible] describe_image called with model: {self.model}")
+        
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=1024
+        )
+        content = response.choices[0].message.content
+        return content.strip() if content is not None else ""
 
     def generate_stream(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512,
                         system_prompt: Optional[str] = None, **kwargs):
@@ -1098,6 +1130,20 @@ class VertexAIGeminiChatProvider(BaseLLMProvider):
         except Exception as e:
             print(f"[ERROR VertexAI Chat] Generation failed: {e}")
             raise Exception(f"Vertex AI Generation failed: {str(e)}")
+
+    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+        """Describe image or extract text from image using Vertex AI Gemini API"""
+        try:
+            from vertexai.generative_models import Part
+            # Convert bytes to Part
+            image_part = Part.from_data(data=image_data, mime_type="image/png")
+            response = self.model.generate_content(
+                [image_part, prompt]
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.error(f"[VertexAI Gemini Chat] describe_image failed: {e}")
+            raise e
             
     def test_connection(self) -> Dict[str, Any]:
         """Test connection to Vertex AI Chat API"""

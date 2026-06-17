@@ -108,11 +108,15 @@ class VisionProcessor:
             # Fallback to OCR
             return f"[OCR Text]: {self.extract_text_from_image(image_path)}"
         
-        # Use vision model to describe image
-        with open(image_path, 'rb') as f:
-            image_data = f.read()
-        
-        description = llm_provider.describe_image(image_data)
-        return description
+        try:
+            # Use vision model to describe image
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+            
+            description = llm_provider.describe_image(image_data)
+            return description
+        except Exception as e:
+            logger.error(f"Error using Vision LLM: {e}. Falling back to OCR.")
+            return f"[OCR Text (Fallback)]: {self.extract_text_from_image(image_path)}"
 
 

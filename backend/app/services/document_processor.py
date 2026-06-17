@@ -45,6 +45,41 @@ class DocumentProcessor:
             chunk_overlap=self.chunk_overlap,
             separators=["\n\n", "\n", ". ", " ", ""]
         )
+        
+        # Get Chat LLM provider for image extraction (vision)
+        close_session = False
+        if db_session is None:
+            from app.core.database import SessionLocal
+            db_session = SessionLocal()
+            close_session = True
+
+        from app.services.llm_providers import get_llm_provider
+        try:
+            self.llm_provider = get_llm_provider("chat", db_session)
+        except Exception as e:
+            logger.warning(f"Could not load default chat LLM provider: {e}. Vision fallback to OCR will be used.")
+            self.llm_provider = None
+            
+        # Tự động dò tìm active Gemini model trong ChatModel để làm Vision processor
+        try:
+            from app.models.models import ChatModel
+            from app.services.llm_providers import get_custom_llm_provider
+            
+            gemini_model = db_session.query(ChatModel).filter(
+                ChatModel.provider == "gemini",
+                ChatModel.is_active == True
+            ).first()
+            if gemini_model:
+                self.vision_llm_provider = get_custom_llm_provider(gemini_model.id, db_session)
+                logger.info(f"[Vision LLM Auto-Detect] Found active Gemini model for Vision: {gemini_model.name}")
+            else:
+                self.vision_llm_provider = self.llm_provider
+        except Exception as e:
+            logger.warning(f"Could not auto-detect Gemini model for Vision: {e}")
+            self.vision_llm_provider = self.llm_provider
+            
+        if close_session:
+            db_session.close()
 
     
     def get_loader(self, file_path: str, file_type: str):
@@ -102,6 +137,7 @@ class DocumentProcessor:
     def extract_elements(self, file_path: str, file_type: str, document_id: Optional[int] = None) -> List[dict]:
         """Extract structured elements from document with multimodal support for PDF and DOCX"""
         file_type_lower = file_type.lower()
+        logger.info(f"[DEBUG extract_elements] file_path={file_path}, file_type_lower={file_type_lower}, llm_provider={self.llm_provider}")
         
         # Nếu là file PDF hoặc DOCX và có document_id, sử dụng bộ trích xuất nâng cao tự viết
         if file_type_lower == "pdf" and document_id is not None:
@@ -115,6 +151,25 @@ class DocumentProcessor:
                 return self._extract_docx_multimodal(file_path, document_id)
             except Exception as e:
                 logger.error(f"Lỗi khi trích xuất DOCX đa phương thức nâng cao: {e}. Đang dùng fallback loader.")
+                
+        elif file_type_lower in ["png", "jpg", "jpeg"]:
+            try:
+                from app.services.vision_processor import VisionProcessor
+                vision_processor = VisionProcessor()
+                ocr_text = vision_processor.describe_image(file_path, llm_provider=self.vision_llm_provider)
+                logger.info(f"[DEBUG ocr_text] ocr_text length: {len(ocr_text)}, content: {ocr_text[:200]}")
+                if ocr_text.strip():
+                    return [{
+                        "content": ocr_text.strip(),
+                        "metadata": {
+                            "category": "narrative",
+                            "image_path": file_path,
+                            "element_type": "image"
+                        },
+                        "type": "image"
+                    }]
+            except Exception as e:
+                logger.error(f"Lỗi khi trích xuất ảnh trực tiếp bằng Vision LLM: {e}. Đang dùng fallback loader.")
         
         # Fallback về LangChain loaders cũ
         loader = self.get_loader(file_path, file_type)
@@ -196,8 +251,8 @@ class DocumentProcessor:
                     with open(img_path, "wb") as f_img:
                         f_img.write(image_bytes)
                     
-                    # Chạy OCR lấy chữ viết trong ảnh
-                    ocr_text = vision_processor.extract_text_from_image(img_path)
+                    # Chạy Vision LLM lấy chữ viết và mô tả ảnh
+                    ocr_text = vision_processor.describe_image(img_path, llm_provider=self.vision_llm_provider)
                     if ocr_text.strip():
                         image_descriptions.append(f"[Hình ảnh {img_idx + 1} từ trang {page_num}: {ocr_text.strip()}]")
                     else:
@@ -283,8 +338,8 @@ class DocumentProcessor:
                     with open(img_path, 'wb') as f_img:
                         f_img.write(img_data)
                     
-                    # Chạy OCR
-                    ocr_text = vision_processor.extract_text_from_image(img_path)
+                    # Chạy Vision LLM
+                    ocr_text = vision_processor.describe_image(img_path, llm_provider=self.vision_llm_provider)
                     if ocr_text.strip():
                         image_descriptions[media_file] = f"[Hình ảnh {idx + 1}: {ocr_text.strip()}]"
                     else:
