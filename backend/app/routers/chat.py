@@ -164,11 +164,46 @@ def delete_conversation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Không tìm thấy cuộc trò chuyện ID {conv_id}"
         )
-    
+        
+    # Lấy tất cả tin nhắn của người dùng trong cuộc hội thoại này để xóa Semantic Cache tương ứng
+    try:
+        from app.models.models import SemanticCache
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        
+        user_messages = db.query(Message).filter(
+            Message.conversation_id == conv_id,
+            Message.role == "user"
+        ).all()
+        
+        for msg in user_messages:
+            # query_text trong DB được lưu ở dạng "[style] {content}"
+            # Tìm tất cả các bản ghi cache chứa câu hỏi của tin nhắn này
+            matched_caches = db.query(SemanticCache).filter(
+                SemanticCache.query_text.like(f"%{msg.content}")
+            ).all()
+            
+            for cache in matched_caches:
+                # Xóa trên Redis
+                if cache_service.redis_client:
+                    try:
+                        # Xóa tất cả các style keys của cache_id này
+                        keys_to_delete = cache_service.redis_client.keys(f"semantic_cache:{cache.id}:*")
+                        keys_to_delete.append(f"semantic_cache:{cache.id}")
+                        for rkey in keys_to_delete:
+                            cache_service.redis_client.delete(rkey)
+                    except Exception as re:
+                        logger.warning(f"Lỗi khi xóa key trên Redis: {re}")
+                
+                # Xóa trên DB
+                db.delete(cache)
+    except Exception as e:
+        logger.error(f"Lỗi khi giải phóng semantic cache khi xóa hội thoại: {e}")
+        
     db.delete(conversation)
     db.commit()
     
-    return {"success": True, "message": "Đã xóa cuộc trò chuyện"}
+    return {"success": True, "message": "Đã xóa cuộc trò chuyện và giải phóng cache tương ứng"}
 
 
 
