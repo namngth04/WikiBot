@@ -66,7 +66,7 @@ services:
     container_name: wikibot-frontend
     restart: always
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     ports:
       - "80:3000"
     depends_on:
