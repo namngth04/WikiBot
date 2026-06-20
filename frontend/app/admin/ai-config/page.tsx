@@ -698,7 +698,7 @@ export default function AdminAIConfigPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-ink-muted">Provider</label>
               <div className="flex gap-2">
-                {['local', 'openrouter', 'openai', 'gemini'].map((p) => (
+                {['local', 'openrouter', 'openai', 'gemini', 'ollama'].map((p) => (
                   <button
                     key={p}
                     onClick={() => {
@@ -717,7 +717,7 @@ export default function AdminAIConfigPage() {
                       : 'bg-surface-2 text-ink-muted border border-hairline hover:bg-surface-3'
                       }`}
                   >
-                    {p === 'local' ? 'SentenceTransformer' : p === 'openrouter' ? 'OpenRouter' : p === 'openai' ? 'OpenAI' : 'Gemini'}
+                    {p === 'local' ? 'SentenceTransformer' : p === 'openrouter' ? 'OpenRouter' : p === 'openai' ? 'OpenAI' : p === 'gemini' ? 'Gemini' : 'Ollama'}
                   </button>
                 ))}
               </div>
