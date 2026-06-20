@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     model_context_length: int = 8192
     model_temperature: float = 0.2
     model_max_tokens: int = 1024
-    rag_max_distance: float = 0.65
+    rag_max_distance: float = 0.75
     rag_default_style: str = "concise"
     
     # Embedding
