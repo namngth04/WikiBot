@@ -157,6 +157,8 @@ def grade_documents_node(state: AgentState) -> Dict[str, Any]:
             "steps": steps
         }
 
+    query = state["query"]
+    
     if not documents:
         # Solution A: Limit rewrite count to 1
         needs_rewrite = rewrite_count < 1
@@ -181,7 +183,7 @@ def grade_documents_node(state: AgentState) -> Dict[str, Any]:
         prompt = f"""Bạn là một chuyên gia thẩm định tài liệu.
 Nhiệm vụ của bạn là đánh giá xem trong các đoạn tài liệu được cung cấp dưới đây, đoạn nào có chứa thông tin hữu ích giúp trả lời câu hỏi của người dùng.
 
-Câu hỏi người dùng: {original_query}
+Câu hỏi người dùng: {query}
 
 Danh sách các đoạn tài liệu cần đánh giá:
 {chunks_str}
