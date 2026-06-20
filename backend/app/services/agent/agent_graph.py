@@ -421,9 +421,18 @@ Trả lời từ chối lịch sự, ngắn gọn:"""
         context = response_gen.build_context_prompt(original_query, relevant_documents)
         system_prompt = response_gen.build_system_prompt(response_style)
         
+        # Thiết lập chỉ dẫn độ dài chặt chẽ tương ứng với từng phong cách
+        style_instruction = ""
+        if response_style == "concise":
+            style_instruction = "Yêu cầu đặc biệt về độ dài: Hãy trả lời cực kỳ NGẮN GỌN, đi thẳng vào đáp án/kết quả cuối cùng, tuyệt đối không giải thích dài dòng các bước trung gian hoặc lặp lại thông tin không cần thiết."
+        elif response_style == "detailed":
+            style_instruction = "Yêu cầu đặc biệt về độ dài: Hãy trả lời một cách CHI TIẾT, trình bày đầy đủ các bước tính toán, lập luận và phân tích cặn kẽ từ tài liệu."
+        else:  # normal
+            style_instruction = "Yêu cầu đặc biệt về độ dài: Hãy trả lời một cách BÌNH THƯỜNG, rõ ràng, đủ ý nhưng không viết quá dài."
+
         history_prompt_part = f"\nBối cảnh trò chuyện gần đây:\n{history_str}\n" if history_str else ""
         
-        prompt = f"""Dựa trên tài liệu được cung cấp và bối cảnh trò chuyện dưới đây, hãy trả lời câu hỏi của người dùng một cách chính xác, chân thực và đầy đủ nhất. Sau đó, gợi ý thêm đúng 3 câu hỏi tiếp theo liên quan nhất giúp người dùng làm rõ hoặc mở rộng vấn đề.
+        prompt = f"""Dựa trên tài liệu được cung cấp và bối cảnh trò chuyện dưới đây, hãy trả lời câu hỏi của người dùng một cách chính xác, chân thực. {style_instruction} Sau đó, gợi ý thêm đúng 3 câu hỏi tiếp theo liên quan nhất giúp người dùng làm rõ hoặc mở rộng vấn đề.
  
 Yêu cầu về trích dẫn: Khi trích dẫn thông tin, hãy gọi trực tiếp tên tài liệu nguồn (ví dụ: "Theo tài liệu A,..."), tuyệt đối không tự ghi ký hiệu "Đoạn X", "Chunk X" hay "Đoạn số X" vào câu trả lời của bạn.
 
