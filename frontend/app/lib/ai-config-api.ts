@@ -10,7 +10,7 @@ export interface AISafetyConfig {
 
 export interface AIProviderConfig {
   ai_type: 'chat' | 'embedding' | 'faq';
-  provider: 'local' | 'openrouter' | 'ollama';
+  provider: 'local' | 'openrouter' | 'ollama' | 'openai' | 'gemini';
   local_model_path?: string;
   local_context_length?: number;
   api_base_url?: string;
