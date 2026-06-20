@@ -54,7 +54,16 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     os.makedirs(settings.data_dir, exist_ok=True)
     
-    # Create database tables
+    # Create database tables (Ensure pgvector extension is enabled first)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+            logger.info("pgvector extension enabled successfully")
+    except Exception as e:
+        logger.warning(f"Failed to enable pgvector extension: {e}")
+
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables created")
     
