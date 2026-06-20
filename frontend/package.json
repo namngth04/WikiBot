@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "electron": "electron .",
-    "electron:dev": "concurrently \"next dev -p 3005\" \"wait-on http://127.0.0.1:3005 && electron .\""
+    "electron:dev": "concurrently \"next dev -p 3005\" \"wait-on http://127.0.0.1:3005 && electron .\"",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "autoprefixer": "^10.4.17",
@@ -33,6 +34,7 @@
     "@types/react-dom": "^18.2.18",
     "concurrently": "^9.2.1",
     "electron": "^42.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.4",
     "typescript": "^5.3.3",
@@ -40,5 +42,28 @@
   },
   "overrides": {
     "postcss": "^8.5.10"
+  },
+  "build": {
+    "appId": "com.wikibot.desktop",
+    "productName": "WikiBot",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/chatbot.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "files": [
+      "electron-main.js",
+      "electron-preload.js",
+      "assets/**/*",
+      "package.json"
+    ]
   }
 }

@@ -191,10 +191,10 @@ export default function ChatContainer({ className }: ChatContainerProps) {
         console.error('Failed to fetch active models for chat dropdown:', err);
       }
     };
-    if (user) {
+    if (user && currentSection === 'chat') {
       fetchActiveModels();
     }
-  }, [user, setSelectedModelId, selectedModelId]);
+  }, [user, setSelectedModelId, selectedModelId, currentSection]);
 
   useEffect(() => {
     // Handle suggested questions from MessageList and MessageItem
