@@ -1540,7 +1540,7 @@ def get_custom_llm_provider(model_id: int, db_session) -> BaseLLMProvider:
         "api_base_url": chat_model.api_base_url,
         "api_key": raw_api_key,
         "api_model": chat_model.api_model,
-        "timeout": 30,
+        "timeout": 120,
     }
     
     return ProviderRegistry.get_provider(cache_key, config)
