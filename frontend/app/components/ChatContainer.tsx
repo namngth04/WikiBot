@@ -30,7 +30,7 @@ interface ChatContainerProps {
 export default function ChatContainer({ className }: ChatContainerProps) {
   const router = useRouter();
   const { user, isAdmin, isCompanyAdmin, logout } = useAuth();
-  const isStaff = user?.user_type === 'employee' && user?.role?.level >= 2;
+  const isStaff = user?.user_type === 'employee' && (user?.role?.level ?? 0) >= 2;
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
