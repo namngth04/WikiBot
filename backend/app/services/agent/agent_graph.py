@@ -465,7 +465,7 @@ Câu trả lời & Câu hỏi gợi ý:"""
         
         raw_response = ""
         import re
-        delimiter_pattern = re.compile(r"(\n\s*---\s*\n\s*\[?SUGGESTIONS\]?.*)", re.IGNORECASE | re.DOTALL)
+        delimiter_pattern = re.compile(r"(\s*---\s*\n?\s*\[?SUGGESTIONS\]?.*)", re.IGNORECASE | re.DOTALL)
         potential_suffix_pattern = re.compile(r"(\n\s*-{1,3}\s*\[?[sSuUgGgGeEsStTiIoOnN]*)$")
         
         if stream_queue:
