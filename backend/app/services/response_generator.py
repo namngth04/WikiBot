@@ -392,10 +392,21 @@ HƯỚNG DẪN TRẢ LỜI:
             response_text = self._trim_redundant_sentences(response_text)
             response_text = self._remove_assistant_prefix(response_text)
             
-            # Escape dấu * toán học để tránh lỗi hiển thị Markdown
+            # Escape dấu * toán học để tránh lỗi hiển thị Markdown (giữ lại bold ** và bullet points * )
             if response_text:
                 import re
-                response_text = re.sub(r'([\d\)\.\,])\s*\*\s*([\d\(\.\,])', r'\1 \* \2', response_text)
+                lines = []
+                for line in response_text.split('\n'):
+                    stripped = line.lstrip()
+                    if stripped.startswith('* '):
+                        bullet_part = line[:len(line) - len(stripped)] + '* '
+                        content_part = stripped[2:]
+                        content_escaped = re.sub(r'(?<!\*)\*(?!\*)', r'\*', content_part)
+                        lines.append(bullet_part + content_escaped)
+                    else:
+                        line_escaped = re.sub(r'(?<!\*)\*(?!\*)', r'\*', line)
+                        lines.append(line_escaped)
+                response_text = '\n'.join(lines)
             
             # Robust Output Guardrails: Ngăn chặn tuyệt đối phản hồi trống rỗng
             if not response_text or not response_text.strip():

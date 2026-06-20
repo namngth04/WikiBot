@@ -516,7 +516,18 @@ Câu trả lời & Câu hỏi gợi ý:"""
         answer = raw_response
         if answer:
             import re
-            answer = re.sub(r'([\d\)\.\,])\s*\*\s*([\d\(\.\,])', r'\1 \* \2', answer)
+            lines = []
+            for line in answer.split('\n'):
+                stripped = line.lstrip()
+                if stripped.startswith('* '):
+                    bullet_part = line[:len(line) - len(stripped)] + '* '
+                    content_part = stripped[2:]
+                    content_escaped = re.sub(r'(?<!\*)\*(?!\*)', r'\*', content_part)
+                    lines.append(bullet_part + content_escaped)
+                else:
+                    line_escaped = re.sub(r'(?<!\*)\*(?!\*)', r'\*', line)
+                    lines.append(line_escaped)
+            answer = '\n'.join(lines)
             
         suggested_questions = []
         
