@@ -1,0 +1,84 @@
+services:
+  db:
+    image: ankane/pgvector:v0.5.1
+    container_name: wikibot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: wikibot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wikibot-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wikibot-backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/wikibot
+      - LOCAL_DB_TYPE=postgresql
+      - OFFLINE_MODE=False
+      - ENVIRONMENT=production
+      - JWT_SECRET_KEY=0bVV?R*M*_3+17GjWc1CYL^uf>-_1Av7D;02vjqqF1X?=W39R8op^%Ng=.a=+R~g
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - wikibot-network
+    healthcheck:
+      test: [ "CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:alpine
+    container_name: wikibot-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - wikibot-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: wikibot-frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - wikibot-network
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_uploads:
+    driver: local
+
+networks:
+  wikibot-network:
+    driver: bridge
