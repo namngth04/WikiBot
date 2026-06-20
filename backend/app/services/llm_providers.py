@@ -597,21 +597,34 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         return self._client
     
     def encode(self, texts: List[str], images: Optional[List[str]] = None) -> List[List[float]]:
-        """Encode texts and/or images using OpenAI API
+        """Encode texts and/or images using OpenAI API Enforcing 2048 dimensions
         
         Args:
             texts: List of text strings
             images: Optional list of image paths (for multimodal models)
         
         Returns:
-            List of embedding vectors
+            List of embedding vectors padded or truncated to 2048 dimensions
         """
         # If not multimodal or no images provided, use text-only encoding
         if not self.is_multimodal or not images:
-            return self._encode_text_only(texts)
-        
-        # Use multimodal encoding
-        return self._encode_multimodal(texts, images)
+            raw_embeddings = self._encode_text_only(texts)
+        else:
+            # Use multimodal encoding
+            raw_embeddings = self._encode_multimodal(texts, images)
+
+        # Pad or truncate to exactly 2048 dimensions for pgvector column compatibility
+        processed_embeddings = []
+        for vector in raw_embeddings:
+            if not vector:
+                vector = [0.0] * 2048
+            elif len(vector) < 2048:
+                vector = vector + [0.0] * (2048 - len(vector))
+            elif len(vector) > 2048:
+                vector = vector[:2048]
+            processed_embeddings.append(vector)
+
+        return processed_embeddings
     
     def _encode_text_only(self, texts: List[str]) -> List[List[float]]:
         """Encode texts using OpenAI API (text-only)"""
