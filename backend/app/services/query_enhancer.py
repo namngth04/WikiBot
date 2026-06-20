@@ -34,22 +34,34 @@ class QueryEnhancer:
             
         return cleaned
     
-    def enhance_query(self, query: str) -> Dict[str, Any]:
+    def enhance_query(self, query: str, conversation_history: list = None) -> Dict[str, Any]:
         """Enhance query with rewrite, decomposition, intent classification, and expansion in one LLM call"""
+        context_str = ""
+        if conversation_history:
+            # Lấy tối đa 4 lượt tin nhắn gần nhất
+            recent_turns = conversation_history[-8:]
+            context_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in recent_turns])
+            
         prompt = f"""Phân tích và xử lý câu hỏi sau. Trả lời dưới dạng JSON:
-
-Câu hỏi gốc: {query}
-
+"""
+        if context_str:
+            prompt += f"""
+Bối cảnh hội thoại trước đó (Dùng bối cảnh này để hiểu ý định thực tế của các câu hỏi tiếp nối ngắn gọn như "tại sao", "như thế nào", "giải thích thêm", v.v.):
+{context_str}
+"""
+        prompt += f"""
+Câu hỏi hiện tại của người dùng: {query}
+ 
 Yêu cầu:
-1. rewritten: Viết lại câu hỏi cho rõ ràng, chính xác hơn bằng tiếng Việt.
-2. intent: Phân loại ý định của câu hỏi vào một trong ba nhóm duy nhất:
+1. rewritten: Viết lại câu hỏi hiện tại cho rõ ràng, đầy đủ ý nghĩa (sử dụng bối cảnh hội thoại trước đó nếu đây là câu hỏi tiếp nối).
+2. intent: Phân loại ý định của câu hỏi hiện tại vào một trong ba nhóm duy nhất:
    - "greeting": Các câu chào hỏi xã giao, cảm ơn, tạm biệt, hỏi thăm sức khỏe bot (ví dụ: "xin chào", "bạn khỏe không", "tạm biệt", "cảm ơn bạn", "hello bot").
    - "out_of_domain": Các câu hỏi ngoài phạm vi tài liệu nghiệp vụ nội bộ công ty (ví dụ: thời tiết hôm nay thế nào, giá vàng hôm nay bao nhiêu, tin tức thời sự thế giới, công thức toán học, thơ ca, lướt web, v.v.).
-   - "rag": Các câu hỏi tra cứu quy định, tài liệu, hướng dẫn nghiệp vụ nội bộ doanh nghiệp (ví dụ: quy định nghỉ phép, chế độ bảo hiểm, thủ tục tạm ứng, hướng dẫn kỹ thuật...).
+   - "rag": Các câu hỏi tra cứu quy định, tài liệu, hướng dẫn nghiệp vụ nội bộ doanh nghiệp (ví dụ: quy định nghỉ phép, chế độ bảo hiểm, thủ tục tạm ứng, hướng dẫn kỹ thuật...). Nếu câu hỏi hiện tại là câu hỏi tiếp nối bổ sung ý cho bối cảnh RAG trước đó (như "tại sao", "ở đâu", "giải thích"), ý định vẫn phải phân loại là "rag".
 3. is_complex: Câu hỏi có phức tạp không? (true/false)
 4. sub_queries: Nếu phức tạp, chia thành các câu hỏi con. Nếu đơn giản, trả về câu hỏi đã viết lại.
 5. variations: Tạo 2-3 câu hỏi tương đương dùng từ khác nhưng cùng ý nghĩa.
-
+ 
 Trả lời JSON:
 {{
     "rewritten": "câu hỏi đã viết lại",

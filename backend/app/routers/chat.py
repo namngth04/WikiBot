@@ -444,7 +444,11 @@ async def send_message_stream(
 
     # 2. Chỉ khi trượt cả FAQ và Cache, ta mới gọi QueryEnhancer (LLM) để phân loại ý định
     try:
-        enhanced = response_gen.query_enhancer.enhance_query(request.message)
+        # Lấy lịch sử hội thoại trước đó (loại trừ câu hỏi hiện tại vừa lưu vào DB)
+        history_list = [{"role": m.role, "content": m.content} for m in history]
+        if history_list and history_list[-1]["role"] == "user" and history_list[-1]["content"] == request.message:
+            history_list.pop()
+        enhanced = response_gen.query_enhancer.enhance_query(request.message, conversation_history=history_list)
     except Exception as e:
         logger.error(f"Error during query enhancement with model {request.model_id}: {e}", exc_info=True)
         raise HTTPException(
