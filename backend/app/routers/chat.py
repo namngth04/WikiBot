@@ -191,9 +191,9 @@ async def send_message_stream(
     # Quota Guard for Free Tier (Personal & Corporate) - Exempt system admin
     is_admin = current_user.role and current_user.role.level == 0
     if not is_admin:
-        from datetime import datetime, time as datetime_time
-        today = datetime.utcnow().date()
-        start_of_today = datetime.combine(today, datetime_time.min)
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        questions_used = cache_service.get_user_quota_used(current_user.id, current_user.tenant_id)
         
         if current_user.tenant_id is not None:
             company_admin = db.query(User).filter(
@@ -202,31 +202,17 @@ async def send_message_stream(
             ).first()
             is_free = (company_admin.subscription_tier == "free") if company_admin else True
             
-            if is_free:
-                questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
-                    User.tenant_id == current_user.tenant_id,
-                    Message.role == "user",
-                    Message.created_at >= start_of_today
-                ).count()
-                
-                if questions_used >= 10:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
-                    )
+            if is_free and questions_used >= 10:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
+                )
         else:
-            if current_user.subscription_tier == "free":
-                questions_used = db.query(Message).join(Conversation).filter(
-                    Conversation.user_id == current_user.id,
-                    Message.role == "user",
-                    Message.created_at >= start_of_today
-                ).count()
-                
-                if questions_used >= 10:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
-                    )
+            if current_user.subscription_tier == "free" and questions_used >= 10:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
+                )
 
     # Get or create conversation
     if request.conversation_id:
@@ -398,6 +384,7 @@ async def send_message_stream(
     cache_service = SemanticCacheService(db)
     cached_response, cached_sources, cached_associated_doc_ids = cache_service.lookup(
         query=request.message,
+        response_style=final_response_style,
         threshold=0.95,
         current_user_id=current_user.id,
         current_user_type=current_user.user_type,
@@ -665,8 +652,12 @@ async def send_message_stream(
                     query=request.message,
                     response=assistant_content,
                     associated_document_ids=associated_doc_ids,
+                    response_style=final_response_style,
                     sources=sources_data
                 )
+            
+            # Tăng quota đã dùng hôm nay trên Redis
+            cache_service.increment_user_quota(current_user.id, current_user.tenant_id)
                 
             final_payload = {
                 "type": "final_success",
@@ -712,9 +703,9 @@ def send_message(
     # Quota Guard for Free Tier (Personal & Corporate) - Exempt system admin
     is_admin = current_user.role and current_user.role.level == 0
     if not is_admin:
-        from datetime import datetime, time as datetime_time
-        today = datetime.utcnow().date()
-        start_of_today = datetime.combine(today, datetime_time.min)
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        questions_used = cache_service.get_user_quota_used(current_user.id, current_user.tenant_id)
         
         if current_user.tenant_id is not None:
             company_admin = db.query(User).filter(
@@ -723,31 +714,17 @@ def send_message(
             ).first()
             is_free = (company_admin.subscription_tier == "free") if company_admin else True
             
-            if is_free:
-                questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
-                    User.tenant_id == current_user.tenant_id,
-                    Message.role == "user",
-                    Message.created_at >= start_of_today
-                ).count()
-                
-                if questions_used >= 10:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
-                    )
+            if is_free and questions_used >= 10:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Doanh nghiệp của bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng liên hệ Admin doanh nghiệp nâng cấp lên gói Pro để tiếp tục sử dụng không giới hạn."
+                )
         else:
-            if current_user.subscription_tier == "free":
-                questions_used = db.query(Message).join(Conversation).filter(
-                    Conversation.user_id == current_user.id,
-                    Message.role == "user",
-                    Message.created_at >= start_of_today
-                ).count()
-                
-                if questions_used >= 10:
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
-                    )
+            if current_user.subscription_tier == "free" and questions_used >= 10:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Bạn đã sử dụng hết hạn ngạch 10 câu hỏi/ngày của gói Free. Vui lòng nâng cấp lên gói Pro để tiếp tục trò chuyện không giới hạn."
+                )
 
     # Get or create conversation
     if request.conversation_id:
@@ -908,6 +885,7 @@ def send_message(
         # We query the cache with a 0.95 similarity threshold
         cached_response, cached_sources, cached_associated_doc_ids = cache_service.lookup(
             query=request.message,
+            response_style=final_response_style,
             threshold=0.95,
             current_user_id=current_user.id,
             current_user_type=current_user.user_type,
@@ -1109,8 +1087,12 @@ def send_message(
                 query=request.message,
                 response=result_state["generation"],
                 associated_document_ids=associated_doc_ids,
+                response_style=final_response_style,
                 sources=sources_data
             )
+        
+        # Tăng quota đã dùng hôm nay trên Redis
+        cache_service.increment_user_quota(current_user.id, current_user.tenant_id)
             
         # Update conversation timestamp
         conversation.updated_at = db.query(Message).filter(

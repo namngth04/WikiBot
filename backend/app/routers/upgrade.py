@@ -203,15 +203,10 @@ def get_user_quota(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's SaaS tier quota and consumption statistics"""
-    # 1. Đếm số câu hỏi đã dùng hôm nay (role = 'user' trong ngày hôm nay)
-    today = datetime.utcnow().date()
-    start_of_today = datetime.combine(today, datetime_time.min)
-    
-    questions_used = db.query(Message).join(Conversation).filter(
-        Conversation.user_id == current_user.id,
-        Message.role == "user",
-        Message.created_at >= start_of_today
-    ).count()
+    # 1. Đếm số câu hỏi đã dùng hôm nay (sử dụng Redis + DB fallback)
+    from app.services.semantic_cache import SemanticCacheService
+    cache_service = SemanticCacheService(db)
+    questions_used = cache_service.get_user_quota_used(current_user.id, current_user.tenant_id)
     
     # 2. Đếm số tài liệu đã tải lên và còn active
     documents_used = db.query(Document).filter(
@@ -250,11 +245,9 @@ def get_user_quota(
             Document.is_active == True
         ).count()
         
-        questions_used = db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
-            User.tenant_id == current_user.tenant_id,
-            Message.role == "user",
-            Message.created_at >= start_of_today
-        ).count()
+        from app.services.semantic_cache import SemanticCacheService
+        cache_service = SemanticCacheService(db)
+        questions_used = cache_service.get_user_quota_used(current_user.id, current_user.tenant_id)
         
         if is_free:
             return QuotaResponse(

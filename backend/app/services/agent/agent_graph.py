@@ -329,6 +329,11 @@ def generate_node(state: AgentState) -> Dict[str, Any]:
         response_gen = ResponseGenerator(db=db, model_id=state.get("model_id"))
         llm = response_gen.llm_provider
         
+        # Resolve dynamic temperature and max_tokens based on response style
+        temperature, resolved_max_tokens = response_gen._resolve_generation_profile(response_style, max_tokens)
+        max_tokens_to_use = resolved_max_tokens + 200
+
+        
         import asyncio
         # Lấy loop từ state hoặc tìm loop đang chạy an toàn, tránh lỗi khi gọi get_event_loop() trên thread phụ
         loop = state.get("loop")
@@ -457,7 +462,7 @@ Câu trả lời & Câu hỏi gợi ý:"""
             sent_length = 0
             stop_streaming = False
             if hasattr(llm, "generate_stream"):
-                for chunk in llm.generate_stream(prompt, temperature=0.2, max_tokens=max_tokens + 200, system_prompt=system_prompt):
+                for chunk in llm.generate_stream(prompt, temperature=temperature, max_tokens=max_tokens_to_use, system_prompt=system_prompt):
                     raw_response += chunk
                     
                     # Check for suggestions separator and prevent streaming raw suggestions text to client
@@ -491,12 +496,12 @@ Câu trả lời & Câu hỏi gợi ý:"""
                     put_to_queue({"type": "token", "content": to_send})
                     sent_length = len(raw_response)
             else:
-                raw_response = llm.generate(prompt, temperature=0.2, max_tokens=max_tokens + 200, system_prompt=system_prompt)
+                raw_response = llm.generate(prompt, temperature=temperature, max_tokens=max_tokens_to_use, system_prompt=system_prompt)
                 match = delimiter_pattern.search(raw_response)
                 answer_part = raw_response[:match.start()] if match else raw_response
                 put_to_queue({"type": "token", "content": answer_part})
         else:
-            raw_response = llm.generate(prompt, temperature=0.2, max_tokens=max_tokens + 200, system_prompt=system_prompt)
+            raw_response = llm.generate(prompt, temperature=temperature, max_tokens=max_tokens_to_use, system_prompt=system_prompt)
             
         # Bóc tách câu trả lời và câu hỏi gợi ý
         answer = raw_response

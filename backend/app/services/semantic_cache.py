@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.core.config import get_settings
-from app.models.models import SemanticCache
+from app.models.models import SemanticCache, Document
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ class SemanticCacheService:
     def lookup(
         self, 
         query: str, 
+        response_style: str = "concise",
         threshold: float = 0.95,
         current_user_id: Optional[int] = None,
         current_user_type: Optional[str] = "personal",
@@ -75,7 +76,7 @@ class SemanticCacheService:
             return None, None, None
             
         try:
-            # 1. Sinh vector của câu hỏi
+            # 1. Sinh vector của câu hỏi gốc (không chứa tiền tố style để vector đồng đều)
             query_vector = self.get_embedding(query)
             
             # 2. Truy vấn tương đồng ngữ nghĩa bằng pgvector trên PostgreSQL
@@ -90,19 +91,41 @@ class SemanticCacheService:
             
             results = self.db.execute(stmt, {"vector": str(query_vector), "threshold": threshold}).fetchall()
             
+            # Lọc các kết quả khớp đúng với response_style hiện tại
+            expected_prefix = f"[{response_style}] "
+            filtered_results = []
             for result in results:
                 cache_id, matched_query, response_text, associated_doc_ids, similarity = result
+                if matched_query.startswith(expected_prefix):
+                    filtered_results.append(result)
+            
+            for result in filtered_results:
+                cache_id, matched_query, response_text, associated_doc_ids, similarity = result
+                
+                # Chuyển đổi associated_doc_ids từ chuỗi JSON nếu là SQLite
+                if isinstance(associated_doc_ids, str):
+                    try:
+                        associated_doc_ids = json.loads(associated_doc_ids)
+                    except:
+                        pass
                 
                 # 2.5. Kiểm tra quyền truy cập (RBAC + Tenant Isolation) đối với associated_document_ids
-                if associated_doc_ids:
-                    # Tự động phát hiện và hủy bỏ cache lỗi thời nếu tài liệu liên quan không còn tồn tại trong DB
-                    doc_check_stmt = text("SELECT id FROM documents WHERE id = ANY(:ids) AND is_active = True")
-                    active_docs = self.db.execute(doc_check_stmt, {"ids": associated_doc_ids}).fetchall()
+                if associated_doc_ids and isinstance(associated_doc_ids, list):
+                    # Tự động phát hiện và hủy bỏ cache lỗi thời nếu tài liệu liên quan không còn tồn tại trong DB (sử dụng ORM an toàn cho mọi DB)
+                    active_docs = self.db.query(Document.id).filter(
+                        Document.id.in_(associated_doc_ids),
+                        Document.is_active == True
+                    ).all()
+                    
                     if len(active_docs) < len(associated_doc_ids):
                         logger.warning(f"[Semantic Cache] Hủy bỏ và xóa cache ID {cache_id} do có tài liệu liên kết đã bị xóa khỏi hệ thống.")
                         if self.redis_client:
                             try:
-                                self.redis_client.delete(f"semantic_cache:{cache_id}")
+                                # Xóa toàn bộ key của cache_id này trên Redis
+                                keys_to_del = self.redis_client.keys(f"semantic_cache:{cache_id}:*")
+                                keys_to_del.append(f"semantic_cache:{cache_id}")
+                                for rk in keys_to_del:
+                                    self.redis_client.delete(rk)
                             except Exception as re:
                                 logger.warning(f"Lỗi khi xóa key trên Redis: {re}")
                         self.db.execute(
@@ -111,40 +134,31 @@ class SemanticCacheService:
                         )
                         self.db.commit()
                         continue
- 
+  
                     # Nếu là superadmin thì bỏ qua kiểm tra quyền (được phép truy cập mọi tài liệu)
                     if current_user_type != "superadmin":
-                        # Xây dựng câu lệnh kiểm tra quyền truy cập
-                        # Tìm xem trong số document_ids của cache, có tài liệu nào người dùng không được truy cập hay không
-                        # Nếu có bất kỳ tài liệu nào người dùng không được truy cập -> chuyển sang cache tiếp theo
+                        # Xây dựng truy vấn kiểm tra quyền truy cập bằng SQLAlchemy ORM tương thích chéo cơ sở dữ liệu
                         if current_user_type == "personal":
-                            rbac_stmt = text("""
-                                SELECT id FROM documents
-                                WHERE id = ANY(:ids) AND is_active = True
-                                AND (uploaded_by = :user_id OR (:receive_community = True AND is_public_community = True))
-                            """)
+                            allowed_docs = self.db.query(Document.id).filter(
+                                Document.id.in_(associated_doc_ids),
+                                Document.is_active == True,
+                                (Document.uploaded_by == current_user_id) | 
+                                ((receive_community == True) & (Document.is_public_community == True))
+                            ).all()
                         else:
                             role_ids = [x for x in (accessible_role_ids or []) if x is not None]
                             if 0 not in role_ids:
                                 role_ids.append(0)
-                            rbac_stmt = text("""
-                                SELECT id FROM documents
-                                WHERE id = ANY(:ids) AND is_active = True
-                                AND (
-                                    (tenant_id = :tenant_id AND (role_id = ANY(:role_ids) OR role_id IS NULL))
-                                    OR (:receive_community = True AND is_public_community = True)
-                                )
-                            """)
+                            allowed_docs = self.db.query(Document.id).filter(
+                                Document.id.in_(associated_doc_ids),
+                                Document.is_active == True,
+                                (
+                                    (Document.tenant_id == current_user_tenant_id) & 
+                                    ((Document.role_id.in_(role_ids)) | (Document.role_id.is_(None)))
+                                ) |
+                                ((receive_community == True) & (Document.is_public_community == True))
+                            ).all()
                             
-                        # Thực thi query kiểm tra
-                        params = {
-                            "ids": associated_doc_ids,
-                            "user_id": current_user_id,
-                            "tenant_id": current_user_tenant_id,
-                            "role_ids": role_ids if current_user_type != "personal" else [],
-                            "receive_community": receive_community
-                        }
-                        allowed_docs = self.db.execute(rbac_stmt, params).fetchall()
                         allowed_doc_ids = {doc.id for doc in allowed_docs}
                         
                         # Nếu số lượng tài liệu được phép truy cập ít hơn số lượng tài liệu liên quan của cache
@@ -153,7 +167,9 @@ class SemanticCacheService:
                             logger.warning(f"[Semantic Cache] Bỏ qua cache ID {cache_id} do người dùng không có quyền truy cập vào tất cả các tài liệu liên quan: {associated_doc_ids}")
                             continue
                 
-                logger.info(f"Tìm thấy tương đồng ngữ nghĩa: '{matched_query}' (Độ tương đồng: {similarity:.4f}).")
+                # Trích xuất matched_query gốc (bỏ đi tiền tố style) để ghi log
+                display_query = matched_query[len(expected_prefix):]
+                logger.info(f"Tìm thấy tương đồng ngữ nghĩa: '{display_query}' [Phong cách: {response_style}] (Độ tương đồng: {similarity:.4f}).")
                 
                 # Cập nhật số lần chạm cache (hits)
                 self.db.execute(
@@ -162,25 +178,23 @@ class SemanticCacheService:
                 )
                 self.db.commit()
                 
-                # 3. Thử lấy dữ liệu nhanh từ Redis Cache
-                redis_key = f"semantic_cache:{cache_id}"
+                # 3. Thử lấy dữ liệu nhanh từ Redis Cache theo phong cách tương ứng
+                redis_key = f"semantic_cache:{cache_id}:{response_style}"
                 if self.redis_client:
                     try:
                         cached_data = self.redis_client.get(redis_key)
                         if cached_data:
-                            logger.info("Đọc câu trả lời siêu tốc từ Redis Cache thành công.")
+                            logger.info(f"Đọc câu trả lời siêu tốc từ Redis Cache thành công [Phong cách: {response_style}].")
                             parsed = json.loads(cached_data)
                             return parsed.get("response"), parsed.get("sources"), associated_doc_ids
                     except Exception as re:
                         logger.warning(f"Lỗi khi đọc từ Redis Cache: {re}")
                 
                 # Nếu Redis bị lỗi hoặc không có, fallback trả về trực tiếp từ PostgreSQL
-                # Trích xuất nguồn tài liệu liên quan mẫu nếu có
                 sources = []
                 if associated_doc_ids:
                     # Truy vấn nhanh tên file nguồn tham khảo để đồng bộ hiển thị trên UI
-                    doc_stmt = text("SELECT id, original_name FROM documents WHERE id = ANY(:ids)")
-                    docs = self.db.execute(doc_stmt, {"ids": associated_doc_ids}).fetchall()
+                    docs = self.db.query(Document.id, Document.original_name).filter(Document.id.in_(associated_doc_ids)).all()
                     sources = [{
                         "source": doc.original_name,
                         "document_id": doc.id,
@@ -191,22 +205,22 @@ class SemanticCacheService:
                 return response_text, sources, associated_doc_ids
                 
         except Exception as e:
-            logger.error(f"Lỗi trong quá trình tra cứu Semantic Cache: {e}")
+            logger.error(f"Lỗi trong quá trình tra cứu Semantic Cache: {e}", exc_info=True)
             
         return None, None, None
 
-    def store(self, query: str, response: str, associated_document_ids: List[int], sources: Optional[List[dict]] = None) -> None:
-        """Lưu câu trả lời mới kèm embedding và metadata vào Cache"""
+    def store(self, query: str, response: str, associated_document_ids: List[int], response_style: str = "concise", sources: Optional[List[dict]] = None) -> None:
+        """Lưu câu trả lời mới kèm embedding, response_style và metadata vào Cache"""
         if not self.db:
             return
             
         try:
-            # 1. Sinh vector của câu hỏi
+            # 1. Sinh vector của câu hỏi gốc (không tiền tố)
             query_vector = self.get_embedding(query)
             
-            # 2. Lưu vào PostgreSQL để lưu trữ lâu dài
+            # 2. Lưu vào PostgreSQL để lưu trữ lâu dài (thêm tiền tố response_style vào query_text)
             db_cache = SemanticCache(
-                query_text=query,
+                query_text=f"[{response_style}] {query}",
                 response_text=response,
                 embedding=query_vector,
                 associated_document_ids=associated_document_ids,
@@ -216,9 +230,9 @@ class SemanticCacheService:
             self.db.commit()
             self.db.refresh(db_cache)
             
-            # 3. Đồng bộ lưu nhanh vào Redis Cache dạng JSON string với thời gian sống (TTL) 7 ngày
+            # 3. Đồng bộ lưu nhanh vào Redis Cache dạng JSON string phân biệt theo phong cách trả lời, với TTL 7 ngày
             if self.redis_client:
-                redis_key = f"semantic_cache:{db_cache.id}"
+                redis_key = f"semantic_cache:{db_cache.id}:{response_style}"
                 cache_payload = {
                     "response": response,
                     "sources": sources or []
@@ -229,7 +243,7 @@ class SemanticCacheService:
                         60 * 60 * 24 * 7,  # 7 ngày
                         json.dumps(cache_payload)
                     )
-                    logger.info("Lưu câu trả lời vào Redis Cache thành công.")
+                    logger.info(f"Lưu câu trả lời vào Redis Cache thành công [Phong cách: {response_style}].")
                 except Exception as re:
                     logger.warning(f"Không thể ghi dữ liệu vào Redis Cache: {re}")
                     
@@ -252,18 +266,28 @@ class SemanticCacheService:
             
             for cache in caches:
                 # associated_document_ids là trường JSON chứa danh sách ID [doc_id_1, doc_id_2, ...]
-                if cache.associated_document_ids and isinstance(cache.associated_document_ids, list):
-                    if document_id in cache.associated_document_ids:
+                assoc_ids = cache.associated_document_ids
+                if isinstance(assoc_ids, str):
+                    try:
+                        assoc_ids = json.loads(assoc_ids)
+                    except:
+                        continue
+                if assoc_ids and isinstance(assoc_ids, list):
+                    if document_id in assoc_ids:
                         cache_ids.append(cache.id)
             
             if not cache_ids:
                 return 0
                 
-            # 2. Xóa các Key tương ứng trên Redis Cache
+            # 2. Xóa tất cả các Key tương ứng trên Redis Cache (không phân biệt phong cách)
             if self.redis_client:
                 for cid in cache_ids:
                     try:
-                        self.redis_client.delete(f"semantic_cache:{cid}")
+                        # Quét tất cả các style keys của cache_id này
+                        keys_to_delete = self.redis_client.keys(f"semantic_cache:{cid}:*")
+                        keys_to_delete.append(f"semantic_cache:{cid}")
+                        for rkey in keys_to_delete:
+                            self.redis_client.delete(rkey)
                     except Exception as re:
                         logger.warning(f"Lỗi khi xóa key trên Redis: {re}")
                         
@@ -280,3 +304,70 @@ class SemanticCacheService:
             self.db.rollback()
             
         return 0
+
+    def get_user_quota_used(self, user_id: int, tenant_id: Optional[int]) -> int:
+        """Lấy số câu hỏi đã sử dụng trong ngày hôm nay (từ Redis hoặc fallback DB)"""
+        from datetime import datetime, time as datetime_time
+        from app.models.models import Message, Conversation, User
+        
+        today = datetime.utcnow().date()
+        today_str = today.strftime("%Y-%m-%d")
+        
+        # 1. Thử lấy từ Redis
+        if self.redis_client:
+            if tenant_id is not None:
+                key = f"quota:tenant:{tenant_id}:{today_str}"
+            else:
+                key = f"quota:user:{user_id}:{today_str}"
+            try:
+                val = self.redis_client.get(key)
+                if val is not None:
+                    return int(val)
+            except Exception as e:
+                logger.warning(f"Failed to get daily quota from Redis: {e}")
+                
+        # 2. Fallback về database (đếm số message đang có trong DB)
+        start_of_today = datetime.combine(today, datetime_time.min)
+        if tenant_id is not None:
+            questions_used = self.db.query(Message).join(Conversation).join(User, Conversation.user_id == User.id).filter(
+                User.tenant_id == tenant_id,
+                Message.role == "user",
+                Message.created_at >= start_of_today
+            ).count()
+        else:
+            questions_used = self.db.query(Message).join(Conversation).filter(
+                Conversation.user_id == user_id,
+                Message.role == "user",
+                Message.created_at >= start_of_today
+            ).count()
+            
+        # Cập nhật ngược lại Redis để đồng bộ (TTL 24 giờ)
+        if self.redis_client:
+            try:
+                if tenant_id is not None:
+                    key = f"quota:tenant:{tenant_id}:{today_str}"
+                else:
+                    key = f"quota:user:{user_id}:{today_str}"
+                self.redis_client.setex(key, 86400, questions_used)
+            except Exception as e:
+                pass
+                
+        return questions_used
+
+    def increment_user_quota(self, user_id: int, tenant_id: Optional[int]) -> None:
+        """Tăng bộ đếm câu hỏi hàng ngày trên Redis và đồng bộ hóa"""
+        if not self.redis_client:
+            return
+        from datetime import datetime
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        if tenant_id is not None:
+            key = f"quota:tenant:{tenant_id}:{today_str}"
+        else:
+            key = f"quota:user:{user_id}:{today_str}"
+        try:
+            # Tăng thêm 1
+            self.redis_client.incr(key)
+            # Thiết lập thời gian sống (TTL) 24h
+            self.redis_client.expire(key, 86400)
+        except Exception as e:
+            logger.warning(f"Failed to increment daily quota in Redis: {e}")
