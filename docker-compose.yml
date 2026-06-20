@@ -32,6 +32,7 @@ services:
       - ENVIRONMENT=production
       - JWT_SECRET_KEY=0bVV?R*M*_3+17GjWc1CYL^uf>-_1Av7D;02vjqqF1X?=W39R8op^%Ng=.a=+R~g
       - REDIS_HOST=redis
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     ports:
       - "8000:8000"
     volumes:
