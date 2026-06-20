@@ -83,17 +83,18 @@ class DocumentProcessor:
             from app.models.models import ChatModel
             from app.services.llm_providers import get_custom_llm_provider
             
-            gemini_model = db_session.query(ChatModel).filter(
-                ChatModel.provider == "gemini",
+            # 1. Tìm mô hình ChatModel nào đang kích hoạt (is_active == True)
+            active_model = db_session.query(ChatModel).filter(
                 ChatModel.is_active == True
             ).first()
-            if gemini_model:
-                self._vision_llm_provider = get_custom_llm_provider(gemini_model.id, db_session)
-                logger.info(f"[Vision LLM Auto-Detect] Found active Gemini model for Vision: {gemini_model.name}")
+            if active_model:
+                self._vision_llm_provider = get_custom_llm_provider(active_model.id, db_session)
+                logger.info(f"[Vision LLM Auto-Detect] Found active ChatModel for Vision: {active_model.name} (provider: {active_model.provider})")
             else:
+                # 2. Fallback về cấu hình mặc định của hệ thống
                 self._vision_llm_provider = self.llm_provider
         except Exception as e:
-            logger.warning(f"Could not auto-detect Gemini model for Vision: {e}")
+            logger.warning(f"Could not auto-detect active ChatModel for Vision: {e}")
             self._vision_llm_provider = self.llm_provider
         finally:
             if close_session:
