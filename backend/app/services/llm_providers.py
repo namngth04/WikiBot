@@ -1337,8 +1337,12 @@ class ProviderFactory:
             print(f"[DEBUG ProviderFactory] API Key decryption result: {'Success' if api_key != config.get('api_key') else 'Failed/Bypassed'}")
             print(f"[DEBUG ProviderFactory] Final API Key starts with: {api_key[:10]}...")
             
+            base_url = config.get("api_base_url", "")
+            if provider_type == "ollama" and base_url and not base_url.endswith("/v1"):
+                base_url = base_url.rstrip("/") + "/v1"
+                
             return OpenAIEmbeddingProvider(
-                base_url=config["api_base_url"],
+                base_url=base_url,
                 api_key=api_key,
                 model=config.get("api_model", "text-embedding-3-small"),
                 timeout=config.get("timeout", 30),
