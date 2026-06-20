@@ -162,7 +162,7 @@ export default function ModelsPage() {
                           onClick={() => {
                             const defaultUrls: Record<string, string> = {
                               openrouter: 'https://openrouter.ai/api/v1',
-                              ollama: 'http://localhost:11434',
+                              ollama: 'http://172.17.0.1:11434',
                               openai: 'https://api.openai.com/v1',
                               gemini: ''
                             };

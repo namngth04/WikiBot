@@ -22,7 +22,7 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
   openai: 'https://api.openai.com/v1',
   openrouter: 'https://openrouter.ai/api/v1',
   gemini: '',
-  ollama: 'http://localhost:11434'
+  ollama: 'http://172.17.0.1:11434'
 };
 
 export default function ModelFormModal({ isOpen, onClose, onSave, model }: ModelFormModalProps) {

@@ -34,12 +34,12 @@ export default function AdminAIConfigPage() {
     response_style: 'concise',
     show_sources: true,
     preferred_max_tokens: 512,
-    ollama_endpoint: 'http://localhost:11434',
+    ollama_endpoint: 'http://172.17.0.1:11434',
   });
 
   const DEFAULT_BASE_URLS = {
     openrouter: 'https://openrouter.ai/api/v1',
-    ollama: 'http://localhost:11434',
+    ollama: 'http://172.17.0.1:11434',
     openai: 'https://api.openai.com/v1',
     gemini: ''
   };
