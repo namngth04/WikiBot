@@ -143,7 +143,7 @@ class SemanticCacheService:
                                 Document.id.in_(associated_doc_ids),
                                 Document.is_active == True,
                                 (Document.uploaded_by == current_user_id) | 
-                                ((receive_community == True) & (Document.is_public_community == True))
+                                (Document.is_public_community == True if receive_community else False)
                             ).all()
                         else:
                             role_ids = [x for x in (accessible_role_ids or []) if x is not None]
@@ -156,7 +156,7 @@ class SemanticCacheService:
                                     (Document.tenant_id == current_user_tenant_id) & 
                                     ((Document.role_id.in_(role_ids)) | (Document.role_id.is_(None)))
                                 ) |
-                                ((receive_community == True) & (Document.is_public_community == True))
+                                (Document.is_public_community == True if receive_community else False)
                             ).all()
                             
                         allowed_doc_ids = {doc.id for doc in allowed_docs}
