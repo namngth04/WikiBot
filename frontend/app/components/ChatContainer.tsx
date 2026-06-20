@@ -198,8 +198,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
 
   useEffect(() => {
     // Handle suggested questions from MessageList and MessageItem
-    const handleSuggestedQuestion = async (e: CustomEvent) => {
-      const question = e.detail;
+    const handleSuggestedQuestion = async (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const question = customEvent.detail;
       setInputMessage('');
       try {
         await sendMessage(question);
@@ -208,9 +209,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       }
     };
 
-    window.addEventListener('suggestedQuestion', handleSuggestedQuestion as EventListener);
+    window.addEventListener('suggestedQuestion', handleSuggestedQuestion);
     return () => {
-      window.removeEventListener('suggestedQuestion', handleSuggestedQuestion as EventListener);
+      window.removeEventListener('suggestedQuestion', handleSuggestedQuestion);
     };
   }, [sendMessage]);
 
