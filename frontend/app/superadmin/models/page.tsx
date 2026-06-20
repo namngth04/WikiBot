@@ -143,7 +143,7 @@ export default function ModelsPage() {
             {(['embedding'] as const).map((ai_type) => {
               const cfg = editingConfigs[ai_type] || {};
               const testResult = testResults[ai_type];
-              const providers = ['local', 'openrouter', 'openai', 'gemini'];
+              const providers = ['local', 'openrouter', 'openai', 'gemini', 'ollama'];
               return (
                 <div key={ai_type} className="rounded-2xl border border-hairline bg-surface-1 p-6 space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-hairline">
