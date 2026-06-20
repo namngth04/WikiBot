@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
 from pgvector.sqlalchemy import Vector
+from app.core.config import get_settings
 
 
 class Role(Base):
@@ -261,7 +262,7 @@ class DocumentChunk(Base):
     id = Column(Integer, primary_key=True, index=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(2048), nullable=False)
+    embedding = Column(Vector(get_settings().embedding_dimension), nullable=False)
     page_number = Column(Integer, nullable=True)
     element_type = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -277,7 +278,7 @@ class SemanticCache(Base):
     id = Column(Integer, primary_key=True, index=True)
     query_text = Column(Text, nullable=False)
     response_text = Column(Text, nullable=False)
-    embedding = Column(Vector(2048), nullable=False)
+    embedding = Column(Vector(get_settings().embedding_dimension), nullable=False)
     associated_document_ids = Column(JSON, nullable=True)  # List of document IDs used to generate the answer
     hits = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -19,6 +19,9 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+EMBEDDING_DIM = get_settings().embedding_dimension
+
+
 DEFAULT_VISION_PROMPT = (
     "Hãy phân tích hình ảnh tài liệu này và trích xuất toàn bộ thông tin văn bản một cách chính xác nhất, "
     "đồng thời giữ nguyên cấu trúc phân cấp thông tin và ngữ cảnh của tài liệu.\n"
@@ -658,15 +661,15 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             # Use multimodal encoding
             raw_embeddings = self._encode_multimodal(texts, images)
 
-        # Pad or truncate to exactly 2048 dimensions for pgvector column compatibility
+        # Pad or truncate to exactly EMBEDDING_DIM dimensions for pgvector column compatibility
         processed_embeddings = []
         for vector in raw_embeddings:
             if not vector:
-                vector = [0.0] * 2048
-            elif len(vector) < 2048:
-                vector = vector + [0.0] * (2048 - len(vector))
-            elif len(vector) > 2048:
-                vector = vector[:2048]
+                vector = [0.0] * EMBEDDING_DIM
+            elif len(vector) < EMBEDDING_DIM:
+                vector = vector + [0.0] * (EMBEDDING_DIM - len(vector))
+            elif len(vector) > EMBEDDING_DIM:
+                vector = vector[:EMBEDDING_DIM]
             processed_embeddings.append(vector)
 
         return processed_embeddings
@@ -921,11 +924,11 @@ class VertexAIGenericEmbeddingProvider(BaseEmbeddingProvider):
                     if "embedding" in result and "values" in result["embedding"]:
                         vector = result["embedding"]["values"]
                         
-                        # Pad or truncate vector to exactly 2048 dimensions to ensure absolute database schema compatibility
-                        if len(vector) < 2048:
-                            vector = vector + [0.0] * (2048 - len(vector))
-                        elif len(vector) > 2048:
-                            vector = vector[:2048]
+                        # Pad or truncate vector to exactly EMBEDDING_DIM dimensions to ensure absolute database schema compatibility
+                        if len(vector) < EMBEDDING_DIM:
+                            vector = vector + [0.0] * (EMBEDDING_DIM - len(vector))
+                        elif len(vector) > EMBEDDING_DIM:
+                            vector = vector[:EMBEDDING_DIM]
                             
                         results.append(vector)
                     else:
@@ -937,7 +940,7 @@ class VertexAIGenericEmbeddingProvider(BaseEmbeddingProvider):
             if raise_on_error:
                 raise e
             # Safe fallback zero vector to avoid breaking indexing flows
-            return [[0.0] * 2048] * len(texts)
+            return [[0.0] * EMBEDDING_DIM] * len(texts)
 
     def test_connection(self) -> Dict[str, Any]:
         import time
@@ -1012,14 +1015,14 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                     contextual_text=text
                 )
                 vector = embeddings.text_embedding
-                # Pad to 2048 dimensions to match postgres column schema
-                if len(vector) < 2048:
-                    vector = vector + [0.0] * (2048 - len(vector))
+                # Pad to EMBEDDING_DIM dimensions to match postgres column schema
+                if len(vector) < EMBEDDING_DIM:
+                    vector = vector + [0.0] * (EMBEDDING_DIM - len(vector))
                 results.append(vector)
             except Exception as e:
                 logger.error(f"[VertexAI] Failed to encode text: {e}", exc_info=True)
                 # Return zero vector in case of failure to prevent breaking the flow
-                results.append([0.0] * 2048)
+                results.append([0.0] * EMBEDDING_DIM)
         return results
         
     def encode_image(self, image_path: str, contextual_text: Optional[str] = None) -> List[float]:
@@ -1032,13 +1035,13 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                 contextual_text=contextual_text
             )
             vector = embeddings.image_embedding
-            # Pad to 2048 dimensions
-            if len(vector) < 2048:
-                vector = vector + [0.0] * (2048 - len(vector))
+            # Pad to EMBEDDING_DIM dimensions
+            if len(vector) < EMBEDDING_DIM:
+                vector = vector + [0.0] * (EMBEDDING_DIM - len(vector))
             return vector
         except Exception as e:
             logger.error(f"[ERROR VertexAI] Failed to encode image: {e}", exc_info=True)
-            return [0.0] * 2048
+            return [0.0] * EMBEDDING_DIM
             
     def encode_video(self, video_path: str, contextual_text: Optional[str] = None) -> List[float]:
         """Encode video to embedding"""
@@ -1050,13 +1053,13 @@ class VertexAIMultimodalEmbeddingProvider(BaseEmbeddingProvider):
                 contextual_text=contextual_text
             )
             vector = embeddings.video_embedding
-            # Pad to 2048 dimensions
-            if len(vector) < 2048:
-                vector = vector + [0.0] * (2048 - len(vector))
+            # Pad to EMBEDDING_DIM dimensions
+            if len(vector) < EMBEDDING_DIM:
+                vector = vector + [0.0] * (EMBEDDING_DIM - len(vector))
             return vector
         except Exception as e:
             logger.error(f"[ERROR VertexAI] Failed to encode video: {e}", exc_info=True)
-            return [0.0] * 2048
+            return [0.0] * EMBEDDING_DIM
 
 
     def test_connection(self) -> Dict[str, Any]:

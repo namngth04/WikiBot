@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     
     # Embedding
     embedding_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_dimension: int = 4096
     
     # File Storage
     data_dir: str = "./data"
