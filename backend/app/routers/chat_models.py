@@ -267,7 +267,7 @@ def test_chat_model_connection(
         "api_base_url": model.api_base_url,
         "api_key": raw_api_key,
         "api_model": model.api_model,
-        "timeout": 15  # Short timeout for validation health check
+        "timeout": 120  # Increased timeout for large model cold start (e.g. Ollama loading weight to RAM)
     }
     
     # Test connection

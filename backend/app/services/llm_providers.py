@@ -353,7 +353,7 @@ class OllamaProvider(BaseLLMProvider):
     It directly calls http://localhost:11434/api/generate with httpx.
     """
     
-    def __init__(self, base_url: str, model: str, timeout: int = 30, **kwargs):
+    def __init__(self, base_url: str, model: str, timeout: int = 120, **kwargs):
         self.base_url = base_url.rstrip('/')  # Remove trailing slash
         self.model = model
         self.timeout = timeout
