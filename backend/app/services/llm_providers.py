@@ -488,6 +488,39 @@ class OllamaProvider(BaseLLMProvider):
             "model": self.model,
             "timeout": self.timeout
         }
+        
+    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+        """Describe image or extract text from image using Ollama native API with base64 image encoding"""
+        import base64
+        import httpx
+        
+        base64_image = base64.b64encode(image_data).decode('utf-8')
+        
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "images": [base64_image],
+            "stream": False,
+            "options": {
+                "temperature": 0.2
+            }
+        }
+        
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                     self.api_url,
+                     json=payload,
+                     headers={"Content-Type": "application/json"}
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                return result.get("response", "").strip()
+            
+        except Exception as e:
+            logger.error(f"[OllamaProvider] Error in describe_image: {e}")
+            raise Exception(f"Ollama vision processing failed: {str(e)}")
 
 
 # ============================================
