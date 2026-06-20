@@ -99,62 +99,61 @@ def run_alembic_migration():
 
 
 def clear_database_data():
-    """Clear all database data in correct order"""
+    """Clear all database data by dropping all tables to ensure clean schema recreate"""
     print("Clearing database data...")
     
-    db = SessionLocal()
+    # Do chúng ta đã thay đổi số chiều cột Vector (từ 2048 lên 4096),
+    # cách tốt nhất và an toàn nhất để reset hoàn toàn DB là drop tất cả các bảng và tạo lại.
     try:
-        # Check which tables exist
-        inspector = inspect(engine)
-        existing_tables = inspector.get_table_names()
-        print(f"Found tables: {existing_tables}")
-        
-        # Delete in correct order to avoid foreign key constraints
-        table_order = [
-            ("ai_provider_config", AIProviderConfig),
-            ("ai_safety_config", AISafetyConfig),
-            ("user_ai_settings", "UserAISettings"),
-            ("tenant_ai_settings", "TenantAISettings"),
-            ("upgrade_requests", "UpgradeRequest"),
-            ("messages", "Message"),
-            ("conversations", "Conversation"),
-            ("documents", "Document"),
-            ("users", User),
-            ("roles", Role),
-            ("faqs", "FAQ")
-        ]
-        
-        for table_name, model in table_order:
-            if table_name in existing_tables:
-                if isinstance(model, str):
-                    # Import model dynamically
-                    from app.models.models import UserAISettings, Message, Conversation, Document, FAQ, TenantAISettings, UpgradeRequest
-                    model_map = {
-                        "UserAISettings": UserAISettings,
-                        "TenantAISettings": TenantAISettings,
-                        "UpgradeRequest": UpgradeRequest,
-                        "Message": Message,
-                        "Conversation": Conversation,
-                        "Document": Document,
-                        "FAQ": FAQ
-                    }
-                    model = model_map.get(model, FAQ)
-                
-                db.query(model).delete()
-        
-        db.commit()
-        print("✅ Cleared all database data")
+        print("Đang xóa (drop) toàn bộ các bảng trong cơ sở dữ liệu để reset sạch...")
+        Base.metadata.drop_all(bind=engine)
+        print("✅ Đã xóa toàn bộ cấu trúc bảng thành công")
     except Exception as e:
-        db.rollback()
-        print(f"⚠️  Error clearing database data: {e}")
-        print("Trying alternative approach: dropping all tables...")
+        print(f"⚠️  Không thể drop all tables trực tiếp: {e}. Thử phương án xóa dữ liệu từng bảng...")
+        db = SessionLocal()
         try:
-            Base.metadata.drop_all(bind=engine)
-            print("✅ Dropped all tables successfully")
-        except Exception as e2:
-            print(f"⚠️  Error dropping tables: {e2}")
-    finally:
-        db.close()
+            inspector = inspect(engine)
+            existing_tables = inspector.get_table_names()
+            table_order = [
+                ("document_chunks", "DocumentChunk"),
+                ("semantic_caches", "SemanticCache"),
+                ("ai_provider_config", AIProviderConfig),
+                ("ai_safety_config", AISafetyConfig),
+                ("user_ai_settings", "UserAISettings"),
+                ("tenant_ai_settings", "TenantAISettings"),
+                ("upgrade_requests", "UpgradeRequest"),
+                ("messages", "Message"),
+                ("conversations", "Conversation"),
+                ("documents", "Document"),
+                ("users", User),
+                ("roles", Role),
+                ("faqs", "FAQ")
+            ]
+            
+            for table_name, model in table_order:
+                if table_name in existing_tables:
+                    if isinstance(model, str):
+                        from app.models.models import DocumentChunk, SemanticCache, UserAISettings, Message, Conversation, Document, FAQ, TenantAISettings, UpgradeRequest
+                        model_map = {
+                            "DocumentChunk": DocumentChunk,
+                            "SemanticCache": SemanticCache,
+                            "UserAISettings": UserAISettings,
+                            "TenantAISettings": TenantAISettings,
+                            "UpgradeRequest": UpgradeRequest,
+                            "Message": Message,
+                            "Conversation": Conversation,
+                            "Document": Document,
+                            "FAQ": FAQ
+                        }
+                        model = model_map.get(model, FAQ)
+                    db.query(model).delete()
+            db.commit()
+            print("✅ Đã xóa dữ liệu dòng của tất cả các bảng.")
+        except Exception as ex:
+            db.rollback()
+            print(f"⚠️  Lỗi khi xóa dữ liệu dòng: {ex}")
+        finally:
+            db.close()
 
 
 def clear_database_file():
