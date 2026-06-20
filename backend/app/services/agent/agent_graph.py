@@ -3,6 +3,8 @@ from typing import TypedDict, List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.services.response_generator import ResponseGenerator
+from app.core.config import get_settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -102,12 +104,13 @@ def retrieve_node(state: AgentState) -> Dict[str, Any]:
         response_gen = ResponseGenerator(db=db, model_id=state.get("model_id"))
         retriever = response_gen.hybrid_retriever
         
+        settings = get_settings()
         # Search documents
         chunks = retriever.search(
             query=query,
             accessible_role_ids=state["accessible_role_ids"],
             top_k=6,  # Retrieve slightly more for grading
-            max_distance=0.55,  # Tolerant distance for initial retrieval
+            max_distance=settings.rag_max_distance,  # Tolerant distance for initial retrieval
             receive_community=state["receive_community"],
             current_user_id=state["current_user_id"],
             current_user_type=state["current_user_type"],
@@ -143,10 +146,11 @@ def grade_documents_node(state: AgentState) -> Dict[str, Any]:
     # Solution B: Early exit heuristic based on vector distance
     # If even the best matching document has a poor cosine distance (e.g., > 0.55),
     # we consider retrieval failed and skip LLM grading to save calls.
+    settings = get_settings()
     best_distance = min([doc.get("distance", 1.0) for doc in documents]) if documents else 1.0
-    if best_distance > 0.55:
+    if best_distance > settings.rag_max_distance:
         needs_rewrite = rewrite_count < 1
-        logger.info(f"[Agentic RAG] Early exit: best document distance is too poor ({best_distance:.3f} > 0.55). needs_rewrite: {needs_rewrite}")
+        logger.info(f"[Agentic RAG] Early exit: best document distance is too poor ({best_distance:.3f} > {settings.rag_max_distance}). needs_rewrite: {needs_rewrite}")
         return {
             "relevant_documents": [],
             "needs_rewrite": needs_rewrite,
