@@ -712,9 +712,6 @@ export function UserSettings({
                       <span className="px-3 py-1 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold rounded-full uppercase tracking-wider border border-emerald-500/20">
                         Active
                       </span>
-                      <span className="px-3 py-1 bg-surface-2 text-ink-muted text-[10px] font-bold rounded-full uppercase tracking-wider border border-hairline">
-                        ID: {user?.id}
-                      </span>
                     </div>
                   </div>
 
