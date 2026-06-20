@@ -392,6 +392,11 @@ HƯỚNG DẪN TRẢ LỜI:
             response_text = self._trim_redundant_sentences(response_text)
             response_text = self._remove_assistant_prefix(response_text)
             
+            # Escape dấu * toán học để tránh lỗi hiển thị Markdown
+            if response_text:
+                import re
+                response_text = re.sub(r'([\d\)\.\,])\s*\*\s*([\d\(\.\,])', r'\1 \* \2', response_text)
+            
             # Robust Output Guardrails: Ngăn chặn tuyệt đối phản hồi trống rỗng
             if not response_text or not response_text.strip():
                 logger.warning("LLM generated an empty response. Applying fallback safety guardrails.")

@@ -505,6 +505,10 @@ Câu trả lời & Câu hỏi gợi ý:"""
             
         # Bóc tách câu trả lời và câu hỏi gợi ý
         answer = raw_response
+        if answer:
+            import re
+            answer = re.sub(r'([\d\)\.\,])\s*\*\s*([\d\(\.\,])', r'\1 \* \2', answer)
+            
         suggested_questions = []
         
         match = delimiter_pattern.search(raw_response)
