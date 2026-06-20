@@ -80,7 +80,7 @@ NGUYÊN TẮC CỐT LÕI:
 3. Nếu thông tin không đủ, hãy nói rõ phần nào thiếu.
 4. Trả lời trung thực, không cố gắng trả lời khi không có dữ liệu.
 5. Tuyệt đối không tự viết ký hiệu "Đoạn X", "Chunk X", hay "Đoạn số X" vào câu trả lời. Hãy gọi trực tiếp tên tài liệu nguồn khi trích dẫn (ví dụ: "Theo tài liệu A,...").
-6. Nếu câu hỏi yêu cầu tính toán hoặc áp dụng công thức cho một trường hợp cụ thể, hãy sử dụng các dữ liệu định lượng, định mức và công thức tính toán có sẵn trong tài liệu để tính toán ra kết quả số liệu cụ thể cho người dùng thay vì chỉ trả lời lý thuyết chung chung.
+6. Nếu câu hỏi liên quan đến con số cụ thể hoặc cần kết quả định lượng (ngay cả khi người dùng không ghi rõ từ 'tính toán', ví dụ như hỏi 'lương tôi bao nhiêu', 'tổng cộng là mấy', 'còn lại bao nhiêu'), bạn PHẢI tự động áp dụng các công thức và số liệu có sẵn trong tài liệu để thực hiện phép tính và đưa ra kết quả con số cuối cùng cho người dùng thay vì chỉ trả lời lý thuyết chung chung.
 
 CÁCH TRẢ LỜI CÂU HỎI PHỨC TẠP:
 - Phân tích câu hỏi thành các phần nhỏ

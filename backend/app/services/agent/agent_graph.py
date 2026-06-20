@@ -434,7 +434,7 @@ Trả lời từ chối lịch sự, ngắn gọn:"""
 
         history_prompt_part = f"\nBối cảnh trò chuyện gần đây:\n{history_str}\n" if history_str else ""
         
-        prompt = f"""Dựa trên tài liệu được cung cấp và bối cảnh trò chuyện dưới đây, hãy trả lời câu hỏi của người dùng một cách chính xác, chân thực. {style_instruction} Đặc biệt, nếu câu hỏi yêu cầu tính toán số liệu cho trường hợp cụ thể, hãy tự động lấy các con số định lượng và công thức có sẵn trong tài liệu để thay số, thực hiện phép tính toán và đưa ra kết quả con số cuối cùng cho người dùng. Sau đó, gợi ý thêm đúng 3 câu hỏi tiếp theo liên quan nhất giúp người dùng làm rõ hoặc mở rộng vấn đề.
+        prompt = f"""Dựa trên tài liệu được cung cấp và bối cảnh trò chuyện dưới đây, hãy trả lời câu hỏi của người dùng một cách chính xác, chân thực. {style_instruction} Đặc biệt, nếu câu hỏi liên quan đến con số cụ thể hoặc cần kết quả định lượng (ngay cả khi người dùng không ghi rõ từ 'tính toán', ví dụ như hỏi 'lương tôi bao nhiêu', 'tổng cộng là mấy', 'còn lại bao nhiêu'), hãy tự động lấy các số liệu định lượng và công thức có sẵn trong tài liệu để thay số, thực hiện phép tính toán và đưa ra kết quả con số cuối cùng cho người dùng. Sau đó, gợi ý thêm đúng 3 câu hỏi tiếp theo liên quan nhất giúp người dùng làm rõ hoặc mở rộng vấn đề.
  
 Yêu cầu về trích dẫn: Khi trích dẫn thông tin, hãy gọi trực tiếp tên tài liệu nguồn (ví dụ: "Theo tài liệu A,..."), tuyệt đối không tự ghi ký hiệu "Đoạn X", "Chunk X" hay "Đoạn số X" vào câu trả lời của bạn.
 
