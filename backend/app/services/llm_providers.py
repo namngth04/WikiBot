@@ -19,6 +19,18 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_VISION_PROMPT = (
+    "Hãy phân tích hình ảnh tài liệu này và trích xuất toàn bộ thông tin văn bản một cách chính xác nhất, "
+    "đồng thời giữ nguyên cấu trúc phân cấp thông tin và ngữ cảnh của tài liệu.\n"
+    "Yêu cầu đặc biệt:\n"
+    "1. Nếu ảnh chứa bảng biểu, lịch biểu, hoặc cấu trúc thông tin dạng lưới (grid): Hãy biểu diễn dữ liệu "
+    "dưới dạng bảng Markdown để giữ đúng liên kết hàng - cột.\n"
+    "2. Hãy phân tích kỹ từng ô và trích xuất đầy đủ tất cả thông tin, số liệu nhỏ hoặc các ghi chú kèm theo "
+    "trong cùng một ô (ví dụ: ngày Âm lịch ghi kèm dưới ngày Dương lịch, ghi chú loại ngày nghỉ, sự kiện), "
+    "tránh ghép nhầm lẫn dữ liệu giữa các hàng, cột hoặc ô khác nhau."
+)
+
+
 # httpx is already imported via OpenAI client, we'll use it for OllamaNativeProvider
 # No additional imports needed
 
@@ -47,7 +59,7 @@ class BaseLLMProvider(ABC):
         """Get provider configuration"""
         return {}
         
-    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+    def describe_image(self, image_data: bytes, prompt: str = DEFAULT_VISION_PROMPT) -> str:
         """Describe image or extract text from image using vision capability"""
         raise NotImplementedError("Vision capability is not supported by this provider.")
 
@@ -245,7 +257,7 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         
         return response_text
 
-    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+    def describe_image(self, image_data: bytes, prompt: str = DEFAULT_VISION_PROMPT) -> str:
         """Describe image or extract text from image using OpenAI API"""
         import base64
         base64_image = base64.b64encode(image_data).decode('utf-8')
@@ -489,7 +501,7 @@ class OllamaProvider(BaseLLMProvider):
             "timeout": self.timeout
         }
         
-    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+    def describe_image(self, image_data: bytes, prompt: str = DEFAULT_VISION_PROMPT) -> str:
         """Describe image or extract text from image using Ollama native API with base64 image encoding"""
         import base64
         import httpx
@@ -1177,7 +1189,7 @@ class VertexAIGeminiChatProvider(BaseLLMProvider):
             print(f"[ERROR VertexAI Chat] Generation failed: {e}")
             raise Exception(f"Vertex AI Generation failed: {str(e)}")
 
-    def describe_image(self, image_data: bytes, prompt: str = "Trích xuất toàn bộ văn bản trong ảnh này một cách chính xác nhất, giữ nguyên cấu trúc.") -> str:
+    def describe_image(self, image_data: bytes, prompt: str = DEFAULT_VISION_PROMPT) -> str:
         """Describe image or extract text from image using Vertex AI Gemini API"""
         try:
             from vertexai.generative_models import Part
