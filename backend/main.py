@@ -87,15 +87,10 @@ extracted_images_path = os.path.join(settings.data_dir, "extracted_images")
 os.makedirs(extracted_images_path, exist_ok=True)
 app.mount("/api/documents/extracted-images", StaticFiles(directory=extracted_images_path), name="extracted_images")
 
-# Configure CORS
+# Configure CORS (Cho phép tất cả Origin bao gồm IP Cloud VM và máy local kết nối)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", "http://127.0.0.1:3000",
-        "http://localhost:3001", "http://127.0.0.1:3001",
-        "http://localhost:3002", "http://127.0.0.1:3002",
-        "http://localhost:3005", "http://127.0.0.1:3005",
-    ],  # Frontend URL
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
