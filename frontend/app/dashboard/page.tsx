@@ -294,7 +294,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                onClick={() => router.push('/pricing')}
+                onClick={() => router.push('/chat?section=manage&tab=pricing')}
                 className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 to-purple-600 text-white hover:opacity-90 transition-opacity flex items-center gap-2 flex-shrink-0"
               >
                 Xem gói Pro <ArrowRight size={14} />

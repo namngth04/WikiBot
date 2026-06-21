@@ -15,7 +15,7 @@ import { useChat } from '@/app/hooks/useChat';
 import { API_BASE_URL } from '@/app/lib/api';
 import { chatModelsAPI, ChatModelData } from '@/app/lib/ai-config-api';
 import { useAuth } from '@/app/context/auth-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { UserSettings } from '@/app/components/UserSettings';
@@ -29,6 +29,7 @@ interface ChatContainerProps {
 
 export default function ChatContainer({ className }: ChatContainerProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAdmin, isCompanyAdmin, logout } = useAuth();
   const isStaff = user?.user_type === 'employee' && (user?.role?.level ?? 0) >= 2;
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -175,6 +176,20 @@ export default function ChatContainer({ className }: ChatContainerProps) {
       fetchQuota();
     }
   }, [loading, user]);
+
+  useEffect(() => {
+    if (searchParams) {
+      const section = searchParams.get('section');
+      const tab = searchParams.get('tab');
+      if (section === 'manage') {
+        setCurrentSection('manage');
+        if (tab) {
+          setActiveManageTab(tab as any);
+        }
+        setSidebarOpen(true);
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchActiveModels = async () => {
