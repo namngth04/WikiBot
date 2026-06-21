@@ -5,7 +5,7 @@ import { adminAPI } from '@/app/lib/api';
 import { FAQ, SuggestedFAQ } from '@/app/lib/types';
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle, XCircle, Sparkles, MessageSquare, Save, X,
-  ArrowRight, Filter, MoreVertical
+  ArrowRight, Filter, MoreVertical, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ModalPortal from '@/app/components/ui/ModalPortal';
@@ -18,6 +18,7 @@ export default function FAQManagementPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [isRefreshingSuggested, setIsRefreshingSuggested] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -49,6 +50,19 @@ export default function FAQManagementPage() {
       setSuggested(res.data);
     } catch (error) {
       console.error('Error fetching suggested FAQs:', error);
+    }
+  };
+
+  const handleRefreshSuggested = async () => {
+    setIsRefreshingSuggested(true);
+    try {
+      const res = await adminAPI.refreshSuggestedFAQs();
+      setSuggested(res.data);
+    } catch (error) {
+      console.error('Error refreshing suggested FAQs:', error);
+      alert('Lỗi khi cập nhật câu hỏi trending');
+    } finally {
+      setIsRefreshingSuggested(false);
     }
   };
 
@@ -139,10 +153,20 @@ export default function FAQManagementPage() {
           className="bg-surface-1 border border-hairline rounded-[2rem] p-8 text-ink relative overflow-hidden group shadow-sm"
         >
           <div className="relative z-10">
-            <h3 className="text-lg font-be-vietnam font-bold mb-4 flex items-center gap-2 text-ink">
-              <Sparkles className="text-brand-lavender" size={20} />
-              Câu hỏi đang "Trending"
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-be-vietnam font-bold flex items-center gap-2 text-ink">
+                <Sparkles className="text-brand-lavender" size={20} />
+                Câu hỏi đang "Trending"
+              </h3>
+              <button
+                onClick={handleRefreshSuggested}
+                disabled={isRefreshingSuggested}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-hairline hover:bg-surface-2 rounded-full transition-all text-ink disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={isRefreshingSuggested ? "animate-spin" : ""} />
+                Cập nhật lại
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {suggested.map((s, idx) => (
                 <button
