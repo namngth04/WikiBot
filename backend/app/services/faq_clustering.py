@@ -58,23 +58,41 @@ def correct_spelling(text: str) -> str:
     return normalized
 
 
-def cluster_similar_questions_with_ai(db: Session, limit: int = 10) -> List[Dict]:
+def cluster_similar_questions_with_ai(db: Session, limit: int = 10, tenant_id: Optional[int] = None) -> List[Dict]:
     """
     Sử dụng AI để phân loại các câu hỏi tương tự
     Trả về list của các clusters với canonical question và variants
     """
     try:
-        # Lấy tất cả user questions chưa có trong FAQ
-        existing_questions = db.query(FAQ.question).all()
+        from app.models.models import Conversation, User
+
+        # Lấy tất cả user questions của tenant/cá nhân tương ứng chưa có trong FAQ
+        existing_query = db.query(FAQ.question)
+        if tenant_id is not None:
+            existing_query = existing_query.filter(FAQ.tenant_id == tenant_id)
+        else:
+            existing_query = existing_query.filter(FAQ.tenant_id.is_(None))
+        existing_questions = existing_query.all()
         existing_questions = [q[0] for q in existing_questions]
         
-        user_questions = db.query(
+        user_questions_query = db.query(
             Message.content.label("question"),
             func.count(Message.id).label("occurrence")
+        ).join(
+            Conversation, Message.conversation_id == Conversation.id
+        ).join(
+            User, Conversation.user_id == User.id
         ).filter(
             Message.role == "user",
             ~Message.content.in_(existing_questions)
-        ).group_by(
+        )
+        
+        if tenant_id is not None:
+            user_questions_query = user_questions_query.filter(User.tenant_id == tenant_id)
+        else:
+            user_questions_query = user_questions_query.filter(User.tenant_id.is_(None))
+            
+        user_questions = user_questions_query.group_by(
             Message.content
         ).order_by(
             func.count(Message.id).desc()
@@ -105,7 +123,7 @@ def cluster_similar_questions_with_ai(db: Session, limit: int = 10) -> List[Dict
                 
                 prompt = f"""Phân tích các câu hỏi sau và nhóm những câu hỏi có cùng ý nghĩa:
 {questions_text}
-
+ 
 Trả về JSON format với danh sách các nhóm, mỗi nhóm có:
 - canonical: câu hỏi chuẩn đẹp nhất
 - variants: danh sách các câu hỏi tương tự
@@ -143,7 +161,7 @@ JSON format:
                         for norm_q, data in question_groups.items():
                             if any(v in cluster["variants"] for v in data["variants"]):
                                 matched_variants.extend(data["variants"])
-                                total_occ += data["total_occurrence"]
+                                total_occ += data["total_occurrences"]
                         
                         if matched_variants:
                             final_clusters.append({
@@ -171,20 +189,38 @@ JSON format:
         raise e
 
 
-def get_suggested_faqs_rule_based(db: Session, limit: int = 10) -> List[Dict]:
+def get_suggested_faqs_rule_based(db: Session, limit: int = 10, tenant_id: Optional[int] = None) -> List[Dict]:
     """
     Fallback: Rule-based grouping khi AI không available
     """
-    existing_questions = db.query(FAQ.question).all()
+    from app.models.models import Conversation, User
+
+    existing_query = db.query(FAQ.question)
+    if tenant_id is not None:
+        existing_query = existing_query.filter(FAQ.tenant_id == tenant_id)
+    else:
+        existing_query = existing_query.filter(FAQ.tenant_id.is_(None))
+    existing_questions = existing_query.all()
     existing_questions = [q[0] for q in existing_questions]
     
-    suggested = db.query(
+    suggested_query = db.query(
         Message.content.label("question"),
         func.count(Message.id).label("occurrence")
+    ).join(
+        Conversation, Message.conversation_id == Conversation.id
+    ).join(
+        User, Conversation.user_id == User.id
     ).filter(
         Message.role == "user",
         ~Message.content.in_(existing_questions)
-    ).group_by(
+    )
+    
+    if tenant_id is not None:
+        suggested_query = suggested_query.filter(User.tenant_id == tenant_id)
+    else:
+        suggested_query = suggested_query.filter(User.tenant_id.is_(None))
+        
+    suggested = suggested_query.group_by(
         Message.content
     ).order_by(
         desc("occurrence")

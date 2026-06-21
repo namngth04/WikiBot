@@ -28,12 +28,9 @@ from app.services.faq_clustering import (
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Dashboard"])
 
-# Simple in-memory cache for suggested FAQs (24 hours)
-_suggested_faqs_cache = {
-    "data": None,
-    "timestamp": None,
-    "cache_duration": 86400  # 24 hours in seconds
-}
+# Simple in-memory cache for suggested FAQs (24 hours), mapped by tenant_id
+_suggested_faqs_cache = {}  # tenant_id -> {"data": ..., "timestamp": ...}
+_SUGGESTED_FAQS_CACHE_DURATION = 86400  # 24 hours in seconds
 
 @router.get("/stats/overview", response_model=DashboardStats)
 def get_dashboard_stats(
@@ -274,17 +271,20 @@ def get_suggested_faqs(
 ):
     global _suggested_faqs_cache
     current_time = datetime.utcnow().timestamp()
+    tenant_key = current_admin.tenant_id
     
     # Check cache
+    tenant_cache = _suggested_faqs_cache.get(tenant_key)
     if (not force_refresh and 
-        _suggested_faqs_cache["data"] is not None and
-        _suggested_faqs_cache["timestamp"] is not None and
-        (current_time - _suggested_faqs_cache["timestamp"]) < _suggested_faqs_cache["cache_duration"]):
-        return _suggested_faqs_cache["data"]
+        tenant_cache is not None and
+        tenant_cache.get("data") is not None and
+        tenant_cache.get("timestamp") is not None and
+        (current_time - tenant_cache["timestamp"]) < _SUGGESTED_FAQS_CACHE_DURATION):
+        return tenant_cache["data"]
     
     # Generate new suggestions with AI clustering
     try:
-        clusters = cluster_similar_questions_with_ai(db, limit)
+        clusters = cluster_similar_questions_with_ai(db, limit, tenant_id=current_admin.tenant_id)
         
         # Convert to SuggestedFAQ format
         result = [
@@ -296,8 +296,10 @@ def get_suggested_faqs(
         ]
         
         # Update cache
-        _suggested_faqs_cache["data"] = result
-        _suggested_faqs_cache["timestamp"] = current_time
+        _suggested_faqs_cache[tenant_key] = {
+            "data": result,
+            "timestamp": current_time
+        }
         
         return result
         
@@ -305,7 +307,7 @@ def get_suggested_faqs(
         print(f"Error in AI clustering, falling back to rule-based: {e}")
         # Fallback to rule-based
         try:
-            clusters = get_suggested_faqs_rule_based(db, limit)
+            clusters = get_suggested_faqs_rule_based(db, limit, tenant_id=current_admin.tenant_id)
             result = [
                 SuggestedFAQ(
                     question=cluster["canonical"],
@@ -315,8 +317,10 @@ def get_suggested_faqs(
             ]
             
             # Update cache with fallback results
-            _suggested_faqs_cache["data"] = result
-            _suggested_faqs_cache["timestamp"] = current_time
+            _suggested_faqs_cache[tenant_key] = {
+                "data": result,
+                "timestamp": current_time
+            }
             
             return result
         except Exception as fallback_error:
@@ -342,8 +346,16 @@ def generate_faq_draft(
     # Use RAG to get context and generate a professional answer
     # This is a simplified version of the logic
     try:
-        # Get context from documents
-        chunks = response_generator.hybrid_retriever.search(question, accessible_role_ids=[0], top_k=5, db=db)
+        # Get context from documents (enforcing tenant filter)
+        chunks = response_generator.hybrid_retriever.search(
+            query=question,
+            accessible_role_ids=[0],
+            top_k=5,
+            current_user_id=current_admin.id,
+            current_user_type=current_admin.user_type,
+            current_user_tenant_id=current_admin.tenant_id,
+            db=db
+        )
         if not chunks:
             return SuggestedFAQ(question=question, occurrence=1, suggested_answer="Không tìm thấy tài liệu liên quan để soạn câu trả lời.")
         
