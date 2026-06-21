@@ -118,7 +118,25 @@ def cluster_similar_questions_with_ai(db: Session, limit: int = 10, tenant_id: O
         # Nếu có nhiều câu hỏi, dùng AI để phân loại phức tạp hơn
         if len(question_groups) > 5:
             try:
-                response_generator = ResponseGenerator(db=db)
+                from app.models.models import ChatModel
+                from sqlalchemy import or_
+                
+                active_model = db.query(ChatModel).filter(
+                    ChatModel.is_active == True,
+                    or_(
+                        ChatModel.tenant_id == tenant_id,
+                        ChatModel.is_global == True
+                    )
+                ).order_by(
+                    ChatModel.tenant_id.desc(),
+                    ChatModel.created_at.desc()
+                ).first()
+                
+                if active_model:
+                    response_generator = ResponseGenerator(db=db, model_id=active_model.id)
+                else:
+                    response_generator = ResponseGenerator(db=db)
+                    
                 questions_text = "\n".join([f"- {q}" for q in question_groups.keys()])
                 
                 prompt = f"""Phân tích các câu hỏi sau và nhóm những câu hỏi có cùng ý nghĩa:

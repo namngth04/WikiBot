@@ -58,6 +58,25 @@ class AnalyticsService:
         questions_text = "\n".join(questions_payload)
         
         # 3. Sử dụng LLM phân tích ngữ nghĩa và phân nhóm câu hỏi
+        from app.models.models import ChatModel
+        from sqlalchemy import or_
+        
+        active_model = self.db.query(ChatModel).filter(
+            ChatModel.is_active == True,
+            or_(
+                ChatModel.tenant_id == tenant_id,
+                ChatModel.is_global == True
+            )
+        ).order_by(
+            ChatModel.tenant_id.desc(),
+            ChatModel.created_at.desc()
+        ).first()
+        
+        if active_model:
+            rg = ResponseGenerator(db=self.db, model_id=active_model.id)
+        else:
+            rg = self.response_generator
+            
         prompt = f"""Bạn là một chuyên gia phân tích dữ liệu nhân sự doanh nghiệp.
 Hãy phân tích danh sách các câu hỏi của nhân viên dưới đây và phân loại chúng vào các chủ đề chính (ví dụ: "Lương thưởng & Chế độ", "Nghỉ lễ & Nghỉ phép", "IT Support & Thiết bị", "Quy trình nội bộ", "Tuyển dụng & Đào tạo", "Khác" hoặc các chủ đề tự động sinh phù hợp nhất).
 
@@ -80,7 +99,7 @@ Yêu cầu:
 }}"""
 
         try:
-            response_text = self.response_generator.llm_provider.generate(
+            response_text = rg.llm_provider.generate(
                 prompt,
                 max_tokens=1024,
                 temperature=0.1

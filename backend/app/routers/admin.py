@@ -342,7 +342,24 @@ def generate_faq_draft(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_company_admin)
 ):
-    response_generator = ResponseGenerator(db=db)
+    from app.models.models import ChatModel
+    from sqlalchemy import or_
+    
+    active_model = db.query(ChatModel).filter(
+        ChatModel.is_active == True,
+        or_(
+            ChatModel.tenant_id == current_admin.tenant_id,
+            ChatModel.is_global == True
+        )
+    ).order_by(
+        ChatModel.tenant_id.desc(),
+        ChatModel.created_at.desc()
+    ).first()
+    
+    if active_model:
+        response_generator = ResponseGenerator(db=db, model_id=active_model.id)
+    else:
+        response_generator = ResponseGenerator(db=db)
     # Use RAG to get context and generate a professional answer
     # This is a simplified version of the logic
     try:
