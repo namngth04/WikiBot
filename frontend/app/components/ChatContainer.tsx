@@ -500,7 +500,11 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 </div>
 
                 <button
-                  onClick={() => router.push('/pricing')}
+                  onClick={() => {
+                    setCurrentSection('manage');
+                    setActiveManageTab('pricing');
+                    if (!sidebarOpen) setSidebarOpen(true);
+                  }}
                   className="w-full py-1.5 mt-1 bg-brand-lavender hover:bg-brand-lavender/90 text-white rounded text-[10px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1"
                 >
                   Nâng cấp Pro ⚡
@@ -510,7 +514,11 @@ export default function ChatContainer({ className }: ChatContainerProps) {
 
             {!sidebarOpen && quota && quota.subscription_tier === 'free' && (
               <div 
-                onClick={() => router.push('/pricing')}
+                onClick={() => {
+                  setCurrentSection('manage');
+                  setActiveManageTab('pricing');
+                  setSidebarOpen(true);
+                }}
                 className="mb-4 mx-auto w-8 h-8 rounded-full bg-brand-lavender/10 border border-brand-lavender/30 flex items-center justify-center text-brand-lavender cursor-pointer hover:bg-brand-lavender hover:text-white transition-all active:scale-90"
                 title={`Hạn ngạch câu hỏi: ${quota.questions_used}/${quota.questions_limit}`}
               >
@@ -1007,7 +1015,9 @@ export default function ChatContainer({ className }: ChatContainerProps) {
                 <button
                   onClick={() => {
                     setQuotaReached(false);
-                    router.push('/pricing');
+                    setCurrentSection('manage');
+                    setActiveManageTab('pricing');
+                    if (!sidebarOpen) setSidebarOpen(true);
                   }}
                   className="w-full py-4 bg-gradient-to-r from-brand-lavender to-violet-600 hover:from-brand-lavender/90 hover:to-violet-600/90 text-white font-bold rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 text-sm tracking-wide"
                 >
