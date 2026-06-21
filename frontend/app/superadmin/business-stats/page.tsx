@@ -167,7 +167,7 @@ export default function BusinessStatsPage() {
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-extrabold text-ink">{revenue?.conversion_rate ?? 0.0}%</span>
-                  <span className="text-[10px] text-ink-subtle">({revenue?.pro_users_count ?? 0}/{revenue?.total_personal_users ?? 0} thành viên)</span>
+                  <span className="text-[10px] text-ink-subtle">({revenue?.pro_users_count ?? 0}/{revenue?.total_personal_users ?? 0} tài khoản)</span>
                 </div>
                 <div className="w-full bg-surface-2 h-1.5 rounded-full overflow-hidden border border-hairline">
                   <div 

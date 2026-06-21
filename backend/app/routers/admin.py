@@ -503,31 +503,38 @@ def get_revenue_stats(
     ).all()
     
     total_revenue = 0
-    unique_user_ids = set()
+    personal_upgrade_ids = set()  # user cá nhân đã nâng cấp
+    upgraded_tenant_ids = set()   # tenant (doanh nghiệp) đã nâng cấp
     month_data = {}
-    
+
     for req in requests:
-        unique_user_ids.add(req.user_id)
-        # 99k cho cá nhân, 2.499m cho doanh nghiệp
-        price = 99000 if req.user.tenant_id is None else 2499000
+        is_personal = req.user.tenant_id is None
+        if is_personal:
+            personal_upgrade_ids.add(req.user_id)
+            price = 99000
+        else:
+            upgraded_tenant_ids.add(req.user.tenant_id)
+            price = 2499000
         total_revenue += price
-        
+
         if req.created_at:
             month_str = req.created_at.strftime("%Y-%m")
             month_data[month_str] = month_data.get(month_str, 0) + price
 
-    total_personal_users = db.query(User).filter(
-        User.tenant_id.is_(None),
-        User.created_at >= dt_start,
-        User.created_at <= dt_end
-    ).count()
-    
-    pro_users_count = len(unique_user_ids)
-    free_users_count = total_personal_users - pro_users_count
-    if free_users_count < 0:
-        free_users_count = 0
-    
-    conversion_rate = round((pro_users_count / total_personal_users * 100), 1) if total_personal_users > 0 else 0.0
+    # Mẫu số = TOÀN BỘ tài khoản (personal + mỗi doanh nghiệp tính 1), không lọc ngày
+    total_personal_accounts = db.query(User).filter(User.tenant_id.is_(None)).count()
+    total_corporate_accounts = db.query(User.tenant_id).filter(
+        User.tenant_id.isnot(None)
+    ).distinct().count()
+    total_accounts = total_personal_accounts + total_corporate_accounts
+
+    # Tử số = số tài khoản đã nâng cấp (personal + 1 mỗi doanh nghiệp)
+    pro_users_count = len(personal_upgrade_ids) + len(upgraded_tenant_ids)
+    free_users_count = max(0, total_accounts - pro_users_count)
+
+    # Giữ tên total_personal_users để tương thích API response
+    total_personal_users = total_accounts
+    conversion_rate = round((pro_users_count / total_accounts * 100), 1) if total_accounts > 0 else 0.0
 
     sorted_months = sorted(month_data.keys())
     revenue_by_month = [{"month": m, "revenue": month_data[m]} for m in sorted_months]
