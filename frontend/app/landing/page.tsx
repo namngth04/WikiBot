@@ -242,7 +242,7 @@ export default function LandingPage() {
             {/* Feature 2 */}
             <div className="p-8 rounded-xl border border-[#23252a] bg-[#0f1011]/60 hover:bg-[#0f1011] transition-all hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-[#5e6ad2]/5">
               <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center center text-lg mb-6"><Cpu size={20} className="text-indigo-400" /></div>
-              <h3 className="text-lg font-bold text-white mb-2">Vận hành Mô hình Local Độc lập</h3>
+              <h3 className="text-lg font-bold text-white mb-2">Vận hành Mô hình Local</h3>
               <p className="text-sm text-[#8a8f98] leading-relaxed">
                 Kết nối và chạy trực tiếp các mô hình AI cục bộ ngay trên hạ tầng máy chủ. Không phụ thuộc vào Cloud bên thứ ba, bảo mật thông tin tuyệt đối.
               </p>
