@@ -100,8 +100,16 @@ export default function RegisterPage({ onSwitchToLogin }: RegisterPageProps) {
       // 2. Auto-login on success
       await login(username, password);
       
-      // Redirect to download page
-      router.push('/register/success');
+      // Redirect based on platform
+      if (isElectron()) {
+        if (regType === 'company' || userData.role_id === 2) {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/chat');
+        }
+      } else {
+        router.push('/register/success');
+      }
     } catch (err: any) {
       setError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký');
     } finally {
