@@ -375,26 +375,12 @@ Trả lời từ chối lịch sự, ngắn gọn:"""
                 else:
                     answer = llm.generate(decline_prompt, temperature=0.2, max_tokens=2024)
                     put_to_queue({"type": "token", "content": answer})
-                
-                # Send empty metadata and close queue
-                metadata_payload = {
-                    "type": "metadata",
-                    "sources": [],
-                    "citations": [],
-                    "confidence": {"overall": 0.0, "level": "low"},
-                    "suggested_questions": [
-                        "Bạn có thể giải thích chi tiết hơn được không?",
-                        "Có tài liệu hoặc quy định nào cụ thể về việc này không?",
-                        "Tôi cần làm các bước tiếp theo như thế nào?"
-                    ]
-                }
-                put_to_queue(metadata_payload)
-                put_to_queue(None)
             else:
                 answer = llm.generate(decline_prompt, temperature=0.2, max_tokens=2024)
             
             return {
                 "generation": answer,
+                "relevant_documents": [],
                 "confidence": {"overall": 0.0, "level": "low"},
                 "steps": steps,
                 "suggested_questions": [
@@ -549,55 +535,7 @@ Câu trả lời & Câu hỏi gợi ý:"""
                 "Tôi cần làm các bước tiếp theo như thế nào?"
             ]
             
-        # Lọc các tài liệu tham khảo thực tế dựa trên nội dung câu trả lời của LLM
-        filtered_relevant_docs = []
-        has_any_mention = False
-        import os
-        for doc in relevant_documents:
-            source_name = doc.get("metadata", {}).get("source", "")
-            if not source_name:
-                continue
-            # 1. Khớp nguyên bản tên file (không phân biệt hoa thường)
-            if source_name.lower() in answer.lower():
-                has_any_mention = True
-                break
-            # 2. Khớp tên file đã lược bỏ phần mở rộng và UUID
-            base_name = os.path.splitext(source_name)[0]
-            clean_name1 = re.sub(r'_[a-f0-9]{32}$', '', base_name)
-            clean_name2 = re.sub(r'_[a-f0-9-]{36}$', '', base_name)
-            if (len(clean_name1) >= 3 and clean_name1.lower() in answer.lower()) or \
-               (len(clean_name2) >= 3 and clean_name2.lower() in answer.lower()):
-                has_any_mention = True
-                break
-
-        if has_any_mention:
-            for doc in relevant_documents:
-                source_name = doc.get("metadata", {}).get("source", "")
-                if not source_name:
-                    continue
-                if source_name.lower() in answer.lower():
-                    filtered_relevant_docs.append(doc)
-                    continue
-                base_name = os.path.splitext(source_name)[0]
-                clean_name1 = re.sub(r'_[a-f0-9]{32}$', '', base_name)
-                clean_name2 = re.sub(r'_[a-f0-9-]{36}$', '', base_name)
-                if (len(clean_name1) >= 3 and clean_name1.lower() in answer.lower()) or \
-                   (len(clean_name2) >= 3 and clean_name2.lower() in answer.lower()):
-                    filtered_relevant_docs.append(doc)
-            relevant_documents = filtered_relevant_docs
-            
-            # Cập nhật lại sources_data tương ứng với danh sách đã lọc
-            sources_data = [
-                {
-                    "chunk_index": c["metadata"].get("chunk_index"),
-                    "source": c["metadata"].get("source"),
-                    "page_number": c["metadata"].get("page_number"),
-                    "content": c["content"]
-                }
-                for c in relevant_documents
-            ]
-
-        # Skip confidence calculation using ConfidenceScorer to save resources (as requested)
+        # Chuyển tiếp kết quả để node filter_citations tiếp theo xử lý lọc nguồn và gửi metadata
         conf_data = {
             "overall": 1.0,
             "level": "high",
@@ -605,20 +543,6 @@ Câu trả lời & Câu hỏi gợi ý:"""
             "semantic_similarity": 1.0,
             "answer_completeness": 1.0
         }
-        
-        
-        if stream_queue:
-            # Gói tin cuối cùng chứa metadata để client hoàn thành cập nhật UI
-            metadata_payload = {
-                "type": "metadata",
-                "sources": sources_data,
-                "citations": sources_data,
-                "confidence": conf_data,
-                "suggested_questions": suggested_questions
-            }
-            put_to_queue(metadata_payload)
-            put_to_queue(None) # Signal close stream
-            
         return {
             "generation": answer,
             "relevant_documents": relevant_documents,
@@ -642,6 +566,136 @@ Câu trả lời & Câu hỏi gợi ý:"""
             "steps": steps,
             "suggested_questions": []
         }
+
+
+def filter_citations_node(state: AgentState) -> Dict[str, Any]:
+    """Filters the retrieval context to only keep documents actually used in the response, then pushes metadata & closes stream"""
+    generation = state.get("generation", "")
+    relevant_documents = state.get("relevant_documents", [])
+    suggested_questions = state.get("suggested_questions", [])
+    confidence = state.get("confidence", {"overall": 1.0, "level": "high"})
+    stream_queue = state.get("stream_queue")
+    steps = state.get("steps", [])
+    steps.append("filter_citations")
+    
+    logger.info(f"[Agentic RAG] Node: filter_citations. Input documents count: {len(relevant_documents)}")
+    
+    import asyncio
+    # Lấy loop từ state hoặc tìm loop đang chạy an toàn, tránh lỗi khi gọi get_event_loop() trên thread phụ
+    loop = state.get("loop")
+    if not loop:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = None
+
+    def put_to_queue(item):
+        if not stream_queue:
+            return
+        if loop and loop.is_running():
+            loop.call_soon_threadsafe(stream_queue.put_nowait, item)
+        else:
+            try:
+                stream_queue.put_nowait(item)
+            except Exception as qe:
+                logger.warning(f"Could not put item to queue in filter_citations: {qe}")
+
+    try:
+        filtered_docs = []
+        import os
+        import re
+        
+        # 1. Thuật toán lọc nhanh: So khớp tên file trong câu trả lời
+        has_any_mention = False
+        for doc in relevant_documents:
+            source_name = doc.get("metadata", {}).get("source", "")
+            if not source_name:
+                continue
+            if source_name.lower() in generation.lower():
+                has_any_mention = True
+                break
+            base_name = os.path.splitext(source_name)[0]
+            clean_name1 = re.sub(r'_[a-f0-9]{32}$', '', base_name)
+            clean_name2 = re.sub(r'_[a-f0-9-]{36}$', '', base_name)
+            if (len(clean_name1) >= 3 and clean_name1.lower() in generation.lower()) or \
+               (len(clean_name2) >= 3 and clean_name2.lower() in generation.lower()):
+                has_any_mention = True
+                break
+
+        if has_any_mention:
+            for doc in relevant_documents:
+                source_name = doc.get("metadata", {}).get("source", "")
+                if not source_name:
+                    continue
+                if source_name.lower() in generation.lower():
+                    filtered_docs.append(doc)
+                    continue
+                base_name = os.path.splitext(source_name)[0]
+                clean_name1 = re.sub(r'_[a-f0-9]{32}$', '', base_name)
+                clean_name2 = re.sub(r'_[a-f0-9-]{36}$', '', base_name)
+                if (len(clean_name1) >= 3 and clean_name1.lower() in generation.lower()) or \
+                   (len(clean_name2) >= 3 and clean_name2.lower() in generation.lower()):
+                    filtered_docs.append(doc)
+        else:
+            # 2. Nếu không có tên file nào được nhắc đến rõ ràng, 
+            # chúng ta lọc dựa trên sự trùng lặp từ khóa/ý nghĩa quan trọng giữa câu trả lời và nội dung chunk.
+            # Với các câu trả lời ngắn/chào hỏi không thực sự sử dụng tài liệu, mảng filtered_docs sẽ rỗng.
+            for doc in relevant_documents:
+                content = doc.get("content", "").lower()
+                # Lấy các từ khóa/từ dài hơn 4 ký tự từ câu trả lời để kiểm tra độ tương đồng đơn giản
+                words = [w for w in re.findall(r'\w{4,}', generation.lower())]
+                if not words:
+                    continue
+                match_count = sum(1 for w in words if w in content)
+                # Nếu có ít nhất 15% số từ khóa quan trọng của câu trả lời xuất hiện trong chunk, coi như có liên quan
+                if len(words) > 0 and match_count / len(words) >= 0.15:
+                    filtered_docs.append(doc)
+
+        sources_data = [
+            {
+                "chunk_index": c["metadata"].get("chunk_index"),
+                "source": c["metadata"].get("source"),
+                "page_number": c["metadata"].get("page_number"),
+                "content": c["content"]
+            }
+            for c in filtered_docs
+        ]
+        
+        # Nếu không còn tài liệu nào sau khi lọc, hạ mức confidence xuống 0
+        if not filtered_docs:
+            confidence = {"overall": 0.0, "level": "low"}
+            
+        if stream_queue:
+            metadata_payload = {
+                "type": "metadata",
+                "sources": sources_data,
+                "citations": sources_data,
+                "confidence": confidence,
+                "suggested_questions": suggested_questions
+            }
+            put_to_queue(metadata_payload)
+            put_to_queue(None) # Đóng stream queue
+            
+        return {
+            "relevant_documents": filtered_docs,
+            "confidence": confidence,
+            "steps": steps
+        }
+    except Exception as e:
+        logger.error(f"[Agentic RAG] Error in filter_citations_node: {e}", exc_info=True)
+        if stream_queue:
+            try:
+                put_to_queue({"type": "error", "content": str(e)})
+                put_to_queue(None)
+            except:
+                pass
+        return {
+            "steps": steps
+        }
+
 
 # ==================== ROUTING ====================
 
@@ -669,6 +723,7 @@ def compile_agentic_rag_graph():
     workflow.add_node("grade_documents", grade_documents_node)
     workflow.add_node("rewrite_query", rewrite_query_node)
     workflow.add_node("generate", generate_node)
+    workflow.add_node("filter_citations", filter_citations_node)
     
     # Build Edges
     workflow.set_entry_point("analyze_query")
@@ -687,7 +742,8 @@ def compile_agentic_rag_graph():
     )
     
     workflow.add_edge("rewrite_query", "retrieve")
-    workflow.add_edge("generate", END)
+    workflow.add_edge("generate", "filter_citations")
+    workflow.add_edge("filter_citations", END)
     
     app = workflow.compile()
     logger.info("[Agentic RAG] LangGraph workflow compiled successfully!")
