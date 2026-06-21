@@ -78,20 +78,21 @@ class AnalyticsService:
             rg = self.response_generator
             
         prompt = f"""Bạn là một chuyên gia phân tích dữ liệu nhân sự doanh nghiệp.
-Hãy phân tích danh sách các câu hỏi của nhân viên dưới đây và phân loại chúng vào các chủ đề chính (ví dụ: "Lương thưởng & Chế độ", "Nghỉ lễ & Nghỉ phép", "IT Support & Thiết bị", "Quy trình nội bộ", "Tuyển dụng & Đào tạo", "Khác" hoặc các chủ đề tự động sinh phù hợp nhất).
+Hãy phân tích danh sách các câu hỏi của nhân viên dưới đây, tự động trích xuất và phân nhóm chúng vào các nhóm chủ đề phù hợp nhất dựa trên nội dung thực tế của các câu hỏi (tuyệt đối không sử dụng danh mục cố định, hãy để các chủ đề được sinh ra hoàn toàn động theo ngữ nghĩa của câu hỏi).
 
 Danh sách câu hỏi cần phân loại:
 {questions_text}
 
 Yêu cầu:
 1. Đọc và hiểu ngữ nghĩa từng câu hỏi (kể cả tiếng Việt viết không dấu hoặc viết tắt).
-2. Gom các câu hỏi tương đồng vào cùng một nhóm chủ đề.
-3. Cộng dồn số lượt xuất hiện của từng câu hỏi trong nhóm chủ đề đó để tính tổng số lượt của chủ đề.
-4. Trả về DUY NHẤT định dạng JSON thô (không có markdown ```json) có cấu trúc như sau:
+2. Tự động xác định và phân nhóm thành tối đa từ 5 đến 8 nhóm chủ đề chính nổi bật nhất để biểu đồ hiển thị trực quan, gọn gàng.
+3. Gom các câu hỏi tương đồng vào các chủ đề động vừa trích xuất.
+4. Cộng dồn số lượt xuất hiện của từng câu hỏi trong nhóm chủ đề đó để tính tổng số lượt của chủ đề.
+5. Trả về DUY NHẤT định dạng JSON thô (không có markdown ```json) có cấu trúc như sau:
 {{
   "topics": [
     {{
-      "topic": "Tên nhóm chủ đề (tiếng Việt)",
+      "topic": "Tên nhóm chủ đề tự sinh (tiếng Việt, ví dụ: 'IT & Thiết bị', 'Hỏi về Hợp đồng', v.v. tùy theo nội dung thực tế)",
       "count": 12,
       "description": "Mô tả ngắn gọn về chủ đề này"
     }}
