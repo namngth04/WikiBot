@@ -208,9 +208,13 @@ export default function UsersPage() {
         <button
           onClick={() => {
             setEditingUser(null);
+            // Exclude superadmin (level 0) and company admin (level 1)
+            const employeeRoles = roles.filter(r => r.level !== 0 && r.level !== 1);
+            // Find role with highest level (lowest access right)
+            const lowestRole = employeeRoles.reduce((prev, current) => (prev.level > current.level) ? prev : current, employeeRoles[0] || null);
             setUserForm({
               username: '', full_name: '', email: '', phone: '',
-              password: '', role_id: ''
+              password: '', role_id: lowestRole ? lowestRole.id.toString() : ''
             });
             setShowUserModal(true);
           }}
@@ -418,13 +422,14 @@ export default function UsersPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Vai trò</label>
+                  <label className="text-xs font-bold text-ink-subtle uppercase tracking-widest">Vai trò *</label>
                   <select
+                    required
                     value={userForm.role_id}
                     onChange={(e) => setUserForm({ ...userForm, role_id: e.target.value })}
                     className="w-full px-5 py-4 bg-surface-2 border border-hairline text-ink rounded-2xl text-sm focus:ring-2 focus:ring-primary-500/10 transition-all outline-none appearance-none cursor-pointer"
                   >
-                    <option value="">Không có</option>
+                    <option value="" disabled>-- Chọn vai trò --</option>
                     {roles.filter(role => role.level !== 0).map((role) => (
                       <option key={role.id} value={role.id}>{role.name}</option>
                     ))}

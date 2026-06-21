@@ -477,7 +477,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
             </div>
 
             {/* Quota Widget for Free User */}
-            {sidebarOpen && quota && quota.subscription_tier === 'free' && (
+            {sidebarOpen && quota && quota.subscription_tier === 'free' && user?.user_type !== 'employee' && (
               <div className="mb-4 mx-2 p-3 bg-surface-2 border border-hairline rounded-lg text-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-ink flex items-center gap-1">
@@ -527,7 +527,7 @@ export default function ChatContainer({ className }: ChatContainerProps) {
               </div>
             )}
 
-            {!sidebarOpen && quota && quota.subscription_tier === 'free' && (
+            {!sidebarOpen && quota && quota.subscription_tier === 'free' && user?.user_type !== 'employee' && (
               <div 
                 onClick={() => {
                   setCurrentSection('manage');
