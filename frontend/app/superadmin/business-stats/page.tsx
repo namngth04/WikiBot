@@ -20,6 +20,8 @@ const RevenueComparisonChart = dynamic(() => import('@/components/admin/Charts')
 
 interface RevenueStats {
   total_revenue: number;
+  personal_revenue: number;
+  corporate_revenue: number;
   conversion_rate: number;
   pro_users_count: number;
   free_users_count: number;
@@ -75,10 +77,10 @@ export default function BusinessStatsPage() {
 
   const metrics = getFilteredMetrics();
 
-  // Comparison data: Personal vs Corporate SaaS (simulated ratio for visualization)
+  // Comparison data: Personal vs Corporate SaaS (doanh thu thực từ API)
   const comparisonData = [
-    { category: 'Cá nhân PRO', revenue: Math.round(metrics.total * 0.45) },
-    { category: 'Doanh nghiệp SaaS', revenue: Math.round(metrics.total * 0.55) }
+    { category: 'Cá nhân PRO', revenue: revenue?.personal_revenue ?? 0 },
+    { category: 'Doanh nghiệp SaaS', revenue: revenue?.corporate_revenue ?? 0 }
   ];
 
   return (

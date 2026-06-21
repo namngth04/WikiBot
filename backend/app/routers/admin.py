@@ -503,6 +503,8 @@ def get_revenue_stats(
     ).all()
     
     total_revenue = 0
+    personal_revenue = 0      # Doanh thu từ tài khoản cá nhân
+    corporate_revenue = 0     # Doanh thu từ tài khoản doanh nghiệp
     personal_upgrade_ids = set()  # user cá nhân đã nâng cấp
     upgraded_tenant_ids = set()   # tenant (doanh nghiệp) đã nâng cấp
     month_data = {}
@@ -512,9 +514,11 @@ def get_revenue_stats(
         if is_personal:
             personal_upgrade_ids.add(req.user_id)
             price = 99000
+            personal_revenue += price
         else:
             upgraded_tenant_ids.add(req.user.tenant_id)
             price = 2499000
+            corporate_revenue += price
         total_revenue += price
 
         if req.created_at:
@@ -554,6 +558,8 @@ def get_revenue_stats(
 
     return {
         "total_revenue": total_revenue,
+        "personal_revenue": personal_revenue,
+        "corporate_revenue": corporate_revenue,
         "conversion_rate": conversion_rate,
         "pro_users_count": pro_users_count,
         "free_users_count": free_users_count,
