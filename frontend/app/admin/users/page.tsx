@@ -73,10 +73,17 @@ export default function UsersPage() {
     e.preventDefault();
     if (!editingUser) return;
     try {
-      await usersAPI.update(editingUser.id, {
-        ...userForm,
+      const updatePayload: any = {
+        username: userForm.username,
+        full_name: userForm.full_name,
+        email: userForm.email,
+        phone: userForm.phone,
         role_id: userForm.role_id ? parseInt(userForm.role_id) : null,
-      });
+      };
+      if (userForm.password.trim() !== '') {
+        updatePayload.password = userForm.password;
+      }
+      await usersAPI.update(editingUser.id, updatePayload);
       setShowUserModal(false);
       setEditingUser(null);
       loadData();
