@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/auth-context';
 import AppLogo from '@/app/components/AppLogo';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { LogOut, ChevronDown, Monitor, Download, ShieldCheck, Sparkles, Cpu } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -40,12 +40,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2.5 group">
               <AppLogo size="md" />
+              <span className="font-be-vietnam font-extrabold tracking-tight text-white group-hover:text-blue-400 transition-colors">WikiBot</span>
             </Link>
             <nav className="hidden md:flex items-center gap-6">
               <a href="#features" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Tính năng</a>
-              <a href="#architecture" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Kiến trúc</a>
-              <Link href="/pricing" className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors">Bảng giá</Link>
-              <a href="#download" className="text-sm text-[#a5b4fc] hover:text-[#f7f8f8] transition-colors flex items-center gap-1 font-semibold">📥 Tải App</a>
+              <a href="#download" className="text-sm text-[#a5b4fc] hover:text-[#f7f8f8] transition-colors flex items-center gap-1 font-semibold">📥 Tải App Desktop</a>
             </nav>
           </div>
 
@@ -81,19 +80,7 @@ export default function LandingPage() {
                       {/* User profile segment */}
                       <div className="px-3 py-2.5 border-b border-[#23252a]/60 mb-2">
                         <p className="text-xs font-semibold text-white truncate">{user.full_name || user.username}</p>
-                        <p className="text-[10px] text-[#8a8f98] truncate mt-0.5">@{user.username} · {user.email || 'Chưa có email'}</p>
-                        <div className="mt-2.5 px-2.5 py-1.5 bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-lg text-[10px] flex items-center justify-between">
-                          <span className="text-[#8a8f98]">Gói hiện tại:</span>
-                          <span className="text-[#a5b4fc] font-bold">
-                            {user.user_type === 'superadmin' || user?.role?.level === 0
-                              ? 'Super Admin ⚡'
-                              : (user.user_type === 'employee' || user.tenant_id
-                                ? (user.subscription_tier === 'pro' ? 'Doanh nghiệp PRO' : 'Doanh nghiệp FREE')
-                                : (user.subscription_tier === 'pro' ? 'Cá nhân PRO' : 'Cá nhân FREE')
-                              )
-                            }
-                          </span>
-                        </div>
+                        <p className="text-[10px] text-[#8a8f98] truncate mt-0.5">@{user.username}</p>
                       </div>
 
                       {/* Action items */}
@@ -113,16 +100,10 @@ export default function LandingPage() {
             ) : (
               <>
                 <Link 
-                  href="/login" 
-                  className="text-sm text-[#8a8f98] hover:text-[#f7f8f8] transition-colors font-medium"
-                >
-                  Đăng nhập
-                </Link>
-                <Link 
                   href="/register" 
                   className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20"
                 >
-                  Đăng ký
+                  Đăng ký tài khoản
                 </Link>
               </>
             )}
@@ -133,44 +114,38 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative z-10 pt-24 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
         {/* Eyebrow badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#5e6ad2]/30 bg-[#5e6ad2]/5 text-[#5e6ad2] text-xs font-medium tracking-wide mb-8 animate-fade-in shadow-inner shadow-[#5e6ad2]/10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#5e6ad2]/30 bg-[#5e6ad2]/5 text-[#5e6ad2] text-xs font-medium tracking-wide mb-8 shadow-inner shadow-[#5e6ad2]/10">
           <span className="w-1.5 h-1.5 rounded-full bg-[#5e6ad2] animate-ping" />
-          Giới thiệu phiên bản WikiBot v2.0 - Hệ thống RAG đa phương thức
+          Mới: Hỗ trợ RAG đa phương thức và trích xuất tài liệu nâng cao
         </div>
 
         {/* Headline */}
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#d0d6e0] to-[#8a8f98] max-w-4xl leading-[1.08] mb-6 letter-spacing-[-2.5px]">
-          Khai phá tri thức nội bộ doanh nghiệp với AI thế hệ mới
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-[#d0d6e0] to-[#8a8f98] max-w-4xl leading-[1.08] mb-6">
+          Trợ lý Tri thức Nội bộ ngay trên Desktop của bạn
         </h1>
 
         {/* Sub-headline */}
         <p className="text-lg md:text-xl text-[#8a8f98] max-w-2xl font-light leading-relaxed mb-10">
-          Số hóa kho tài liệu PDF, Word, Txt thông minh. Hỏi đáp trích dẫn nguồn cực kỳ chính xác, phân quyền RBAC nghiêm ngặt và hỗ trợ triển khai Offline 100%.
+          Quản lý tài liệu thông minh, tra cứu RAG chính xác, hỗ trợ OCR văn bản giấy tờ và kết nối mô hình local Ollama bảo mật. Đăng ký tài khoản và tải ứng dụng Desktop Client để bắt đầu.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
           <Link 
-            href={user ? "/dashboard" : "/register"} 
-            className="w-full sm:w-auto px-8 py-3 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-xl shadow-[#5e6ad2]/20 flex items-center justify-center gap-2"
+            href="/register" 
+            className="w-full sm:w-auto px-8 py-3.5 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-xl shadow-[#5e6ad2]/20 flex items-center justify-center gap-2"
           >
-            {user ? "Vào Dashboard của bạn" : "Bắt đầu miễn phí ngay"} ⚡
+            Đăng ký sử dụng ⚡
           </Link>
           <a 
             href="#download" 
-            className="w-full sm:w-auto px-8 py-3 text-sm font-semibold border border-[#5e6ad2]/30 bg-[#5e6ad2]/10 hover:bg-[#5e6ad2]/20 text-[#a5b4fc] rounded-md transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-8 py-3.5 text-sm font-semibold border border-[#23252a] hover:border-[#34343a] bg-[#0f1011]/80 hover:bg-[#141516]/80 text-[#f7f8f8] rounded-md transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
           >
-            📥 Tải App Desktop
+            <Download size={14} /> Tải ứng dụng Desktop
           </a>
-          <Link 
-            href="/pricing" 
-            className="w-full sm:w-auto px-8 py-3 text-sm font-semibold border border-[#23252a] hover:border-[#34343a] bg-[#0f1011]/80 hover:bg-[#141516]/80 text-[#f7f8f8] rounded-md transition-all active:scale-[0.98] flex items-center justify-center"
-          >
-            Xem bảng giá
-          </Link>
         </div>
 
-        {/* Interactive Mockup Preview */}
+        {/* Window Mockup Preview */}
         <div className="w-full max-w-5xl rounded-xl border border-[#23252a] bg-[#0f1011] overflow-hidden shadow-2xl shadow-[#5e6ad2]/5 aspect-[16/10] relative group">
           <div className="absolute inset-0 bg-gradient-to-t from-[#010102] via-transparent to-transparent opacity-60 z-10" />
           
@@ -179,7 +154,7 @@ export default function LandingPage() {
             <span className="w-3 h-3 rounded-full bg-red-500/20 group-hover:bg-red-500/60 transition-colors" />
             <span className="w-3 h-3 rounded-full bg-yellow-500/20 group-hover:bg-yellow-500/60 transition-colors" />
             <span className="w-3 h-3 rounded-full bg-green-500/20 group-hover:bg-green-500/60 transition-colors" />
-            <span className="text-[11px] text-[#8a8f98] font-mono ml-4">wikibot-app://workspace</span>
+            <span className="text-[11px] text-[#8a8f98] font-mono ml-4">wikibot-app://desktop-client</span>
           </div>
           
           {/* Mockup Chat Workspace */}
@@ -192,24 +167,13 @@ export default function LandingPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <div className="p-2.5 rounded-md bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-xs font-medium text-[#f7f8f8]">
-                  💬 Phân tích báo cáo tài chính Q1
+                  💬 Quy định nghỉ phép nhân viên
                 </div>
                 <div className="p-2.5 rounded-md hover:bg-[#141516] transition-colors text-xs text-[#8a8f98]">
-                  💬 Hướng dẫn lập chỉ mục vector
+                  💬 Tài liệu kỹ thuật dự án
                 </div>
                 <div className="p-2.5 rounded-md hover:bg-[#141516] transition-colors text-xs text-[#8a8f98]">
-                  💬 Quy định bảo mật dữ liệu
-                </div>
-              </div>
-              <div className="mt-auto border-t border-[#23252a]/50 pt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-[#5e6ad2]/20 border border-[#5e6ad2]/30 flex items-center justify-center text-[10px] font-bold text-[#5e6ad2]">
-                    F
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-bold">Gói Free</span>
-                    <span className="text-[9px] text-[#8a8f98]">4/10 câu hỏi hôm nay</span>
-                  </div>
+                  💬 Quy trình phê duyệt mua hàng
                 </div>
               </div>
             </div>
@@ -220,8 +184,8 @@ export default function LandingPage() {
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded bg-[#141516] border border-[#23252a] flex items-center justify-center text-xs font-bold text-[#8a8f98]">U</div>
                   <div className="flex-1">
-                    <h4 className="text-xs font-bold mb-1 text-[#8a8f98]">Người dùng cá nhân</h4>
-                    <p className="text-xs text-[#d0d6e0] leading-relaxed">Hãy tóm tắt chính sách nghỉ phép trong tài liệu nhân sự nội bộ.</p>
+                    <h4 className="text-xs font-bold mb-1 text-[#8a8f98]">Người dùng</h4>
+                    <p className="text-xs text-[#d0d6e0] leading-relaxed">Hãy tóm tắt chính sách nghỉ phép của nhân viên.</p>
                   </div>
                 </div>
                 
@@ -229,18 +193,18 @@ export default function LandingPage() {
                   <div className="w-8 h-8 rounded bg-[#5e6ad2]/15 border border-[#5e6ad2]/30 flex items-center justify-center text-xs"><AppLogo size="sm" /></div>
                   <div className="flex-1">
                     <h4 className="text-xs font-bold mb-1 text-[#5e6ad2] flex items-center gap-2">
-                      WikiBot Assistant
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-semibold border border-emerald-500/20">98% tin cậy</span>
+                      WikiBot
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-semibold border border-emerald-500/20">Tin cậy</span>
                     </h4>
                     <div className="text-xs text-[#d0d6e0] space-y-2 leading-relaxed">
-                      <p>Dựa trên **Quy chế Nhân sự 2026** (trang 12), chính sách nghỉ phép của nhân viên được quy định như sau:</p>
+                      <p>Dựa trên **Quy chế Nhân sự** (trang 12), chính sách nghỉ phép của nhân viên được quy định như sau:</p>
                       <ul className="list-disc pl-4 space-y-1">
-                        <li>**Nghỉ phép thường niên**: Nhân viên chính thức có 12 ngày phép hưởng nguyên lương mỗi năm.</li>
+                        <li>**Số ngày phép**: Nhân viên chính thức có 12 ngày phép hưởng nguyên lương mỗi năm.</li>
                         <li>**Thâm niên**: Cứ mỗi 5 năm làm việc, số ngày phép sẽ tăng thêm 1 ngày.</li>
                       </ul>
                       <div className="mt-3 p-2 bg-[#0b0c0d]/60 border border-[#23252a] rounded flex items-center gap-2 text-[10px]">
-                        <span className="text-amber-500 font-bold">📄 Nguồn trích dẫn:</span>
-                        <span className="text-[#8a8f98] underline">QD-NS-2026-v2.pdf (Trang 12)</span>
+                        <span className="text-amber-500 font-bold">📄 Trích dẫn:</span>
+                        <span className="text-[#8a8f98] underline">Quy-che-nhan-su.pdf (Trang 12)</span>
                       </div>
                     </div>
                   </div>
@@ -261,94 +225,36 @@ export default function LandingPage() {
       <section id="features" className="py-24 px-6 border-t border-[#23252a]/40 bg-[#0b0c0d]/40 relative z-10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase">Các Cột Mốc Tri Thức</span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mt-2">Công nghệ đỉnh cao hỗ trợ doanh nghiệp</h2>
+            <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase">Trải Nghiệm Cải Tiến</span>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mt-2">Tính năng chuyên biệt trên ứng dụng Desktop</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
             <div className="p-8 rounded-xl border border-[#23252a] bg-[#0f1011]/60 hover:bg-[#0f1011] transition-all hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-[#5e6ad2]/5">
-              <div className="w-10 h-10 rounded bg-[#5e6ad2]/10 border border-[#5e6ad2]/30 flex items-center justify-center text-lg mb-6">🔍</div>
-              <h3 className="text-lg font-bold text-white mb-2">Đường ống RAG thế hệ mới</h3>
+              <div className="w-10 h-10 rounded bg-[#5e6ad2]/10 border border-[#5e6ad2]/30 flex items-center justify-center text-lg mb-6"><Monitor size={20} className="text-[#5e6ad2]" /></div>
+              <h3 className="text-lg font-bold text-white mb-2">Giao diện Desktop mượt mà</h3>
               <p className="text-sm text-[#8a8f98] leading-relaxed">
-                Nâng cao câu hỏi tự động (Query Enhancer), chấm điểm độ tin cậy của câu trả lời, đảm bảo không xảy ra hiện tượng "ảo tưởng thông tin" của mô hình ngôn ngữ lớn.
+                Ứng dụng khách Client độc lập cài trên máy tính giúp trò chuyện, xuất tài liệu và quản lý tri thức một cách nhanh chóng, tối ưu hóa phần cứng và hiển thị không độ trễ.
               </p>
             </div>
 
             {/* Feature 2 */}
             <div className="p-8 rounded-xl border border-[#23252a] bg-[#0f1011]/60 hover:bg-[#0f1011] transition-all hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-[#5e6ad2]/5">
-              <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-lg mb-6">📄</div>
-              <h3 className="text-lg font-bold text-white mb-2">Số hóa tài liệu đa phương thức</h3>
+              <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-lg mb-6"><Cpu size={20} className="text-indigo-400" /></div>
+              <h3 className="text-lg font-bold text-white mb-2">Tích hợp mô hình Ollama Local</h3>
               <p className="text-sm text-[#8a8f98] leading-relaxed">
-                Tích hợp OCR Paddle và Vision LLM bóc tách bảng biểu phức tạp và hình ảnh từ file PDF, Word sang Markdown chuẩn xác, giữ nguyên vẹn cấu trúc thông tin dạng lưới.
+                Cho phép kết nối và gọi trực tiếp các mô hình AI chạy cục bộ ngay trên RAM/VRAM máy tính của bạn (Ollama). Đảm bảo bảo mật tối đa dữ liệu.
               </p>
             </div>
 
             {/* Feature 3 */}
             <div className="p-8 rounded-xl border border-[#23252a] bg-[#0f1011]/60 hover:bg-[#0f1011] transition-all hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-[#5e6ad2]/5">
-              <div className="w-10 h-10 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-lg mb-6">🛡️</div>
-              <h3 className="text-lg font-bold text-white mb-2">Bảo mật dữ liệu tuyệt đối</h3>
+              <div className="w-10 h-10 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-lg mb-6"><ShieldCheck size={20} className="text-emerald-400" /></div>
+              <h3 className="text-lg font-bold text-white mb-2">Quản lý và số hóa tài liệu RAG</h3>
               <p className="text-sm text-[#8a8f98] leading-relaxed">
-                Phân quyền truy cập theo vai trò (RBAC) nghiêm ngặt. Hỗ trợ mô hình Hybrid mã hóa đầu-cuối hoặc chạy hoàn toàn Offline 100% trên máy chủ công ty (Local Ollama).
+                Tải lên và tự động chuyển đổi file PDF, Word, Ảnh OCR, Markdown thành vector tri thức. Hỗ trợ hệ thống phân quyền tài liệu RBAC nghiêm ngặt.
               </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Architecture Detail Section */}
-      <section id="architecture" className="py-24 px-6 max-w-7xl mx-auto relative z-10">
-        <div className="flex flex-col lg:flex-row items-center gap-16">
-          <div className="flex-1">
-            <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase">Data Residency</span>
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mt-2 mb-6 leading-tight">
-              Phù hợp với mọi tiêu chuẩn an toàn thông tin
-            </h2>
-            <div className="space-y-6 text-[#8a8f98] text-sm leading-relaxed">
-              <div className="flex gap-4">
-                <span className="text-lg text-[#5e6ad2]">✔</span>
-                <div>
-                  <strong className="text-white block mb-1">Standard Cloud SaaS</strong>
-                  Dữ liệu được phân tách logic nghiêm ngặt bằng khoá ngoại, suy luận nhanh chóng qua các Cloud LLM an toàn.
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <span className="text-lg text-[#5e6ad2]">✔</span>
-                <div>
-                  <strong className="text-white block mb-1">Individual Private Mode</strong>
-                  Đồng bộ hóa metadata nhẹ nhàng trên Cloud, toàn bộ tài liệu RAG và suy luận AI được xử lý cục bộ qua Ollama Local tại máy của bạn.
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <span className="text-lg text-[#5e6ad2]">✔</span>
-                <div>
-                  <strong className="text-white block mb-1">Enterprise On-Premise (100% Offline)</strong>
-                  Triển khai trọn gói Docker trong mạng nội bộ bảo mật của doanh nghiệp. Không yêu cầu bất kỳ kết nối internet nào ra ngoài.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 w-full p-8 rounded-xl border border-[#23252a] bg-[#0b0c0d]/60 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-[#5e6ad2]/5 blur-xl rounded-full" />
-            <h3 className="text-lg font-bold text-white mb-4">Mô phỏng Luồng Dữ liệu</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs p-3 rounded bg-[#141516] border border-[#23252a]">
-                <span>Tài liệu nội bộ (.pdf/.docx)</span>
-                <span className="text-[#5e6ad2]">Tải lên ➜</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-3 rounded bg-[#141516] border border-[#23252a]">
-                <span>Multimodal Parser (OCR & Markdown)</span>
-                <span className="text-[#5e6ad2]">Xử lý cấu trúc ➜</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-3 rounded bg-[#141516] border border-[#23252a]">
-                <span>Chroma Vector DB (Lập chỉ mục)</span>
-                <span className="text-[#5e6ad2]">Embedding ➜</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-3 rounded bg-[#141516] border border-[#23252a]">
-                <span>Local Ollama / Cloud LLM</span>
-                <span className="text-emerald-500">RAG Response ✔</span>
-              </div>
             </div>
           </div>
         </div>
@@ -357,28 +263,28 @@ export default function LandingPage() {
       {/* Download Desktop App Section */}
       <section id="download" className="py-24 px-6 border-t border-[#23252a]/40 bg-gradient-to-b from-transparent to-[#0f1011]/20 relative z-10">
         <div className="max-w-4xl mx-auto text-center">
-          <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase mb-3 block">ỨNG DỤNG NGOẠI TUYẾN</span>
+          <span className="text-[#5e6ad2] text-xs font-bold tracking-widest uppercase mb-3 block">BẢN CÀI ĐẶT DESKTOP</span>
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mb-6 leading-tight">
-            Tải WikiBot cho Desktop
+            Tải WikiBot Client
           </h2>
           <p className="text-sm md:text-base text-[#8a8f98] max-w-2xl mx-auto font-light leading-relaxed mb-12">
-            Trải nghiệm toàn vẹn sức mạnh của trợ lý tri thức doanh nghiệp: Xử lý OCR PDF & Word cực nhanh, kết nối Ollama Local bảo mật 100% offline, và trò chuyện không độ trễ.
+            Trải nghiệm trọn vẹn sức mạnh của trợ lý tri thức RAG kết hợp OCR. Chọn bản tải xuống tương ứng với hệ điều hành của bạn.
           </p>
 
           {/* OS Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 max-w-3xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10 max-w-2xl mx-auto">
             {/* Windows */}
             <div className="p-6 rounded-2xl border border-[#23252a] bg-[#0b0c0d]/60 backdrop-blur-sm flex flex-col items-center hover:border-[#5e6ad2]/30 transition-all hover:scale-[1.02] group">
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 🪟
               </div>
               <h3 className="font-bold text-white mb-1">Windows</h3>
-              <span className="text-[10px] text-[#8a8f98] mb-6">Windows 10 / 11 (.exe)</span>
+              <span className="text-[10px] text-[#8a8f98] mb-6">Windows 10 / 11 (.exe installer)</span>
               <a 
-                href="#" 
+                href="/downloads/WikiBot-Setup.exe" 
                 className="w-full py-2.5 bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shadow-md shadow-[#5e6ad2]/10"
               >
-                📥 Tải Bản Win
+                📥 Tải Installer Windows
               </a>
             </div>
 
@@ -388,27 +294,12 @@ export default function LandingPage() {
                 🍎
               </div>
               <h3 className="font-bold text-white mb-1">macOS</h3>
-              <span className="text-[10px] text-[#8a8f98] mb-6">Intel & Apple Silicon (.dmg)</span>
+              <span className="text-[10px] text-[#8a8f98] mb-6">M1/M2/M3 & Intel Silicon (.dmg)</span>
               <a 
-                href="#" 
+                href="/downloads/WikiBot-Mac.dmg" 
                 className="w-full py-2.5 bg-[#141516] hover:bg-[#1c1e22] text-[#f7f8f8] font-semibold border border-[#23252a] rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
               >
-                📥 Tải Bản Mac
-              </a>
-            </div>
-
-            {/* Linux */}
-            <div className="p-6 rounded-2xl border border-[#23252a] bg-[#0b0c0d]/60 backdrop-blur-sm flex flex-col items-center hover:border-[#5e6ad2]/30 transition-all hover:scale-[1.02] group">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
-                🐧
-              </div>
-              <h3 className="font-bold text-white mb-1">Linux</h3>
-              <span className="text-[10px] text-[#8a8f98] mb-6">Ubuntu / Debian (.AppImage)</span>
-              <a 
-                href="#" 
-                className="w-full py-2.5 bg-[#141516] hover:bg-[#1c1e22] text-[#f7f8f8] font-semibold border border-[#23252a] rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
-              >
-                📥 Tải Bản Linux
+                📥 Tải Installer macOS
               </a>
             </div>
           </div>
@@ -418,16 +309,16 @@ export default function LandingPage() {
       {/* CTA Footer */}
       <section className="py-20 px-6 text-center max-w-4xl mx-auto relative z-10 border-t border-[#23252a]/40">
         <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-white mb-6">
-          Sẵn sàng đưa AI vào công việc của bạn?
+          Bắt đầu chuẩn hóa tri thức nội bộ ngay hôm nay
         </h2>
         <p className="text-base text-[#8a8f98] mb-10 max-w-xl mx-auto font-light">
-          Trải nghiệm ngay khả năng trích xuất thông tin đỉnh cao của RAG kết hợp OCR của WikiBot. Đăng ký tài khoản miễn phí chỉ trong 10 giây.
+          Tạo tài khoản cá nhân hoặc doanh nghiệp dùng thử miễn phí, cài đặt ứng dụng Desktop Client và bắt đầu RAG tài liệu.
         </p>
         <Link 
-          href={user ? "/chat" : "/register"} 
+          href="/register" 
           className="px-8 py-3.5 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20 inline-flex items-center gap-2"
         >
-          {user ? "Vào phòng chat ngay" : "Bắt đầu miễn phí ngay"} ⚡
+          Đăng ký dùng thử ngay ⚡
         </Link>
       </section>
 
@@ -442,10 +333,10 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <a href="#" className="hover:text-white transition-colors">Điều khoản dịch vụ</a>
             <a href="#" className="hover:text-white transition-colors">Chính sách bảo mật</a>
-            <Link href="/pricing" className="hover:text-white transition-colors">Bảng giá</Link>
           </div>
         </div>
       </footer>
     </div>
   );
 }
+
