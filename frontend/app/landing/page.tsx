@@ -76,7 +76,7 @@ export default function LandingPage() {
                     >
                       {/* Glow effect */}
                       <div className="absolute top-0 right-0 w-24 h-24 bg-[#5e6ad2]/5 blur-xl rounded-full pointer-events-none" />
-                      
+
                       {/* User profile segment */}
                       <div className="px-3 py-2.5 border-b border-[#23252a]/60 mb-2">
                         <p className="text-xs font-semibold text-white truncate">{user.full_name || user.username}</p>
@@ -99,8 +99,8 @@ export default function LandingPage() {
               </div>
             ) : (
               <>
-                <Link 
-                  href="/register" 
+                <Link
+                  href="/register"
                   className="px-4 py-1.5 text-xs font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20"
                 >
                   Đăng ký tài khoản
@@ -131,14 +131,14 @@ export default function LandingPage() {
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center gap-4 mb-16">
-          <Link 
-            href="/register" 
+          <Link
+            href="/register"
             className="w-full sm:w-auto px-8 py-3.5 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-xl shadow-[#5e6ad2]/20 flex items-center justify-center gap-2"
           >
             Đăng ký sử dụng ⚡
           </Link>
-          <a 
-            href="#download" 
+          <a
+            href="#download"
             className="w-full sm:w-auto px-8 py-3.5 text-sm font-semibold border border-[#23252a] hover:border-[#34343a] bg-[#0f1011]/80 hover:bg-[#141516]/80 text-[#f7f8f8] rounded-md transition-all active:scale-[0.98] flex items-center justify-center gap-1.5"
           >
             <Download size={14} /> Tải ứng dụng Desktop
@@ -148,7 +148,7 @@ export default function LandingPage() {
         {/* Window Mockup Preview */}
         <div className="w-full max-w-5xl rounded-xl border border-[#23252a] bg-[#0f1011] overflow-hidden shadow-2xl shadow-[#5e6ad2]/5 aspect-[16/10] relative group">
           <div className="absolute inset-0 bg-gradient-to-t from-[#010102] via-transparent to-transparent opacity-60 z-10" />
-          
+
           {/* Window Header */}
           <div className="h-10 border-b border-[#23252a]/70 px-4 flex items-center gap-2 bg-[#0b0c0d]/60">
             <span className="w-3 h-3 rounded-full bg-red-500/20 group-hover:bg-red-500/60 transition-colors" />
@@ -156,7 +156,7 @@ export default function LandingPage() {
             <span className="w-3 h-3 rounded-full bg-green-500/20 group-hover:bg-green-500/60 transition-colors" />
             <span className="text-[11px] text-[#8a8f98] font-mono ml-4">wikibot-app://desktop-client</span>
           </div>
-          
+
           {/* Mockup Chat Workspace */}
           <div className="p-6 flex gap-6 h-[calc(100%-40px)] text-left select-none">
             {/* Sidebar */}
@@ -177,7 +177,7 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-            
+
             {/* Chat Container Area */}
             <div className="flex-1 flex flex-col h-full relative">
               <div className="flex-1 flex flex-col gap-4 overflow-y-auto mb-16 scrollbar-thin">
@@ -188,7 +188,7 @@ export default function LandingPage() {
                     <p className="text-xs text-[#d0d6e0] leading-relaxed">Hãy tóm tắt chính sách nghỉ phép của nhân viên.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-3 border-t border-[#23252a]/20 pt-4">
                   <div className="w-8 h-8 rounded bg-[#5e6ad2]/15 border border-[#5e6ad2]/30 flex items-center justify-center text-xs"><AppLogo size="sm" /></div>
                   <div className="flex-1">
@@ -210,7 +210,7 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Input Area */}
               <div className="absolute bottom-0 left-0 right-0 h-12 bg-[#141516] border border-[#23252a] rounded-lg px-4 flex items-center justify-between">
                 <span className="text-xs text-[#8a8f98]">Hỏi WikiBot bất cứ điều gì về tài liệu...</span>
@@ -241,10 +241,10 @@ export default function LandingPage() {
 
             {/* Feature 2 */}
             <div className="p-8 rounded-xl border border-[#23252a] bg-[#0f1011]/60 hover:bg-[#0f1011] transition-all hover:-translate-y-1 shadow-lg hover:shadow-2xl hover:shadow-[#5e6ad2]/5">
-              <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-lg mb-6"><Cpu size={20} className="text-indigo-400" /></div>
-              <h3 className="text-lg font-bold text-white mb-2">Tích hợp mô hình Ollama Local</h3>
+              <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/30 flex items-center center text-lg mb-6"><Cpu size={20} className="text-indigo-400" /></div>
+              <h3 className="text-lg font-bold text-white mb-2">Vận hành Mô hình Local Độc lập</h3>
               <p className="text-sm text-[#8a8f98] leading-relaxed">
-                Cho phép kết nối và gọi trực tiếp các mô hình AI chạy cục bộ ngay trên RAM/VRAM máy tính của bạn (Ollama). Đảm bảo bảo mật tối đa dữ liệu.
+                Kết nối và chạy trực tiếp các mô hình AI cục bộ ngay trên hạ tầng máy chủ. Không phụ thuộc vào Cloud bên thứ ba, bảo mật thông tin tuyệt đối.
               </p>
             </div>
 
@@ -280,8 +280,8 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-white mb-1">Windows</h3>
               <span className="text-[10px] text-[#8a8f98] mb-6">Windows 10 / 11 (.exe installer)</span>
-              <a 
-                href="/downloads/WikiBot-Setup.exe" 
+              <a
+                href="/downloads/WikiBot-Setup.exe"
                 className="w-full py-2.5 bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1 shadow-md shadow-[#5e6ad2]/10"
               >
                 📥 Tải Installer Windows
@@ -295,8 +295,8 @@ export default function LandingPage() {
               </div>
               <h3 className="font-bold text-white mb-1">macOS</h3>
               <span className="text-[10px] text-[#8a8f98] mb-6">M1/M2/M3 & Intel Silicon (.dmg)</span>
-              <a 
-                href="/downloads/WikiBot-Mac.dmg" 
+              <a
+                href="/downloads/WikiBot-Mac.dmg"
                 className="w-full py-2.5 bg-[#141516] hover:bg-[#1c1e22] text-[#f7f8f8] font-semibold border border-[#23252a] rounded-lg text-xs transition-colors flex items-center justify-center gap-1"
               >
                 📥 Tải Installer macOS
@@ -314,8 +314,8 @@ export default function LandingPage() {
         <p className="text-base text-[#8a8f98] mb-10 max-w-xl mx-auto font-light">
           Tạo tài khoản cá nhân hoặc doanh nghiệp dùng thử miễn phí, cài đặt ứng dụng Desktop Client và bắt đầu RAG tài liệu.
         </p>
-        <Link 
-          href="/register" 
+        <Link
+          href="/register"
           className="px-8 py-3.5 text-sm font-semibold bg-[#5e6ad2] hover:bg-[#5e6ad2]/90 text-white rounded-md transition-all active:scale-[0.98] shadow-lg shadow-[#5e6ad2]/20 inline-flex items-center gap-2"
         >
           Đăng ký dùng thử ngay ⚡
