@@ -35,11 +35,11 @@ export default function UpgradeLogsPage() {
     setLoadingRequests(true);
     try {
       const res = await api.get('/upgrade/requests');
-      // Normalize and add some mock corporate upgrades for comprehensive logging visualization
+      // Normalize data with API values
       const normalizedData = res.data.map((req: any) => ({
         ...req,
-        type: 'personal',
-        plan_name: 'PRO TIER ⚡'
+        type: req.type || 'personal',
+        plan_name: req.plan_name || 'PRO TIER ⚡'
       }));
 
       // Add a couple of simulated corporate upgrades

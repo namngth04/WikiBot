@@ -98,10 +98,8 @@ def request_upgrade(
         )
         
     db.commit()
-    db.refresh(new_request)
     
     return {
-        "message": "Nâng cấp tài khoản thành công! Tài khoản của bạn đã được chuyển sang gói PRO.",
         "request_id": new_request.id,
         "status": "approved"
     }
@@ -118,6 +116,7 @@ def list_upgrade_requests(
     result = []
     for req in requests:
         user = db.query(User).filter(User.id == req.user_id).first()
+        is_corporate = user.tenant_id is not None if user else False
         result.append(
             UpgradeRequestResponse(
                 id=req.id,
@@ -125,7 +124,9 @@ def list_upgrade_requests(
                 username=user.username if user else "N/A",
                 full_name=user.full_name if user else "Người dùng ẩn danh",
                 status=req.status,
-                created_at=req.created_at
+                created_at=req.created_at,
+                type="corporate" if is_corporate else "personal",
+                plan_name="PREMIUM SaaS 🛡️" if is_corporate else "PRO TIER ⚡"
             )
         )
     return result
