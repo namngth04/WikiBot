@@ -19,6 +19,8 @@ class UpgradeRequestResponse(BaseModel):
     full_name: Optional[str]
     status: str
     created_at: datetime
+    type: str = "personal"
+    plan_name: str = "PRO TIER ⚡"
 
     class Config:
         from_attributes = True

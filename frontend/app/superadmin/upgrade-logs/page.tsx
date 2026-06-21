@@ -35,38 +35,14 @@ export default function UpgradeLogsPage() {
     setLoadingRequests(true);
     try {
       const res = await api.get('/upgrade/requests');
-      // Normalize data with API values
+      // Normalize data với giá trị từ API (type và plan_name đã được backend trả về đúng)
       const normalizedData = res.data.map((req: any) => ({
         ...req,
         type: req.type || 'personal',
         plan_name: req.plan_name || 'PRO TIER ⚡'
       }));
 
-      // Add a couple of simulated corporate upgrades
-      const mockCorporateUpgrades: UpgradeRequest[] = [
-        {
-          id: 9991,
-          user_id: 101,
-          username: 'admin_techcorp',
-          full_name: 'TechCorp Admin',
-          status: 'approved',
-          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          type: 'corporate',
-          plan_name: 'PREMIUM SaaS 🛡️'
-        },
-        {
-          id: 9992,
-          user_id: 102,
-          username: 'admin_vinasol',
-          full_name: 'Vinasol Admin',
-          status: 'approved',
-          created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-          type: 'corporate',
-          plan_name: 'PREMIUM SaaS 🛡️'
-        }
-      ];
-
-      setRequests([...normalizedData, ...mockCorporateUpgrades]);
+      setRequests(normalizedData);
     } catch (err) {
       console.error('Error fetching upgrade requests:', err);
     } finally {
