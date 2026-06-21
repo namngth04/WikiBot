@@ -493,13 +493,28 @@ def get_revenue_stats(
         dt_end = datetime.utcnow()
         dt_start = dt_end - timedelta(days=days or 30)
     
-    price_per_month = 200000  # VNĐ
-    approved_requests = db.query(UpgradeRequest).filter(
+    from app.models.models import User
+    
+    # Lấy tất cả upgrade requests được duyệt trong khoảng thời gian, join với User để check tenant_id
+    requests = db.query(UpgradeRequest).join(User).filter(
         UpgradeRequest.status == "approved",
         UpgradeRequest.created_at >= dt_start,
         UpgradeRequest.created_at <= dt_end
-    ).count()
-    total_revenue = approved_requests * price_per_month
+    ).all()
+    
+    total_revenue = 0
+    unique_user_ids = set()
+    month_data = {}
+    
+    for req in requests:
+        unique_user_ids.add(req.user_id)
+        # 99k cho cá nhân, 2.499m cho doanh nghiệp
+        price = 99000 if req.user.tenant_id is None else 2499000
+        total_revenue += price
+        
+        if req.created_at:
+            month_str = req.created_at.strftime("%Y-%m")
+            month_data[month_str] = month_data.get(month_str, 0) + price
 
     total_personal_users = db.query(User).filter(
         User.tenant_id.is_(None),
@@ -507,29 +522,12 @@ def get_revenue_stats(
         User.created_at <= dt_end
     ).count()
     
-    pro_users_count = db.query(UpgradeRequest.user_id).filter(
-        UpgradeRequest.status == "approved",
-        UpgradeRequest.created_at >= dt_start,
-        UpgradeRequest.created_at <= dt_end
-    ).distinct().count()
-    
+    pro_users_count = len(unique_user_ids)
     free_users_count = total_personal_users - pro_users_count
     if free_users_count < 0:
         free_users_count = 0
     
     conversion_rate = round((pro_users_count / total_personal_users * 100), 1) if total_personal_users > 0 else 0.0
-
-    all_approved = db.query(UpgradeRequest.created_at).filter(
-        UpgradeRequest.status == "approved",
-        UpgradeRequest.created_at >= dt_start,
-        UpgradeRequest.created_at <= dt_end
-    ).all()
-    
-    month_data = {}
-    for req in all_approved:
-        if req.created_at:
-            month_str = req.created_at.strftime("%Y-%m")
-            month_data[month_str] = month_data.get(month_str, 0) + price_per_month
 
     sorted_months = sorted(month_data.keys())
     revenue_by_month = [{"month": m, "revenue": month_data[m]} for m in sorted_months]
