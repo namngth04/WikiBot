@@ -521,8 +521,12 @@ def get_revenue_stats(
             month_str = req.created_at.strftime("%Y-%m")
             month_data[month_str] = month_data.get(month_str, 0) + price
 
-    # Mẫu số = TOÀN BỘ tài khoản (personal + mỗi doanh nghiệp tính 1), không lọc ngày
-    total_personal_accounts = db.query(User).filter(User.tenant_id.is_(None)).count()
+    # Mẫu số = chỉ tài khoản có thể mua PRO:
+    # - Cá nhân: user_type == "personal" (loại trừ superadmin và employee)
+    # - Doanh nghiệp: mỗi tenant tính 1 tài khoản
+    total_personal_accounts = db.query(User).filter(
+        User.user_type == "personal"
+    ).count()
     total_corporate_accounts = db.query(User.tenant_id).filter(
         User.tenant_id.isnot(None)
     ).distinct().count()
